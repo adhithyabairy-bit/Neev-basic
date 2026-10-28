@@ -180,6 +180,75 @@ describe('Teacher Ownership Isolation & ID Validation Tests', () => {
       }
     });
 
+    it('deleteClass blocks deletion with HTTP 409 if class has dependent assessments', async () => {
+      const classId = new mongoose.Types.ObjectId();
+      const req = {
+        params: { id: classId.toString() },
+        teacher: { _id: teacherA_Id },
+      };
+      const res = createMockResponse();
+
+      const originalFindOne = mongoose.models.Class.findOne;
+      const originalCount = mongoose.models.Assessment.countDocuments;
+
+      mongoose.models.Class.findOne = () => Promise.resolve({
+        _id: classId,
+        name: 'Class 8-A',
+        teacherId: teacherA_Id,
+        deleteOne: () => Promise.resolve(),
+      });
+
+      // Simulate 3 dependent assessments exist
+      mongoose.models.Assessment.countDocuments = () => Promise.resolve(3);
+
+      try {
+        await deleteClass(req, res, (err) => { throw err; });
+        assert.equal(res.statusCode, 409);
+        assert.equal(res.data.code, 'CLASS_HAS_DEPENDENT_ASSESSMENTS');
+        assert.equal(res.data.details.dependentAssessmentsCount, 3);
+      } finally {
+        mongoose.models.Class.findOne = originalFindOne;
+        mongoose.models.Assessment.countDocuments = originalCount;
+      }
+    });
+
+    it('deleteClass succeeds with HTTP 200 when class has 0 dependent assessments', async () => {
+      const classId = new mongoose.Types.ObjectId();
+      const req = {
+        params: { id: classId.toString() },
+        teacher: { _id: teacherA_Id },
+      };
+      const res = createMockResponse();
+
+      const originalFindOne = mongoose.models.Class.findOne;
+      const originalCount = mongoose.models.Assessment.countDocuments;
+      let deleteCalled = false;
+
+      mongoose.models.Class.findOne = () => Promise.resolve({
+        _id: classId,
+        name: 'Empty Class 7-B',
+        teacherId: teacherA_Id,
+        deleteOne: () => {
+          deleteCalled = true;
+          return Promise.resolve();
+        },
+      });
+
+      // 0 dependent assessments
+      mongoose.models.Assessment.countDocuments = () => Promise.resolve(0);
+
+      try {
+        await deleteClass(req, res, (err) => { throw err; });
+        assert.equal(res.statusCode, 200);
+        assert.equal(res.data.success, true);
+        assert.equal(deleteCalled, true);
+        assert.equal(res.data.data.deletedClassName, 'Empty Class 7-B');
+      } finally {
+        mongoose.models.Class.findOne = originalFindOne;
+        mongoose.models.Assessment.countDocuments = originalCount;
+      }
+    });
+
     it('updateAssessment prevents Teacher B from modifying Teacher A assessment', async () => {
       const req = {
         params: { id: foreignAssessmentId.toString() },

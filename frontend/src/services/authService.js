@@ -16,15 +16,14 @@ const STORAGE_KEY = 'neev_authenticated_teacher';
  * Public Firebase client configuration from Vite environment variables.
  */
 export const FIREBASE_CONFIG = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyCM2tjKP6pruH3JdjEyNW1hYQ0cfMWKoYY',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'neev-f681e.firebaseapp.com',
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'neev-f681e',
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'neev-f681e.firebasestorage.app',
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '995952143276',
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:995952143276:web:f0a34039326cd54487a809',
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || 'G-JYSF20GBDZ',
+  apiKey: (import.meta.env.VITE_FIREBASE_API_KEY || '').trim(),
+  authDomain: (import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '').trim(),
+  projectId: (import.meta.env.VITE_FIREBASE_PROJECT_ID || '').trim(),
+  storageBucket: (import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '').trim(),
+  messagingSenderId: (import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '').trim(),
+  appId: (import.meta.env.VITE_FIREBASE_APP_ID || '').trim(),
+  measurementId: (import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || '').trim(),
 };
-
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
@@ -32,7 +31,12 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localho
  * Checks whether the necessary Firebase environment variables are defined.
  */
 export function isFirebaseConfigured() {
-  return Boolean(FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey.trim().length > 0);
+  return Boolean(
+    FIREBASE_CONFIG.apiKey &&
+    FIREBASE_CONFIG.authDomain &&
+    FIREBASE_CONFIG.projectId &&
+    FIREBASE_CONFIG.appId
+  );
 }
 
 /**
@@ -43,6 +47,7 @@ export function getMissingFirebaseConfig() {
   if (!FIREBASE_CONFIG.apiKey) missing.push('VITE_FIREBASE_API_KEY');
   if (!FIREBASE_CONFIG.authDomain) missing.push('VITE_FIREBASE_AUTH_DOMAIN');
   if (!FIREBASE_CONFIG.projectId) missing.push('VITE_FIREBASE_PROJECT_ID');
+  if (!FIREBASE_CONFIG.appId) missing.push('VITE_FIREBASE_APP_ID');
   return missing;
 }
 
@@ -404,6 +409,45 @@ export function getCurrentTeacherSession() {
     if (!stored) return null;
     return JSON.parse(stored);
   } catch {
+    return null;
+  }
+}
+
+/**
+ * Silently refreshes the Firebase ID token using the persisted refresh token.
+ */
+export async function refreshIdToken() {
+  const session = getCurrentTeacherSession();
+  if (!session?.refreshToken || !FIREBASE_CONFIG.apiKey) {
+    return null;
+  }
+
+  try {
+    const url = `https://securetoken.googleapis.com/v1/token?key=${FIREBASE_CONFIG.apiKey}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: session.refreshToken,
+      }),
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    const updatedSession = {
+      ...session,
+      idToken: data.id_token,
+      refreshToken: data.refresh_token,
+    };
+
+    saveSession(updatedSession, true);
+    notifyAuthSubscribers(updatedSession);
+    return data.id_token;
+  } catch (err) {
     return null;
   }
 }

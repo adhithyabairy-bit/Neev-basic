@@ -229,17 +229,27 @@ export async function deleteClass(req, res, next) {
       });
     }
 
-    // Safely clean up assessments linked to this class
-    const deletedAssessmentsResult = await Assessment.deleteMany({ classId: id, teacherId });
+    // Prevent deletion if dependent assessments exist
+    const dependentCount = await Assessment.countDocuments({ classId: id, teacherId });
+    if (dependentCount > 0) {
+      return res.status(409).json({
+        success: false,
+        error: `Cannot delete class '${existingClass.name}'. It contains ${dependentCount} active assessment(s). Please remove or reassign its assessments before deleting this class.`,
+        code: 'CLASS_HAS_DEPENDENT_ASSESSMENTS',
+        details: {
+          dependentAssessmentsCount: dependentCount,
+        },
+      });
+    }
 
     await existingClass.deleteOne();
 
     return res.status(200).json({
       success: true,
-      message: 'Class and associated assessments deleted successfully.',
+      message: 'Class deleted successfully.',
       data: {
         deletedClassId: id,
-        deletedAssessmentsCount: deletedAssessmentsResult.deletedCount,
+        deletedClassName: existingClass.name,
       },
     });
   } catch (err) {

@@ -189,6 +189,9 @@ export default function App() {
     setIsDemoMode(false);
     setViewMode('dashboard');
     setAuthView('login');
+    setStudentProfile({ name: '', rollNumber: '', section: 'Section A' });
+    setUploadedFiles([]);
+    setCurrentStep(1);
   };
 
   // If user is not authenticated and not in demo mode, show the Authentication pages

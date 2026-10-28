@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { DASHBOARD_DEMO_DATA } from '../data/dashboardDemoData';
 import EmptyState from '../components/EmptyState';
 import {
@@ -14,9 +14,12 @@ import {
   IconArrowRight,
   IconRefreshCw,
   IconBookOpen,
+  IconTrash,
 } from '../components/Icons';
+import { fetchClasses, createClass, deleteClass } from '../services/classService';
+import { fetchAssessments } from '../services/assessmentService';
 
-// Class-specific teaching priorities mapped to each class & section
+// Class-specific teaching priorities mapped to demo classes for exploratory review
 const CLASS_TEACHING_PRIORITIES = {
   'cls-8a': [
     {
@@ -143,26 +146,132 @@ export default function TeacherDashboard({
   onOpenClassPriorities,
   isDemoMode = false,
 }) {
+  // Live backend data state for authenticated teacher
+  const [realClasses, setRealClasses] = useState([]);
+  const [realAssessments, setRealAssessments] = useState([]);
+  const [isLoadingBackend, setIsLoadingBackend] = useState(!isDemoMode);
+  const [backendError, setBackendError] = useState(null);
+
+  // Filter controls
   const [gradeFilter, setGradeFilter] = useState('all');
   const [sectionFilter, setSectionFilter] = useState('all');
   const [subjectFilter, setSubjectFilter] = useState('all');
-  const [selectedClassId, setSelectedClassId] = useState('cls-8a');
+  const [selectedClassId, setSelectedClassId] = useState(null);
 
-  // Track class-level progress and retest status (One-way completion)
-  const [classState, setClassState] = useState({
-    'cls-8a': { teachingsCompleted: 4, teachingsPending: 3, retestConducted: false },
-    'cls-8b': { teachingsCompleted: 3, teachingsPending: 2, retestConducted: false },
-    'cls-9a': { teachingsCompleted: 5, teachingsPending: 2, retestConducted: false },
-    'cls-7c': { teachingsCompleted: 2, teachingsPending: 1, retestConducted: false },
-  });
+  // Modal & class creation state
+  const [isAddClassModalOpen, setIsAddClassModalOpen] = useState(false);
+  const [newClassName, setNewClassName] = useState('');
+  const [newClassGrade, setNewClassGrade] = useState('Grade 8');
+  const [newClassSubject, setNewClassSubject] = useState('Mathematics');
+  const [newClassBoard, setNewClassBoard] = useState('CBSE');
+  const [isSubmittingClass, setIsSubmittingClass] = useState(false);
+  const [modalError, setModalError] = useState(null);
+  const [actionNotice, setActionNotice] = useState(null);
 
-  // Track completed priority topics across all classes (One-way completion - cannot be undone once clicked)
+  // Retest status tracking (in-memory session state)
+  const [retestState, setRetestState] = useState({});
+
+  // Completed priority topics tracking (one-way completion Set)
   const [completedPriorities, setCompletedPriorities] = useState(new Set());
 
   const teacherName =
     currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Teacher';
 
-  // Mark a priority as completed permanently (turns green, one-way action)
+  // Load real data from Express backend + MongoDB
+  const loadLiveDashboardData = useCallback(async () => {
+    if (isDemoMode) {
+      setIsLoadingBackend(false);
+      return;
+    }
+
+    setIsLoadingBackend(true);
+    setBackendError(null);
+
+    try {
+      const [classesData, assessmentsData] = await Promise.all([
+        fetchClasses(),
+        fetchAssessments(),
+      ]);
+
+      setRealClasses(classesData || []);
+      setRealAssessments(assessmentsData || []);
+
+      if (classesData && classesData.length > 0) {
+        setSelectedClassId((prev) => {
+          const exists = classesData.some((c) => c._id === prev);
+          return exists ? prev : classesData[0]._id;
+        });
+      } else {
+        setSelectedClassId(null);
+      }
+    } catch (err) {
+      console.error('[Dashboard Data Load Error]:', err);
+      setBackendError(err.message || 'Failed to load teacher records from backend.');
+    } finally {
+      setIsLoadingBackend(false);
+    }
+  }, [isDemoMode]);
+
+  useEffect(() => {
+    loadLiveDashboardData();
+  }, [loadLiveDashboardData, currentUser]);
+
+  // Handle creating a new real class in MongoDB
+  const handleCreateClass = async (e) => {
+    e.preventDefault();
+    if (!newClassName.trim()) {
+      setModalError('Please enter a class name (e.g. Class 8-A).');
+      return;
+    }
+
+    setIsSubmittingClass(true);
+    setModalError(null);
+
+    try {
+      const created = await createClass({
+        name: newClassName.trim(),
+        grade: newClassGrade,
+        subject: newClassSubject.trim() || 'Mathematics',
+        board: newClassBoard.trim() || 'CBSE',
+      });
+
+      setRealClasses((prev) => [created, ...prev]);
+      setSelectedClassId(created._id);
+      setIsAddClassModalOpen(false);
+      setNewClassName('');
+      setActionNotice({ type: 'success', message: `Class '${created.name}' created successfully in MongoDB.` });
+      setTimeout(() => setActionNotice(null), 4000);
+    } catch (err) {
+      setModalError(err.message || 'Failed to create class.');
+    } finally {
+      setIsSubmittingClass(false);
+    }
+  };
+
+  // Handle deleting a real class in MongoDB (protected with 409 dependent assessment policy)
+  const handleDeleteClass = async (classId, className, e) => {
+    e.stopPropagation();
+    const confirmed = window.confirm(`Are you sure you want to delete '${className}'?`);
+    if (!confirmed) return;
+
+    try {
+      await deleteClass(classId);
+      setRealClasses((prev) => prev.filter((c) => c._id !== classId));
+      if (selectedClassId === classId) {
+        setSelectedClassId(null);
+      }
+      setActionNotice({ type: 'success', message: `Class '${className}' deleted successfully.` });
+      setTimeout(() => setActionNotice(null), 4000);
+    } catch (err) {
+      setActionNotice({
+        type: 'error',
+        message: err.message || `Cannot delete '${className}'.`,
+      });
+      setTimeout(() => setActionNotice(null), 6000);
+    }
+  };
+
+  // Mark priority topic as completed permanently
   const handleMarkPriorityCompleted = (id) => {
     setCompletedPriorities((prev) => {
       const next = new Set(prev);
@@ -171,51 +280,50 @@ export default function TeacherDashboard({
     });
   };
 
-  // Mark retest as conducted permanently (turns green, one-way action)
+  // Mark retest as conducted permanently
   const handleMarkRetestConducted = (classId, e) => {
     e.stopPropagation();
-    setClassState((prev) => {
-      const current = prev[classId] || { teachingsCompleted: 3, teachingsPending: 2, retestConducted: false };
-      if (current.retestConducted) return prev; // Do not toggle back
-      return {
-        ...prev,
-        [classId]: {
-          ...current,
-          retestConducted: true,
-        },
-      };
+    setRetestState((prev) => {
+      if (prev[classId]) return prev;
+      return { ...prev, [classId]: true };
     });
   };
 
-  // Dynamic calculations connected to interactive actions
-  const totalCompletedPriorities = completedPriorities.size;
-
-  const baseTeachingsCompleted = Object.values(classState).reduce((acc, c) => acc + c.teachingsCompleted, 0);
-  const totalTeachingsCompleted = baseTeachingsCompleted + totalCompletedPriorities;
-
-  const baseTeachingsPending = Object.values(classState).reduce((acc, c) => acc + c.teachingsPending, 0);
-  const totalTeachingsPending = Math.max(0, baseTeachingsPending - totalCompletedPriorities);
-
-  const totalPendingTests = Object.values(classState).filter((c) => !c.retestConducted).length;
+  // Source of classes: strictly real classes if authenticated, or demo fixtures if in demo mode
+  const rawClasses = isDemoMode ? DASHBOARD_DEMO_DATA.classes : realClasses;
 
   // Filter classes according to selected controls
-  const filteredClasses = DASHBOARD_DEMO_DATA.classes.filter((cls) => {
+  const filteredClasses = rawClasses.filter((cls) => {
     if (gradeFilter !== 'all' && cls.grade !== gradeFilter) return false;
-    if (sectionFilter !== 'all' && cls.section !== sectionFilter) return false;
+    if (sectionFilter !== 'all' && (cls.section || cls.board) !== sectionFilter) return false;
     if (subjectFilter !== 'all' && cls.subject !== subjectFilter) return false;
     return true;
   });
 
   // Currently active selected class for Teaching Priorities
   const selectedClass =
-    filteredClasses.find((c) => c.id === selectedClassId) ||
+    filteredClasses.find((c) => (c._id || c.id) === selectedClassId) ||
     filteredClasses[0] ||
-    DASHBOARD_DEMO_DATA.classes[0];
+    null;
 
-  // Specific priorities for the selected class & section
-  const currentClassPriorities =
-    CLASS_TEACHING_PRIORITIES[selectedClass.id] ||
-    CLASS_TEACHING_PRIORITIES['cls-8a'];
+  // Derived Summary Metrics
+  const totalCompletedPriorities = completedPriorities.size;
+
+  const totalClassesCount = isDemoMode ? DASHBOARD_DEMO_DATA.classes.length : realClasses.length;
+  const totalCompletedTeachings = isDemoMode
+    ? 14 + totalCompletedPriorities
+    : realAssessments.filter((a) => a.status === 'completed').length + totalCompletedPriorities;
+  const totalPendingTeachings = isDemoMode
+    ? Math.max(0, 8 - totalCompletedPriorities)
+    : realAssessments.filter((a) => a.status === 'draft' || a.status === 'processing').length;
+  const totalPendingTests = isDemoMode
+    ? Object.keys(DASHBOARD_DEMO_DATA.classes).length - Object.keys(retestState).length
+    : realAssessments.filter((a) => a.status !== 'completed').length;
+
+  // Teaching priorities items: demo priorities if in demo mode, or dynamic class priorities
+  const currentClassPriorities = selectedClass
+    ? CLASS_TEACHING_PRIORITIES[selectedClass.id || selectedClass._id] || []
+    : [];
 
   const classCompletedCount = currentClassPriorities.filter((p) =>
     completedPriorities.has(p.id)
@@ -227,7 +335,6 @@ export default function TeacherDashboard({
     setSubjectFilter('all');
   };
 
-  // Smoothly scroll and highlight the Teaching Priorities section
   const handleGoToTeachingPriorities = () => {
     const el = document.getElementById('teaching-priorities-section');
     if (el) {
@@ -236,18 +343,18 @@ export default function TeacherDashboard({
       setTimeout(() => {
         el.classList.remove('section-highlight-pulse');
       }, 2000);
-    } else if (onOpenClassPriorities) {
+    } else if (onOpenClassPriorities && selectedClass) {
       onOpenClassPriorities(selectedClass);
     }
   };
 
   const handleSelectClass = (cls) => {
-    setSelectedClassId(cls.id);
+    setSelectedClassId(cls._id || cls.id);
   };
 
   return (
     <div className="dashboard-layout" role="region" aria-label="Teacher Dashboard">
-      {/* Static / Fixed Header (Remains pinned at top while scrolling) */}
+      {/* Static / Fixed Header */}
       <header className="dashboard-header" role="banner">
         <div className="dashboard-header-inner">
           <div className="dashboard-header-left">
@@ -269,9 +376,13 @@ export default function TeacherDashboard({
                 {teacherName.charAt(0).toUpperCase()}
               </div>
               <span className="hide-on-mobile">{teacherName}</span>
-              {isDemoMode && (
+              {isDemoMode ? (
                 <span className="badge badge-neutral" style={{ fontSize: '10px', padding: '1px 6px' }}>
                   Demo
+                </span>
+              ) : (
+                <span className="badge badge-success" style={{ fontSize: '10px', padding: '1px 6px' }}>
+                  Live Atlas
                 </span>
               )}
             </div>
@@ -298,8 +409,9 @@ export default function TeacherDashboard({
             <div className="welcome-title-group">
               <h2>Welcome back, {teacherName}</h2>
               <p className="welcome-subtitle">
-                Diagnose student misconceptions across your individual classes, trace prerequisite gaps to foundational
-                years, and sequence class-wide revision before teaching new topics.
+                {isDemoMode
+                  ? 'Exploring Neev in interactive demo mode. You can test workflow steps, diagnose gaps, and simulate teacher actions.'
+                  : 'Connected to MongoDB Atlas. Manage your classroom sections, assess student work, and sequence foundational learning gap remediation.'}
               </p>
             </div>
 
@@ -324,46 +436,99 @@ export default function TeacherDashboard({
             </div>
           </section>
 
-          {/* 4 Summary Metrics Cards: Total Classes (Neutral), Teachings Completed, Teachings Pending, Pending Tests */}
-          <section aria-label="Summary Metrics">
+          {/* Action Notice / Feedback Banner */}
+          {actionNotice && (
+            <div
+              className={`badge ${actionNotice.type === 'error' ? 'badge-danger' : 'badge-success'}`}
+              style={{
+                padding: '10px 16px',
+                fontSize: '13px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                width: '100%',
+                borderRadius: 'var(--radius-md)',
+              }}
+            >
+              {actionNotice.type === 'error' ? <IconAlertTriangle size={16} /> : <IconCheckCircle size={16} />}
+              <span>{actionNotice.message}</span>
+            </div>
+          )}
+
+          {/* Backend Error Banner with Retry */}
+          {backendError && (
+            <div
+              className="badge badge-danger"
+              style={{
+                padding: '12px 18px',
+                fontSize: '13px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                width: '100%',
+                borderRadius: 'var(--radius-md)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <IconAlertTriangle size={16} />
+                <span>{backendError}</span>
+              </div>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={loadLiveDashboardData}
+                style={{ backgroundColor: '#FFFFFF', color: 'var(--danger-dark)', padding: '4px 10px' }}
+              >
+                <IconRefreshCw size={13} />
+                <span>Retry</span>
+              </button>
+            </div>
+          )}
+
+          {/* Summary Metrics Section (4 Blocks) */}
+          <section className="dashboard-summary-metrics" aria-label="Key Teaching Metrics">
             <div className="dashboard-metrics-grid">
-              {/* Card 1: Total Classes (Neutral styling without orange accent highlight) */}
+              {/* Card 1: Total Classes */}
               <div className="dash-metric-card">
                 <div className="dash-metric-top">
                   <span className="dash-metric-label">Total Classes</span>
                   <IconUsers size={18} color="var(--secondary-text)" />
                 </div>
-                <div className="dash-metric-number">
-                  {DASHBOARD_DEMO_DATA.summaryMetrics.totalClasses}
+                <div className="dash-metric-number" style={{ color: 'var(--main-text)' }}>
+                  {totalClassesCount}
                 </div>
-                <div className="dash-metric-subtext">Across Grades 7, 8 &amp; 9 &bull; <span className="badge badge-neutral" style={{ fontSize: '10px' }}>Active</span></div>
+                <div className="dash-metric-subtext">
+                  {isDemoMode ? 'Sample demonstration cohorts' : 'Active classes in your account'}
+                </div>
               </div>
 
-              {/* Card 2: Teachings Completed (Dynamic) */}
+              {/* Card 2: Teachings Completed */}
               <div className="dash-metric-card">
                 <div className="dash-metric-top">
                   <span className="dash-metric-label">Teachings Completed</span>
                   <IconCheckCircle size={18} color="var(--success)" />
                 </div>
                 <div className="dash-metric-number" style={{ color: 'var(--success)' }}>
-                  {totalTeachingsCompleted}
+                  {totalCompletedTeachings}
                 </div>
-                <div className="dash-metric-subtext">Foundational topics revised &bull; {totalCompletedPriorities} this session</div>
+                <div className="dash-metric-subtext">
+                  {isDemoMode ? `Foundational topics revised • ${totalCompletedPriorities} this session` : 'Completed assessment cycles'}
+                </div>
               </div>
 
-              {/* Card 3: Teachings Pending (Dynamic) */}
+              {/* Card 3: Teachings Pending */}
               <div className="dash-metric-card">
                 <div className="dash-metric-top">
                   <span className="dash-metric-label">Teachings Pending</span>
                   <IconBookOpen size={18} color="var(--warning-dark)" />
                 </div>
                 <div className="dash-metric-number" style={{ color: 'var(--warning-dark)' }}>
-                  {totalTeachingsPending}
+                  {totalPendingTeachings}
                 </div>
                 <div className="dash-metric-subtext">Class revision topics requiring teacher session</div>
               </div>
 
-              {/* Card 4: Pending Tests (Dynamic) */}
+              {/* Card 4: Pending Tests */}
               <div className="dash-metric-card">
                 <div className="dash-metric-top">
                   <span className="dash-metric-label">Pending Tests</span>
@@ -372,23 +537,50 @@ export default function TeacherDashboard({
                 <div className="dash-metric-number" style={{ color: 'var(--primary-orange)' }}>
                   {totalPendingTests}
                 </div>
-                <div className="dash-metric-subtext">Diagnostic retests scheduled across classes</div>
+                <div className="dash-metric-subtext">Diagnostic tests scheduled across classes</div>
               </div>
             </div>
           </section>
 
-          {/* Section: My Classes (Hover-only highlight, Teachings Completed & Pending, Retest toggle) */}
+          {/* Section: My Classes */}
           <section id="my-classes-section" className="card" aria-labelledby="my-classes-heading">
             <div className="classes-section-header">
               <div>
-                <h3 id="my-classes-heading" className="card-title">My Classes</h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <h3 id="my-classes-heading" className="card-title">My Classes</h3>
+                  {!isDemoMode && (
+                    <span className="badge badge-success" style={{ fontSize: '11px' }}>
+                      MongoDB Live Data
+                    </span>
+                  )}
+                  {isDemoMode && (
+                    <span className="badge badge-neutral" style={{ fontSize: '11px' }}>
+                      Demo Mode (Sample Fixtures)
+                    </span>
+                  )}
+                </div>
                 <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--secondary-text)' }}>
-                  Hover over any class to inspect details, track teachings, and record conducted retests.
+                  {isDemoMode
+                    ? 'Sample class records for exploratory review.'
+                    : 'Manage your active classroom sections, inspect gap evaluations, and record conducted retests.'}
                 </p>
               </div>
 
-              {/* Filter Controls */}
+              {/* Actions & Filters Bar */}
               <div className="classes-filter-bar">
+                {/* Add Class Button for Authenticated Teachers */}
+                {!isDemoMode && (
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={() => setIsAddClassModalOpen(true)}
+                    title="Add a new class to your database"
+                  >
+                    <IconPlus size={14} />
+                    <span>Add Class</span>
+                  </button>
+                )}
+
                 <select
                   value={gradeFilter}
                   onChange={(e) => setGradeFilter(e.target.value)}
@@ -397,22 +589,11 @@ export default function TeacherDashboard({
                   aria-label="Filter by Grade"
                 >
                   <option value="all">All Grades</option>
+                  <option value="Grade 6">Grade 6</option>
                   <option value="Grade 7">Grade 7</option>
                   <option value="Grade 8">Grade 8</option>
                   <option value="Grade 9">Grade 9</option>
-                </select>
-
-                <select
-                  value={sectionFilter}
-                  onChange={(e) => setSectionFilter(e.target.value)}
-                  className="form-select"
-                  style={{ width: 'auto', padding: '6px 12px', fontSize: 'var(--font-size-xs)' }}
-                  aria-label="Filter by Section"
-                >
-                  <option value="all">All Sections</option>
-                  <option value="Section A">Section A</option>
-                  <option value="Section B">Section B</option>
-                  <option value="Section C">Section C</option>
+                  <option value="Grade 10">Grade 10</option>
                 </select>
 
                 <select
@@ -425,6 +606,7 @@ export default function TeacherDashboard({
                   <option value="all">All Subjects</option>
                   <option value="Mathematics">Mathematics</option>
                   <option value="Science">Science</option>
+                  <option value="English">English</option>
                 </select>
 
                 {(gradeFilter !== 'all' || sectionFilter !== 'all' || subjectFilter !== 'all') && (
@@ -441,28 +623,51 @@ export default function TeacherDashboard({
               </div>
             </div>
 
-            {filteredClasses.length === 0 ? (
+            {/* Classes Grid / Loading / Empty State */}
+            {isLoadingBackend ? (
+              <div style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
+                <div className="animate-spin" style={{ display: 'inline-block', width: '28px', height: '28px', border: '3px solid var(--border-color)', borderTopColor: 'var(--primary-orange)', borderRadius: '50%' }} />
+                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--secondary-text)', marginTop: 'var(--space-3)' }}>
+                  Loading your classes from MongoDB Atlas...
+                </p>
+              </div>
+            ) : filteredClasses.length === 0 ? (
               <EmptyState
-                icon={<IconUsers size={28} color="var(--secondary-text)" />}
-                title="No classes match current filters"
-                description="Adjust your grade, section, or subject filter to view individual class records."
+                icon={<IconUsers size={32} color="var(--primary-orange)" />}
+                title={rawClasses.length === 0 ? 'No classes created yet' : 'No classes match current filters'}
+                description={
+                  rawClasses.length === 0
+                    ? "You haven't added any classes to your teacher account yet. Click below to add your first class and begin learning gap analysis."
+                    : 'Adjust your grade or subject filter to view individual class records.'
+                }
+                action={
+                  !isDemoMode && rawClasses.length === 0 ? (
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => setIsAddClassModalOpen(true)}
+                    >
+                      <IconPlus size={16} />
+                      <span>Add Your First Class</span>
+                    </button>
+                  ) : null
+                }
               />
             ) : (
               <div className="classes-cards-grid">
                 {filteredClasses.map((cls) => {
-                  const currentClass = classState[cls.id] || { teachingsCompleted: 3, teachingsPending: 2, retestConducted: false };
-                  const isRetestDone = currentClass.retestConducted;
-                  const isCurrentSelected = selectedClass.id === cls.id;
+                  const classKey = cls._id || cls.id;
+                  const isRetestDone = Boolean(retestState[classKey]);
+                  const isCurrentSelected = selectedClass && (selectedClass._id || selectedClass.id) === classKey;
 
-                  // Specific completed count for this class
-                  const clsPriorities = CLASS_TEACHING_PRIORITIES[cls.id] || [];
-                  const clsCompleted = clsPriorities.filter((p) => completedPriorities.has(p.id)).length;
-                  const displayCompleted = currentClass.teachingsCompleted + clsCompleted;
-                  const displayPending = Math.max(0, currentClass.teachingsPending - clsCompleted);
+                  // Find assessments associated with this class
+                  const classAssessments = realAssessments.filter(
+                    (a) => (a.classId?._id || a.classId) === classKey
+                  );
 
                   return (
                     <div
-                      key={cls.id}
+                      key={classKey}
                       className="class-card"
                       onClick={() => handleSelectClass(cls)}
                       role="button"
@@ -493,54 +698,74 @@ export default function TeacherDashboard({
                             )}
                           </div>
                           <p className="class-card-meta">
-                            {cls.grade} &bull; {cls.section} &bull; Academic Year {cls.academicYear}
+                            {cls.grade} {cls.board ? `• ${cls.board}` : ''} {cls.academicYear ? `• ${cls.academicYear}` : ''}
                           </p>
                         </div>
 
-                        <div style={{ flexShrink: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                           {isRetestDone ? (
                             <span className="badge badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
                               <IconCheckCircle size={12} />
                               <span>Test Completed</span>
                             </span>
-                          ) : (
+                          ) : cls.topicsNeedingRevision ? (
                             <span className="badge badge-neutral" style={{ whiteSpace: 'nowrap' }}>
                               {cls.topicsNeedingRevision} Gaps Flagged
                             </span>
+                          ) : (
+                            <span className="badge badge-neutral" style={{ whiteSpace: 'nowrap' }}>
+                              {classAssessments.length} Assessment(s)
+                            </span>
+                          )}
+
+                          {/* Delete Class Button for Authenticated Teachers */}
+                          {!isDemoMode && (
+                            <button
+                              type="button"
+                              className="btn-icon-only danger"
+                              onClick={(e) => handleDeleteClass(cls._id, cls.name, e)}
+                              title={`Delete ${cls.name}`}
+                              aria-label={`Delete ${cls.name}`}
+                              style={{ width: '28px', height: '28px', padding: 0 }}
+                            >
+                              <IconTrash size={14} />
+                            </button>
                           )}
                         </div>
                       </div>
 
-                      {/* Stats Grid: Replaced Coverage and Assessments with Teachings Completed and Teachings Pending */}
+                      {/* Stats Grid */}
                       <div className="class-card-stats">
                         <div className="class-stat-item">
-                          <span className="class-stat-label">Teachings Completed</span>
+                          <span className="class-stat-label">Assessments</span>
                           <span className="class-stat-val" style={{ color: 'var(--success-dark)' }}>
-                            {displayCompleted} Topics
+                            {isDemoMode ? `${cls.assessmentsCount || 3} Completed` : `${classAssessments.length} Recorded`}
                           </span>
                         </div>
                         <div className="class-stat-item">
-                          <span className="class-stat-label">Teachings Pending</span>
-                          <span className="class-stat-val" style={{ color: displayPending > 0 ? 'var(--warning-dark)' : 'var(--main-text)' }}>
-                            {displayPending} Topics
+                          <span className="class-stat-label">Status</span>
+                          <span className="class-stat-val" style={{ color: 'var(--main-text)' }}>
+                            {isDemoMode ? `${cls.studentsAssessed || 28} Students` : 'Active Cohort'}
                           </span>
                         </div>
                       </div>
 
-                      {/* Gaps Preview */}
-                      <div className="class-card-gaps">
-                        <span style={{ fontWeight: 'var(--font-weight-bold)', color: 'var(--main-text)' }}>
-                          Identified Gaps:
-                        </span>{' '}
-                        <span>{cls.topGaps.join(', ')}</span>
-                      </div>
+                      {/* Gaps Preview (if present) */}
+                      {cls.topGaps && cls.topGaps.length > 0 && (
+                        <div className="class-card-gaps">
+                          <span style={{ fontWeight: 'var(--font-weight-bold)', color: 'var(--main-text)' }}>
+                            Identified Gaps:
+                          </span>{' '}
+                          <span>{cls.topGaps.join(', ')}</span>
+                        </div>
+                      )}
 
-                      {/* Below Identified Gaps: Mark Retest as Conducted Button (Tick symbol, one-way green Test Completed) */}
+                      {/* Below Identified Gaps: Mark Retest as Conducted Button */}
                       <div className="class-card-retest-action" style={{ paddingTop: 'var(--space-2)', borderTop: '1px solid var(--divider-color)', marginTop: '2px' }}>
                         <button
                           type="button"
                           className={`btn btn-sm ${isRetestDone ? 'btn-retest-completed' : 'btn-retest-pending'}`}
-                          onClick={(e) => handleMarkRetestConducted(cls.id, e)}
+                          onClick={(e) => handleMarkRetestConducted(classKey, e)}
                           disabled={isRetestDone}
                           title={isRetestDone ? 'Test Completed' : 'Record diagnostic retest as conducted'}
                           style={{ width: '100%', justifyContent: 'center', cursor: isRetestDone ? 'default' : 'pointer' }}
@@ -567,7 +792,7 @@ export default function TeacherDashboard({
 
           {/* Two-Column Grid: Teaching Priorities + Recent Activity */}
           <div className="dashboard-columns-grid">
-            {/* Column 1: Teaching Priorities (Specific to selected class & section, one-way completion) */}
+            {/* Column 1: Teaching Priorities */}
             <section
               id="teaching-priorities-section"
               className="card teaching-priorities-card"
@@ -579,127 +804,153 @@ export default function TeacherDashboard({
                     <h3 id="dash-priorities-heading" className="card-title">
                       Teaching Priorities
                     </h3>
-                    <span className="badge badge-orange">
-                      {selectedClass.name} &bull; {selectedClass.grade} ({selectedClass.section})
-                    </span>
-                    <span className="badge badge-neutral">
-                      {selectedClass.subject}
-                    </span>
+                    {selectedClass && (
+                      <>
+                        <span className="badge badge-orange">
+                          {selectedClass.name} &bull; {selectedClass.grade}
+                        </span>
+                        <span className="badge badge-neutral">
+                          {selectedClass.subject}
+                        </span>
+                      </>
+                    )}
                   </div>
                   <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--secondary-text)' }}>
-                    Top foundational concepts requiring teacher intervention for {selectedClass.name} before advancing syllabus.
+                    {selectedClass
+                      ? `Top foundational concepts requiring teacher intervention for ${selectedClass.name} before advancing syllabus.`
+                      : 'Select a class above to inspect foundational revision priorities.'}
                   </p>
                 </div>
 
-                <div className="priorities-summary-badge" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span className="badge badge-neutral" style={{ fontSize: '11px' }}>
-                    {classCompletedCount}/{currentClassPriorities.length} Completed
-                  </span>
-                </div>
+                {currentClassPriorities.length > 0 && (
+                  <div className="priorities-summary-badge" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span className="badge badge-neutral" style={{ fontSize: '11px' }}>
+                      {classCompletedCount}/{currentClassPriorities.length} Completed
+                    </span>
+                  </div>
+                )}
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                {currentClassPriorities.map((item) => {
-                  const isItemCompleted = completedPriorities.has(item.id);
+              {currentClassPriorities.length === 0 ? (
+                <EmptyState
+                  icon={<IconTarget size={30} color="var(--secondary-text)" />}
+                  title={selectedClass ? `No learning gap diagnostics for ${selectedClass.name} yet` : 'No class selected'}
+                  description={
+                    selectedClass
+                      ? `To diagnose student learning gaps for ${selectedClass.name}, begin a new assessment using student answer sheets.`
+                      : 'Add or select a class in the My Classes section above.'
+                  }
+                  action={
+                    selectedClass ? (
+                      <button type="button" className="btn btn-primary btn-sm" onClick={onStartNewAssessment}>
+                        <IconPlus size={14} /> <span>Start Assessment for {selectedClass.name}</span>
+                      </button>
+                    ) : null
+                  }
+                />
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                  {currentClassPriorities.map((item) => {
+                    const isItemCompleted = completedPriorities.has(item.id);
 
-                  return (
-                    <div
-                      key={item.id}
-                      className={`priority-item-card ${isItemCompleted ? 'priority-completed' : ''}`}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: 'var(--space-3)',
-                        padding: '12px 14px',
-                        borderRadius: 'var(--radius-md)',
-                        backgroundColor: isItemCompleted ? 'rgba(30, 142, 90, 0.07)' : 'var(--surface-bg)',
-                        border: isItemCompleted ? '1px solid var(--success-border)' : '1px solid var(--border-color)',
-                        transition: 'all var(--transition-fast)',
-                      }}
-                    >
+                    return (
                       <div
+                        key={item.id}
+                        className={`priority-item-card ${isItemCompleted ? 'priority-completed' : ''}`}
                         style={{
-                          width: '28px',
-                          height: '28px',
-                          borderRadius: '50%',
-                          backgroundColor: isItemCompleted ? 'var(--success)' : 'var(--primary-orange)',
-                          color: '#FFFFFF',
                           display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '12px',
-                          fontWeight: 'bold',
-                          flexShrink: 0,
-                          transition: 'background-color var(--transition-fast)',
+                          alignItems: 'flex-start',
+                          gap: 'var(--space-3)',
+                          padding: '12px 14px',
+                          borderRadius: 'var(--radius-md)',
+                          backgroundColor: isItemCompleted ? 'rgba(30, 142, 90, 0.07)' : 'var(--surface-bg)',
+                          border: isItemCompleted ? '1px solid var(--success-border)' : '1px solid var(--border-color)',
+                          transition: 'all var(--transition-fast)',
                         }}
                       >
-                        {isItemCompleted ? <IconCheck size={15} /> : item.rank}
-                      </div>
+                        <div
+                          style={{
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '50%',
+                            backgroundColor: isItemCompleted ? 'var(--success)' : 'var(--primary-orange)',
+                            color: '#FFFFFF',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '12px',
+                            fontWeight: 'bold',
+                            flexShrink: 0,
+                            transition: 'background-color var(--transition-fast)',
+                          }}
+                        >
+                          {isItemCompleted ? <IconCheck size={15} /> : item.rank}
+                        </div>
 
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px' }}>
-                          <h4
-                            style={{
-                              fontSize: 'var(--font-size-sm)',
-                              fontWeight: 'bold',
-                              color: isItemCompleted ? 'var(--success-dark)' : 'var(--main-text)',
-                              textDecoration: isItemCompleted ? 'line-through' : 'none',
-                            }}
-                          >
-                            {item.topicName}
-                          </h4>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span className="badge badge-neutral" style={{ fontSize: '10.5px' }}>
-                              {item.grade}
-                            </span>
-                            {isItemCompleted && (
-                              <span className="badge badge-success" style={{ fontSize: '10px' }}>
-                                Taught
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px' }}>
+                            <h4
+                              style={{
+                                fontSize: 'var(--font-size-sm)',
+                                fontWeight: 'bold',
+                                color: isItemCompleted ? 'var(--success-dark)' : 'var(--main-text)',
+                                textDecoration: isItemCompleted ? 'line-through' : 'none',
+                              }}
+                            >
+                              {item.topicName}
+                            </h4>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span className="badge badge-neutral" style={{ fontSize: '10.5px' }}>
+                                {item.grade}
                               </span>
-                            )}
+                              {isItemCompleted && (
+                                <span className="badge badge-success" style={{ fontSize: '10px' }}>
+                                  Taught
+                                </span>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                        <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--secondary-text)', marginTop: '4px', lineHeight: 1.4 }}>
-                          {item.reason}
-                        </p>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: '8px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                            <span style={{ fontSize: '11px', color: 'var(--secondary-text)' }}>
-                              Est. Revision: {item.estimatedMinutes} mins
-                            </span>
-                          </div>
+                          <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--secondary-text)', marginTop: '4px', lineHeight: 1.4 }}>
+                            {item.reason}
+                          </p>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                              <span style={{ fontSize: '11px', color: 'var(--secondary-text)' }}>
+                                Est. Revision: {item.estimatedMinutes} mins
+                              </span>
+                            </div>
 
-                          {/* Mark as Completed Button (Tick symbol, one-way green permanent completed) */}
-                          <button
-                            type="button"
-                            className={`btn btn-sm ${isItemCompleted ? 'btn-priority-done' : 'btn-priority-mark'}`}
-                            onClick={() => handleMarkPriorityCompleted(item.id)}
-                            disabled={isItemCompleted}
-                            title={isItemCompleted ? 'Topic revision completed' : 'Mark topic revision as completed'}
-                            style={{
-                              padding: '4px 10px',
-                              fontSize: '11px',
-                              cursor: isItemCompleted ? 'default' : 'pointer',
-                            }}
-                          >
-                            {isItemCompleted ? (
-                              <>
-                                <IconCheckCircle size={13} color="var(--success)" />
-                                <span>Completed</span>
-                              </>
-                            ) : (
-                              <>
-                                <IconCheck size={13} />
-                                <span>Mark as Completed</span>
-                              </>
-                            )}
-                          </button>
+                            <button
+                              type="button"
+                              className={`btn btn-sm ${isItemCompleted ? 'btn-priority-done' : 'btn-priority-mark'}`}
+                              onClick={() => handleMarkPriorityCompleted(item.id)}
+                              disabled={isItemCompleted}
+                              title={isItemCompleted ? 'Topic revision completed' : 'Mark topic revision as completed'}
+                              style={{
+                                padding: '4px 10px',
+                                fontSize: '11px',
+                                cursor: isItemCompleted ? 'default' : 'pointer',
+                              }}
+                            >
+                              {isItemCompleted ? (
+                                <>
+                                  <IconCheckCircle size={13} color="var(--success)" />
+                                  <span>Completed</span>
+                                </>
+                              ) : (
+                                <>
+                                  <IconCheck size={13} />
+                                  <span>Mark as Completed</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </section>
 
             {/* Column 2: Recent Activity Feed */}
@@ -708,47 +959,232 @@ export default function TeacherDashboard({
                 <div>
                   <h3 id="activity-heading" className="card-title">Recent Activity</h3>
                   <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--secondary-text)' }}>
-                    Sample timeline of answer sheet evaluations &amp; reports.
+                    {isDemoMode ? 'Sample timeline of answer sheet evaluations & reports.' : 'Live timeline of classroom evaluations.'}
                   </p>
                 </div>
                 <span className="badge badge-neutral" style={{ fontSize: '10px' }}>
-                  Demo activity
+                  {isDemoMode ? 'Demo feed' : 'Live feed'}
                 </span>
               </div>
 
               <div className="activity-feed-list">
-                {DASHBOARD_DEMO_DATA.recentActivity.map((act) => (
-                  <div key={act.id} className="activity-feed-item">
-                    <div className="activity-icon-badge" aria-hidden="true">
-                      {act.type === 'review' && <IconFileText size={16} />}
-                      {act.type === 'assessment' && <IconCheckCircle size={16} />}
-                      {act.type === 'gap' && <IconTarget size={16} />}
-                      {act.type === 'priority' && <IconSparkles size={16} />}
-                    </div>
+                {isDemoMode ? (
+                  DASHBOARD_DEMO_DATA.recentActivity.map((act) => (
+                    <div key={act.id} className="activity-feed-item">
+                      <div className="activity-icon-badge" aria-hidden="true">
+                        {act.type === 'review' && <IconFileText size={16} />}
+                        {act.type === 'assessment' && <IconCheckCircle size={16} />}
+                        {act.type === 'gap' && <IconTarget size={16} />}
+                        {act.type === 'priority' && <IconSparkles size={16} />}
+                      </div>
 
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
-                        <span style={{ fontWeight: 'var(--font-weight-semibold)', color: 'var(--main-text)' }}>
-                          {act.title}
-                        </span>
-                        <span style={{ fontSize: '11px', color: 'var(--muted-text)', whiteSpace: 'nowrap' }}>
-                          {act.timestamp}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
+                          <span style={{ fontWeight: 'var(--font-weight-semibold)', color: 'var(--main-text)' }}>
+                            {act.title}
+                          </span>
+                          <span style={{ fontSize: '11px', color: 'var(--muted-text)', whiteSpace: 'nowrap' }}>
+                            {act.timestamp}
+                          </span>
+                        </div>
+                        <p style={{ color: 'var(--secondary-text)', marginTop: '2px', lineHeight: 1.35 }}>
+                          {act.description}
+                        </p>
+                        <span className="badge badge-neutral" style={{ fontSize: '10px', marginTop: '4px' }}>
+                          {act.relatedClass}
                         </span>
                       </div>
-                      <p style={{ color: 'var(--secondary-text)', marginTop: '2px', lineHeight: 1.35 }}>
-                        {act.description}
-                      </p>
-                      <span className="badge badge-neutral" style={{ fontSize: '10px', marginTop: '4px' }}>
-                        {act.relatedClass}
-                      </span>
                     </div>
-                  </div>
-                ))}
+                  ))
+                ) : realAssessments.length === 0 ? (
+                  <EmptyState
+                    icon={<IconFileText size={24} color="var(--secondary-text)" />}
+                    title="No recent evaluations"
+                    description="When you create assessments and analyze student answer sheets, your activity history will appear here."
+                  />
+                ) : (
+                  realAssessments.map((a) => (
+                    <div key={a._id} className="activity-feed-item">
+                      <div className="activity-icon-badge" aria-hidden="true">
+                        <IconCheckCircle size={16} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
+                          <span style={{ fontWeight: 'var(--font-weight-semibold)', color: 'var(--main-text)' }}>
+                            {a.title}
+                          </span>
+                          <span style={{ fontSize: '11px', color: 'var(--muted-text)' }}>
+                            {new Date(a.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <p style={{ color: 'var(--secondary-text)', marginTop: '2px', lineHeight: 1.35 }}>
+                          Subject: {a.subject} • Max Marks: {a.maximumMarks} • Status: {a.status}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </section>
           </div>
         </main>
       </div>
+
+      {/* Add Class Modal (Glassmorphic) */}
+      {isAddClassModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-add-class-title"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(35, 27, 22, 0.45)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: 'var(--space-4)',
+          }}
+        >
+          <div
+            className="card"
+            style={{
+              maxWidth: '460px',
+              width: '100%',
+              background: 'rgba(255, 255, 255, 0.95)',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)',
+              border: '1px solid var(--border-color)',
+              borderRadius: 'var(--radius-xl)',
+              padding: 'var(--space-6)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+              <h3 id="modal-add-class-title" style={{ fontSize: 'var(--font-size-lg)', margin: 0 }}>
+                Add New Class
+              </h3>
+              <button
+                type="button"
+                className="btn-icon-only"
+                onClick={() => {
+                  setIsAddClassModalOpen(false);
+                  setModalError(null);
+                }}
+                aria-label="Close modal"
+              >
+                &times;
+              </button>
+            </div>
+
+            {modalError && (
+              <div
+                className="badge badge-danger"
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  marginBottom: 'var(--space-3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <IconAlertTriangle size={14} />
+                <span>{modalError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleCreateClass} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+              <div>
+                <label style={{ fontSize: 'var(--font-size-xs)', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
+                  Class Name *
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={newClassName}
+                  onChange={(e) => setNewClassName(e.target.value)}
+                  placeholder="e.g. Class 8-A, Grade 9-B"
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
+                <div>
+                  <label style={{ fontSize: 'var(--font-size-xs)', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
+                    Grade Level *
+                  </label>
+                  <select
+                    className="form-select"
+                    value={newClassGrade}
+                    onChange={(e) => setNewClassGrade(e.target.value)}
+                  >
+                    <option value="Grade 6">Grade 6</option>
+                    <option value="Grade 7">Grade 7</option>
+                    <option value="Grade 8">Grade 8</option>
+                    <option value="Grade 9">Grade 9</option>
+                    <option value="Grade 10">Grade 10</option>
+                    <option value="Grade 11">Grade 11</option>
+                    <option value="Grade 12">Grade 12</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: 'var(--font-size-xs)', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
+                    Subject *
+                  </label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={newClassSubject}
+                    onChange={(e) => setNewClassSubject(e.target.value)}
+                    placeholder="e.g. Mathematics"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: 'var(--font-size-xs)', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
+                  Educational Board (Optional)
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={newClassBoard}
+                  onChange={(e) => setNewClassBoard(e.target.value)}
+                  placeholder="e.g. CBSE, ICSE, State"
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setIsAddClassModalOpen(false);
+                    setModalError(null);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={isSubmittingClass}
+                >
+                  {isSubmittingClass ? 'Creating...' : 'Create Class'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
