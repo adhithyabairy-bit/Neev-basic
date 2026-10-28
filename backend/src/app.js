@@ -1,7 +1,14 @@
 import express from 'express';
 import cors from 'cors';
+
+// Routes
+import healthRoutes from './routes/health.routes.js';
 import authRoutes from './routes/authRoutes.js';
-import { getHealth } from './controllers/authController.js';
+import classRoutes from './routes/class.routes.js';
+import assessmentRoutes from './routes/assessment.routes.js';
+
+// Middlewares
+import errorHandler from './middleware/errorHandler.js';
 
 const app = express();
 
@@ -19,33 +26,27 @@ app.use(
 // Body parsing
 app.use(express.json());
 
-// Top-level health route
-app.get('/api/health', getHealth);
-app.get('/health', getHealth);
+// System Health Diagnostics
+app.use('/api/health', healthRoutes);
+app.use('/health', healthRoutes);
 
-// Authentication routes
+// Auth session verification
 app.use('/api/auth', authRoutes);
+
+// Teacher Resource Routes (Protected)
+app.use('/api/classes', classRoutes);
+app.use('/api/assessments', assessmentRoutes);
 
 // 404 Route Handler
 app.use((req, res) => {
   res.status(404).json({
     success: false,
     error: `Cannot ${req.method} ${req.originalUrl}`,
+    code: 'ROUTE_NOT_FOUND',
   });
 });
 
-// Global Error Handler
-app.use((err, req, res, next) => {
-  console.error('[Neev Backend Error]:', err);
-
-  const statusCode = err.status || err.statusCode || 500;
-  const isProduction = process.env.NODE_ENV === 'production';
-
-  res.status(statusCode).json({
-    success: false,
-    error: isProduction ? 'An unexpected server error occurred.' : err.message,
-    ...(isProduction ? {} : { stack: err.stack }),
-  });
-});
+// Centralized Global Error Handler
+app.use(errorHandler);
 
 export default app;

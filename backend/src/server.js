@@ -22,6 +22,7 @@ for (const envPath of envPaths) {
 
 import app from './app.js';
 import { isFirebaseAdminConfigured, getFirebaseAdminStatus } from './config/firebaseAdmin.js';
+import { connectDB, getDBStatus, disconnectDB } from './config/db.js';
 
 const PORT = parseInt(process.env.PORT, 10) || 5000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
@@ -34,20 +35,34 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('[Neev Backend Unhandled Rejection]:', reason);
 });
 
+// Attempt MongoDB Atlas connection on bootstrap (non-blocking for diagnostics)
+connectDB();
+
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log('====================================================');
   console.log(`  Neev Express Backend running in [${NODE_ENV}] mode`);
   console.log(`  Listening on: http://localhost:${PORT} and http://127.0.0.1:${PORT}`);
   console.log(`  Health Check: http://localhost:${PORT}/api/health`);
   console.log(`  Allowed Origin: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
-  
-  const status = getFirebaseAdminStatus();
-  if (status.configured) {
-    console.log(`  Firebase Admin: ACTIVE (Project: ${status.projectId})`);
+
+  // Firebase Admin status
+  const firebaseStatus = getFirebaseAdminStatus();
+  if (firebaseStatus.configured) {
+    console.log(`  Firebase Admin: ACTIVE (Project: ${firebaseStatus.projectId})`);
   } else {
     console.warn(`  Firebase Admin: WAITING FOR CREDENTIALS`);
-    console.warn(`  Reason: ${status.reason}`);
+    console.warn(`  Reason: ${firebaseStatus.reason}`);
     console.warn(`  Configure backend/.env with GOOGLE_APPLICATION_CREDENTIALS or FIREBASE_PROJECT_ID`);
+  }
+
+  // MongoDB status
+  const dbStatus = getDBStatus();
+  if (dbStatus.connected) {
+    console.log(`  MongoDB Atlas: CONNECTED`);
+  } else if (dbStatus.configured) {
+    console.log(`  MongoDB Atlas: CONNECTING...`);
+  } else {
+    console.warn(`  MongoDB Atlas: NOT CONFIGURED (Define MONGODB_URI in backend/.env)`);
   }
   console.log('====================================================');
 });
@@ -63,8 +78,16 @@ server.on('error', (err) => {
 });
 
 // Graceful shutdown handlers
-function handleShutdown(signal) {
+async function handleShutdown(signal) {
   console.log(`\nReceived ${signal}. Shutting down Neev Express backend gracefully...`);
+  
+  try {
+    await disconnectDB();
+    console.log('MongoDB connection closed.');
+  } catch (dbErr) {
+    console.error('Error during database disconnect:', dbErr.message);
+  }
+
   server.close(() => {
     console.log('Server closed. Process terminating.');
     process.exit(0);
