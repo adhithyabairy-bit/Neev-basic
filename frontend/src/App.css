@@ -1,0 +1,26 @@
+/* ==========================================================================
+   Neev Application Styles Entry Point
+   ========================================================================== */
+
+@import './styles/variables.css';
+@import './styles/global.css';
+@import './styles/layout.css';
+@import './styles/components.css';
+@import './styles/responsive.css';
+@import './styles/auth.css';
+@import './styles/class-gap-overview.css';
+@import './styles/dashboard.css';
+
+/* Subtle spin animation utility */
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

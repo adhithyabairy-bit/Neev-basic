@@ -1,0 +1,346 @@
+/* ==========================================================================
+   Neev Design System - Layout & App Shell
+   ========================================================================== */
+
+/* App Wrapper */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: var(--main-bg);
+}
+
+/* ==========================================================================
+   Header Layout
+   ========================================================================== */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid rgba(240, 222, 210, 0.75);
+  box-shadow: 0 4px 20px rgba(35, 27, 22, 0.03);
+  padding-top: env(safe-area-inset-top, 0);
+  transition: box-shadow var(--transition-fast);
+}
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--space-3) var(--space-8);
+  height: var(--header-height);
+  gap: var(--space-4);
+}
+
+.brand-section {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  text-decoration: none;
+}
+
+.brand-logo-icon {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, var(--primary-orange) 0%, var(--dark-orange) 100%);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  font-weight: var(--font-weight-extrabold);
+  font-size: var(--font-size-xl);
+  box-shadow: 0 2px 8px rgba(242, 107, 29, 0.3);
+  flex-shrink: 0;
+}
+
+.brand-text-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.brand-name {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-extrabold);
+  color: var(--main-text);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.brand-subtitle {
+  font-size: var(--font-size-xs);
+  color: var(--secondary-text);
+  font-weight: var(--font-weight-medium);
+}
+
+.header-status-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.step-indicator-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background-color: var(--light-orange);
+  color: var(--dark-orange);
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  border: 1px solid var(--border-color);
+  white-space: nowrap;
+}
+
+/* Header Progress Bar line */
+.header-progress-track {
+  width: 100%;
+  height: 3px;
+  background-color: var(--divider-color);
+  position: relative;
+  overflow: hidden;
+}
+
+.header-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary-orange) 0%, var(--dark-orange) 100%);
+  transition: width var(--transition-slow);
+}
+
+/* ==========================================================================
+   Main Shell Layout (Sidebar + Content)
+   ========================================================================== */
+.workspace-layout {
+  display: flex;
+  flex: 1;
+  width: 100%;
+  min-height: calc(100vh - var(--header-height));
+}
+
+/* Desktop Sidebar */
+.desktop-sidebar {
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  border-right: 1px solid rgba(240, 222, 210, 0.75);
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  position: sticky;
+  top: var(--header-height);
+  height: calc(100vh - var(--header-height));
+  overflow-y: auto;
+  padding: var(--space-5) var(--space-3) var(--space-8);
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-title {
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: var(--font-weight-bold);
+  color: var(--muted-text);
+  margin-bottom: var(--space-3);
+  padding: 0 var(--space-3);
+}
+
+.sidebar-steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  list-style: none;
+}
+
+.sidebar-step-item {
+  width: 100%;
+}
+
+.sidebar-step-button {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  background-color: transparent;
+  transition: all var(--transition-fast);
+}
+
+.sidebar-step-button:hover:not(:disabled) {
+  background-color: var(--light-orange-subtle);
+  border-color: var(--border-color);
+}
+
+/* Step Number / Icon Badge */
+.step-badge {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  flex-shrink: 0;
+  margin-top: 1px;
+  border: 1.5px solid var(--border-color);
+  background-color: #FFFFFF;
+  color: var(--secondary-text);
+  transition: all var(--transition-fast);
+}
+
+.step-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.step-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--main-text);
+  line-height: 1.3;
+}
+
+.step-desc {
+  font-size: 0.775rem;
+  color: var(--secondary-text);
+  line-height: 1.35;
+  margin-top: 2px;
+}
+
+/* Sidebar Active State */
+.sidebar-step-item.active .sidebar-step-button {
+  background-color: var(--light-orange);
+  border-color: var(--primary-orange);
+}
+
+.sidebar-step-item.active .step-badge {
+  background-color: var(--primary-orange);
+  color: #FFFFFF;
+  border-color: var(--primary-orange);
+  box-shadow: 0 0 0 3px rgba(242, 107, 29, 0.2);
+}
+
+.sidebar-step-item.active .step-title {
+  color: var(--dark-orange);
+  font-weight: var(--font-weight-bold);
+}
+
+/* Sidebar Completed State */
+.sidebar-step-item.completed .step-badge {
+  background-color: var(--success);
+  border-color: var(--success);
+  color: #FFFFFF;
+}
+
+.sidebar-step-item.completed:not(.active) .step-title {
+  color: var(--main-text);
+}
+
+/* ==========================================================================
+   Main Content Area & Column
+   ========================================================================== */
+.workspace-main-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: calc(100vh - var(--header-height));
+  position: relative;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background-color: var(--main-bg);
+  padding: var(--space-6) var(--space-8) calc(var(--bottom-nav-height) + var(--space-8));
+  position: relative;
+}
+
+.content-inner {
+  max-width: var(--max-content-width);
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* Section Page Header */
+.section-page-header {
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.section-page-header .section-title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--main-text);
+  letter-spacing: -0.02em;
+}
+
+.section-page-header .section-subtitle {
+  font-size: var(--font-size-base);
+  color: var(--secondary-text);
+  margin-top: var(--space-1);
+}
+
+/* ==========================================================================
+   Bottom Workflow Navigation Bar (Sits beside sidebar, stretches till the end of the screen)
+   ========================================================================== */
+.workflow-nav-bar {
+  position: fixed;
+  bottom: 0;
+  left: var(--sidebar-width);
+  right: 0;
+  width: auto;
+  background: rgba(255, 255, 255, 0.84);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-top: 1px solid rgba(240, 222, 210, 0.75);
+  box-shadow: 0 -4px 24px rgba(35, 27, 22, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  z-index: 40;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.workflow-nav-inner {
+  width: 100%;
+  padding: var(--space-3) var(--space-8);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: var(--bottom-nav-height);
+}
+
+.workflow-nav-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.workflow-nav-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.workflow-validation-hint {
+  font-size: var(--font-size-xs);
+  color: var(--warning-dark);
+  background-color: var(--warning-light);
+  border: 1px solid var(--warning-border);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}

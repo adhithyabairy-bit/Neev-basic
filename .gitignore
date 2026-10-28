@@ -1,0 +1,32 @@
+# Node dependencies
+node_modules/
+.npm/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+frontend/.env
+backend/.env
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Service Account Keys & Secrets
+*serviceAccount*.json
+*firebase-adminsdk*.json
+credentials.json
+*.pem
+*.key
+
+# Build output
+frontend/dist/
+frontend/dist-ssr/
+
+# OS and Editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

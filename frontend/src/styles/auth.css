@@ -1,0 +1,254 @@
+/* ==========================================================================
+   Neev Platform - Teacher Authentication Styles
+   Palette: White, Primary Orange (#F26B1D), Light Orange (#FFEDE0), Warm Neutrals
+   ========================================================================== */
+
+.auth-wrapper {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: var(--space-6) var(--space-4);
+  background: linear-gradient(180deg, #FFFFFF 0%, #FFF7F2 100%);
+  position: relative;
+}
+
+.auth-container {
+  width: 100%;
+  max-width: 460px;
+  margin: 0 auto;
+}
+
+/* Brand Bar in Auth Header */
+.auth-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: var(--space-6);
+  text-align: center;
+}
+
+.auth-brand-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--primary-orange) 0%, var(--dark-orange) 100%);
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: var(--font-weight-extrabold);
+  box-shadow: 0 4px 14px rgba(242, 107, 29, 0.35);
+  margin-bottom: var(--space-3);
+}
+
+.auth-brand-name {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-extrabold);
+  color: var(--main-text);
+  letter-spacing: -0.5px;
+}
+
+.auth-brand-tagline {
+  font-size: var(--font-size-sm);
+  color: var(--secondary-text);
+  margin-top: 2px;
+}
+
+/* Auth Card Container */
+.auth-card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-8);
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-card-header {
+  margin-bottom: var(--space-6);
+}
+
+.auth-title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--main-text);
+  margin-bottom: var(--space-1);
+}
+
+.auth-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--secondary-text);
+  line-height: var(--line-height-base);
+}
+
+/* Form Groups & Inputs */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-input-wrapper .form-input {
+  padding-right: 44px;
+}
+
+.password-toggle-btn {
+  position: absolute;
+  right: 10px;
+  background: transparent;
+  border: none;
+  color: var(--muted-text);
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast);
+}
+
+.password-toggle-btn:hover {
+  color: var(--primary-orange);
+}
+
+.password-toggle-btn:focus-visible {
+  outline: 2px solid var(--primary-orange);
+}
+
+/* Options Row (Remember me + Forgot password) */
+.auth-options-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: -2px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-size-xs);
+  color: var(--secondary-text);
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-label input[type='checkbox'] {
+  accent-color: var(--primary-orange);
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
+.auth-link {
+  font-size: var(--font-size-xs);
+  color: var(--primary-orange);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: color var(--transition-fast);
+}
+
+.auth-link:hover {
+  color: var(--dark-orange);
+  text-decoration: underline;
+}
+
+/* Auth Alerts */
+.auth-alert {
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  line-height: 1.45;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.auth-alert-error {
+  background-color: var(--danger-light);
+  border: 1px solid var(--danger-border);
+  color: var(--danger-dark);
+}
+
+.auth-alert-success {
+  background-color: var(--success-light);
+  border: 1px solid var(--success-border);
+  color: var(--success-dark);
+}
+
+.auth-alert-notice {
+  background-color: var(--card-highlight-bg);
+  border: 1px solid var(--border-hover);
+  color: var(--main-text);
+}
+
+/* Switcher / Switch to Register / Login */
+.auth-footer-prompt {
+  margin-top: var(--space-6);
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: var(--secondary-text);
+}
+
+/* Demo Mode / Reviewer Bypass Banner */
+.auth-demo-banner {
+  margin-top: var(--space-6);
+  padding: 14px 16px;
+  border-radius: var(--radius-lg);
+  background-color: #FFFFFF;
+  border: 1px dashed var(--border-hover);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+
+.auth-demo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  color: var(--dark-orange);
+  text-transform: uppercase;
+}
+
+.auth-demo-text {
+  font-size: var(--font-size-xs);
+  color: var(--secondary-text);
+  line-height: 1.4;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 480px) {
+  .auth-wrapper {
+    padding: var(--space-4) var(--space-3);
+    justify-content: flex-start;
+  }
+
+  .auth-card {
+    padding: var(--space-5) var(--space-4);
+    border-radius: var(--radius-lg);
+  }
+
+  .auth-title {
+    font-size: var(--font-size-xl);
+  }
+}

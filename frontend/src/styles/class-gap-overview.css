@@ -1,0 +1,384 @@
+/* ==========================================================================
+   Neev Platform - Class Gap Overview & Teaching Priorities Styles
+   Step 10 Dashboard Styles
+   ========================================================================== */
+
+.class-overview-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* Filter Controls Toolbar */
+.class-filters-card {
+  background-color: #FFFFFF;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
+  box-shadow: var(--shadow-xs);
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-3);
+  align-items: flex-end;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.filter-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--secondary-text);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Summary Metrics Bar */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: var(--space-4);
+}
+
+.metric-card {
+  background-color: #FFFFFF;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.metric-card:hover {
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-sm);
+}
+
+.metric-card.accent {
+  background-color: var(--card-highlight-bg);
+  border-color: var(--border-hover);
+}
+
+.metric-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.metric-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--secondary-text);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.metric-value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.metric-number {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-extrabold);
+  color: var(--main-text);
+  line-height: 1.1;
+}
+
+.metric-number.orange {
+  color: var(--primary-orange);
+}
+
+.metric-number.danger {
+  color: var(--danger);
+}
+
+.metric-subtext {
+  font-size: var(--font-size-xs);
+  color: var(--secondary-text);
+}
+
+/* Topic Gap Analysis Table */
+.gap-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background-color: #FFFFFF;
+}
+
+.gap-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: var(--font-size-sm);
+}
+
+.gap-table th {
+  background-color: var(--surface-bg);
+  color: var(--secondary-text);
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.gap-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--divider-color);
+  color: var(--main-text);
+  vertical-align: middle;
+}
+
+.gap-table tr:last-child td {
+  border-bottom: none;
+}
+
+.gap-table tr:hover td {
+  background-color: var(--surface-hover);
+}
+
+/* Progress bar inside table cell */
+.gap-progress-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 140px;
+}
+
+.gap-progress-track {
+  flex: 1;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background-color: var(--divider-color);
+  overflow: hidden;
+}
+
+.gap-progress-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width 0.3s ease;
+}
+
+.gap-progress-fill.high {
+  background-color: var(--danger);
+}
+
+.gap-progress-fill.medium {
+  background-color: var(--primary-orange);
+}
+
+.gap-progress-fill.normal {
+  background-color: var(--warning);
+}
+
+.gap-progress-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  min-width: 38px;
+  text-align: right;
+}
+
+/* Teaching Priority Sequence Items */
+.priority-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.priority-item-card {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background-color: #FFFFFF;
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  transition: all var(--transition-fast);
+  position: relative;
+}
+
+.priority-item-card.is-covered {
+  background-color: var(--surface-bg);
+  border-color: var(--border-color);
+  opacity: 0.85;
+}
+
+.priority-item-card.is-covered .priority-topic-name {
+  text-decoration: line-through;
+  color: var(--muted-text);
+}
+
+.priority-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.priority-badge-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.priority-rank-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background-color: var(--primary-orange);
+  color: #FFFFFF;
+  font-weight: var(--font-weight-extrabold);
+  font-size: var(--font-size-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.priority-rank-circle.covered {
+  background-color: var(--success);
+}
+
+.priority-topic-name {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--main-text);
+}
+
+.priority-actions-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.priority-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-3);
+  background-color: var(--surface-bg);
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--divider-color);
+}
+
+.priority-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.priority-detail-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--secondary-text);
+  font-weight: var(--font-weight-bold);
+}
+
+.priority-detail-value {
+  font-size: var(--font-size-xs);
+  color: var(--main-text);
+  line-height: 1.4;
+}
+
+/* Individual Support Section */
+.individual-support-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.support-student-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background-color: #FFFFFF;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  gap: var(--space-3);
+  font-size: var(--font-size-xs);
+}
+
+.support-student-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 200px;
+}
+
+.support-student-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background-color: var(--light-orange);
+  color: var(--dark-orange);
+  font-weight: var(--font-weight-bold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Teaching Plan Summary Card */
+.teaching-plan-summary {
+  background-color: var(--light-orange-subtle);
+  border: 1.5px solid var(--border-hover);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+/* Responsive Breakpoints */
+@media (max-width: 768px) {
+  .filters-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .metrics-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .priority-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .priority-header-row {
+    flex-direction: column;
+  }
+
+  .priority-actions-group {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 480px) {
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .teaching-plan-summary {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

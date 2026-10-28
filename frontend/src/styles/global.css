@@ -1,0 +1,124 @@
+/* ==========================================================================
+   Neev Design System - Global Styles & Reset
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+  color-scheme: light;
+}
+
+body {
+  font-family: var(--font-family);
+  background:
+    radial-gradient(1200px 800px at 10% 8%, rgba(255, 237, 224, 0.55) 0%, transparent 60%),
+    radial-gradient(1000px 700px at 90% 85%, rgba(254, 224, 204, 0.45) 0%, transparent 55%),
+    radial-gradient(800px 600px at 50% 40%, rgba(255, 247, 242, 0.7) 0%, transparent 70%),
+    linear-gradient(180deg, #FDFCFB 0%, #F7F4F0 100%);
+  background-attachment: fixed;
+  color: var(--main-text);
+  line-height: var(--line-height-base);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Accessible focus outlines */
+:focus-visible {
+  outline: 2px solid var(--primary-orange);
+  outline-offset: 2px;
+}
+
+button:focus:not(:focus-visible),
+a:focus:not(:focus-visible),
+input:focus:not(:focus-visible),
+select:focus:not(:focus-visible),
+textarea:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--main-text);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+}
+
+h1 {
+  font-size: var(--font-size-2xl);
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  font-size: var(--font-size-xl);
+  letter-spacing: -0.01em;
+}
+
+h3 {
+  font-size: var(--font-size-lg);
+}
+
+h4 {
+  font-size: var(--font-size-md);
+}
+
+p {
+  color: var(--secondary-text);
+  font-size: var(--font-size-base);
+}
+
+/* Links */
+a {
+  color: var(--primary-orange);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+a:hover {
+  color: var(--dark-orange);
+  text-decoration: underline;
+}
+
+/* Form element resets */
+button, input, select, textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+img, svg {
+  display: block;
+  max-width: 100%;
+}
+
+/* Accessible Screen Reader Only Utility */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

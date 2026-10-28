@@ -1,0 +1,206 @@
+/* ==========================================================================
+   Neev Design System - Responsive & Mobile Adaptations
+   ========================================================================== */
+
+/* Mobile Step Navigator (Visible only on mobile/tablet) */
+.mobile-nav-container {
+  display: none;
+  background-color: #FFFFFF;
+  border-bottom: 1px solid var(--border-color);
+  padding: var(--space-2) var(--space-4);
+  position: sticky;
+  top: var(--header-height);
+  z-index: 45;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.mobile-nav-container::-webkit-scrollbar {
+  display: none;
+}
+
+.mobile-step-track {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: max-content;
+  padding: 4px 0;
+}
+
+.mobile-step-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-color);
+  background-color: var(--surface-bg);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--secondary-text);
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+
+.mobile-step-pill.active {
+  background-color: var(--light-orange);
+  border-color: var(--primary-orange);
+  color: var(--dark-orange);
+  font-weight: var(--font-weight-bold);
+}
+
+.mobile-step-pill.completed {
+  border-color: var(--success-border);
+  color: var(--success-dark);
+}
+
+.mobile-step-num {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  background-color: #FFFFFF;
+  border: 1px solid currentColor;
+}
+
+.mobile-step-pill.active .mobile-step-num {
+  background-color: var(--primary-orange);
+  color: #FFFFFF;
+  border-color: var(--primary-orange);
+}
+
+.mobile-step-pill.completed .mobile-step-num {
+  background-color: var(--success);
+  color: #FFFFFF;
+  border-color: var(--success);
+}
+
+/* ==========================================================================
+   Media Queries
+   ========================================================================== */
+
+/* Tablet and Smaller (< 1024px) */
+@media (max-width: 1023px) {
+  :root {
+    --sidebar-width: 240px;
+  }
+
+  .main-content {
+    padding: var(--space-5) var(--space-5) calc(var(--bottom-nav-height) + var(--space-6));
+  }
+}
+
+/* Mobile Screens (< 768px) */
+@media (max-width: 767px) {
+  :root {
+    --header-height: 64px;
+    --bottom-nav-height: 68px;
+  }
+
+  .desktop-sidebar {
+    display: none !important;
+  }
+
+  .mobile-nav-container {
+    display: block;
+  }
+
+  .header-inner {
+    padding: var(--space-2) var(--space-4);
+  }
+
+  .brand-name {
+    font-size: var(--font-size-lg);
+  }
+
+  .brand-subtitle {
+    display: none;
+  }
+
+  .step-indicator-badge {
+    padding: 4px 10px;
+    font-size: var(--font-size-xs);
+  }
+
+  .workspace-layout {
+    flex-direction: column;
+  }
+
+  .main-content {
+    padding: var(--space-4) var(--space-4) calc(var(--bottom-nav-height) + var(--space-8));
+  }
+
+  .section-page-header .section-title {
+    font-size: var(--font-size-xl);
+  }
+
+  .card {
+    padding: var(--space-4);
+    border-radius: var(--radius-md);
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+
+  .workflow-nav-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+  }
+
+  .workflow-nav-inner {
+    padding: var(--space-2) var(--space-4);
+    gap: var(--space-2);
+  }
+
+  .workflow-nav-inner .btn {
+    padding: 9px 14px;
+    font-size: var(--font-size-sm);
+  }
+
+  .workflow-validation-hint {
+    display: none; /* Hide hint text on tiny screens to avoid overflow */
+  }
+
+  .modal-dialog {
+    margin: var(--space-2);
+    max-height: 85vh;
+  }
+}
+
+/* Very Small Mobile (< 380px) */
+@media (max-width: 380px) {
+  .header-inner {
+    padding: var(--space-2);
+  }
+
+  .brand-logo-icon {
+    width: 34px;
+    height: 34px;
+    font-size: var(--font-size-base);
+  }
+
+  .workflow-nav-inner .btn {
+    padding: 8px 10px;
+    font-size: 0.8rem;
+  }
+}
+
+/* Hide on Mobile Utility */
+.hide-on-mobile {
+  display: inline;
+}
+
+@media (max-width: 640px) {
+  .hide-on-mobile {
+    display: none !important;
+  }
+}
+
