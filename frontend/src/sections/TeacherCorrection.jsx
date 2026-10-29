@@ -30,7 +30,12 @@ export default function TeacherCorrection({
   const currentQ = correctionData[activeQuestionIndex];
 
   // Helper to extract fields cleanly supporting both demo data and Mongoose AnswerSheet documents
-  const getAnswerText = (q) => q?.correctedText !== undefined ? q.correctedText : q?.extractedAnswer || q?.rawExtractedText || '';
+  const getAnswerText = (q) => {
+    if (q?.correctedText !== undefined && q?.correctedText !== null && q.correctedText !== '') {
+      return q.correctedText;
+    }
+    return q?.extractedAnswer || q?.rawExtractedText || '';
+  };
   const getAwardedMarks = (q) => q?.awardedMarks !== undefined ? q.awardedMarks : q?.detectedMarks !== undefined ? q.detectedMarks : 0;
   const getMaxMarks = (q) => q?.maxMarks || 5;
 
@@ -95,17 +100,19 @@ export default function TeacherCorrection({
   const validateQuestion = (q) => {
     const errors = {};
     const text = getAnswerText(q);
-    if (!text || !text.trim()) {
-      errors.extractedAnswer = 'Student answer text cannot be empty.';
-    }
     const marksNum = Number(getAwardedMarks(q));
     const max = getMaxMarks(q);
+
     if (isNaN(marksNum) || getAwardedMarks(q) === '') {
       errors.detectedMarks = 'Please enter a valid numeric mark.';
     } else if (marksNum < 0) {
       errors.detectedMarks = 'Marks cannot be negative.';
     } else if (marksNum > max) {
       errors.detectedMarks = `Marks cannot exceed the maximum of ${max}.`;
+    }
+
+    if (marksNum > 0 && (!text || !text.trim())) {
+      errors.extractedAnswer = 'Student answer text is required when awarding positive marks.';
     }
     return errors;
   };

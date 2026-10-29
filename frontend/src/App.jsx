@@ -14,7 +14,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import TeacherDashboard from './pages/TeacherDashboard';
 import { getCurrentTeacherSession, logout, subscribeToAuth } from './services/authService';
 
-// Ten Workflow Sections
+// Nine Workflow Sections
 import ClassSyllabus from './sections/ClassSyllabus';
 import UploadAnswerSheets from './sections/UploadAnswerSheets';
 import ExtractPreview from './sections/ExtractPreview';
@@ -24,7 +24,6 @@ import PrerequisiteGaps from './sections/PrerequisiteGaps';
 import LearningRoadmap from './sections/LearningRoadmap';
 import GapBasedTest from './sections/GapBasedTest';
 import ExportFollowUp from './sections/ExportFollowUp';
-import ClassGapOverview from './sections/ClassGapOverview';
 
 // Initial Demonstration Reference Data
 import {
@@ -228,10 +227,12 @@ export default function App() {
         return { canContinue: true, error: null };
       case 4: {
         const hasInvalid = extractionData.some((q) => {
-          const text = q.correctedText !== undefined ? q.correctedText : q.extractedAnswer || q.rawExtractedText || '';
+          const text = (q.correctedText !== undefined && q.correctedText !== null && q.correctedText !== '')
+            ? q.correctedText
+            : q.extractedAnswer || q.rawExtractedText || '';
           const marks = Number(q.awardedMarks !== undefined ? q.awardedMarks : q.detectedMarks);
           const max = Number(q.maxMarks || 5);
-          return !text?.trim() || isNaN(marks) || marks < 0 || marks > max;
+          return isNaN(marks) || marks < 0 || marks > max || (marks > 0 && !text?.trim());
         });
         if (hasInvalid) {
           return { canContinue: false, error: 'Please resolve errors in awarded marks before proceeding.' };
@@ -243,7 +244,6 @@ export default function App() {
       case 7:
       case 8:
       case 9:
-      case 10:
       default:
         return { canContinue: true, error: null };
     }
@@ -432,19 +432,6 @@ export default function App() {
           setCurrentStep(1);
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
-        onOpenClassPriorities={(cls) => {
-          if (cls) {
-            setSyllabusData((prev) => ({
-              ...prev,
-              classId: cls._id || '',
-              selectedClass: cls.grade,
-              selectedSubject: cls.subject || prev.selectedSubject,
-            }));
-          }
-          setViewMode('workflow');
-          setCurrentStep(10);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
         onOpenAssessment={(asm) => {
           if (asm) {
             setSyllabusData((prev) => ({
@@ -583,13 +570,6 @@ export default function App() {
             roadmapData={roadmapData}
             testQuestions={testQuestions}
             studentProfile={studentProfile}
-          />
-        );
-      case 10:
-        return (
-          <ClassGapOverview
-            syllabusData={syllabusData}
-            isDemoMode={isDemoMode}
           />
         );
       default:

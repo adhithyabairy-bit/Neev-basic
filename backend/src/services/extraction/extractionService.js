@@ -14,8 +14,10 @@ import { createWorker } from 'tesseract.js';
 export function organizeExtractedText(pages, defaultConfidence = null) {
   const items = [];
 
-  // Question marker pattern: Matches "Q1.", "Q1:", "Q1)", "Question 1:", "1.", "1)", "1:" at start of line
-  const questionRegex = /(?:^|\n)\s*(?:Q(?:uestion)?\s*(\d+[a-z]?)|(\d+)[\.\)\:\-]\s*)/gi;
+  // Question marker pattern:
+  // Matches "Q1", "Q.1", "Q 1", "Question 1", "Question No. 1", "Ans 1", "Answer 1",
+  // "1.", "1)", "1:", "1 -", "(1)", "[1]"
+  const questionRegex = /(?:^|\n)\s*(?:(?:Q(?:uestion)?|Ans(?:wer)?|Prob(?:lem)?)\s*(?:\.?\s*No\.?|#|\.)?\s*(\d+[a-z]?)|(\d+)[\.\)\:\-]\s*|\((\d+[a-z]?)\)\s*|\[(\d+[a-z]?)\]\s*)/gi;
 
   for (const { pageNumber, text } of pages) {
     const cleanText = (text || '').trim();
@@ -29,16 +31,50 @@ export function organizeExtractedText(pages, defaultConfidence = null) {
     if (matches.length > 0) {
       for (let i = 0; i < matches.length; i++) {
         const match = matches[i];
-        const rawQNum = match[1] || match[2];
-        const qNumber = rawQNum.toLowerCase().startsWith('q') ? rawQNum.toUpperCase() : `Q${rawQNum}`;
+        const rawQNum = match[1] || match[2] || match[3] || match[4];
+        const qNumber = rawQNum.toLowerCase().startsWith('q') ? rawQNum.toUpperCase() : `Q${rawQNum.toUpperCase()}`;
 
         const startIndex = match.index + match[0].length;
         const endIndex = i + 1 < matches.length ? matches[i + 1].index : cleanText.length;
-        const answerBody = cleanText.substring(startIndex, endIndex).trim();
+        let rawBody = cleanText.substring(startIndex, endIndex).trim();
+
+        // Strip leading punctuation often left over from marker (e.g. ":", ".", "-", ")")
+        rawBody = rawBody.replace(/^[\.\:\-\)\=]+\s*/, '').trim();
+
+        // Check if rawBody contains an explicit question prompt followed by an answer
+        let prompt = `Question ${rawQNum}`;
+        let answerText = rawBody;
+
+        const ansSplitRegex = /(?:\n|^)\s*(?:Ans(?:wer)?|Sol(?:ution)?)\s*[:\.\-]?\s*/i;
+        const ansMatch = rawBody.match(ansSplitRegex);
+        if (ansMatch && ansMatch.index > 0) {
+          const possiblePrompt = rawBody.substring(0, ansMatch.index).trim();
+          const possibleAnswer = rawBody.substring(ansMatch.index + ansMatch[0].length).trim();
+          if (possiblePrompt.length > 0 && possibleAnswer.length > 0) {
+            prompt = possiblePrompt;
+            answerText = possibleAnswer;
+          }
+        } else {
+          // If first line starts with a common question verb or has a question mark
+          const firstLineBreak = rawBody.indexOf('\n');
+          if (firstLineBreak > 0) {
+            const firstLine = rawBody.substring(0, firstLineBreak).trim();
+            const rest = rawBody.substring(firstLineBreak + 1).trim();
+            if (
+              firstLine.endsWith('?') ||
+              /^(?:solve|find|calculate|evaluate|simplify|what|prove|show|determine|explain|state|write)\b/i.test(firstLine)
+            ) {
+              prompt = firstLine;
+              if (rest.length > 0) {
+                answerText = rest;
+              }
+            }
+          }
+        }
 
         // Identify uncertain parts (e.g. illegible markers or question marks)
         const uncertainParts = [];
-        if (answerBody.includes('???') || answerBody.includes('[illegible]')) {
+        if (rawBody.includes('???') || rawBody.includes('[illegible]')) {
           uncertainParts.push('Illegible handwriting or uncertain symbol');
         }
         if (defaultConfidence !== null && defaultConfidence < 70) {
@@ -47,9 +83,9 @@ export function organizeExtractedText(pages, defaultConfidence = null) {
 
         items.push({
           questionNumber: qNumber,
-          prompt: `Question ${rawQNum}`,
-          rawExtractedText: answerBody || '(No answer text detected for this question)',
-          correctedText: answerBody || '',
+          prompt,
+          rawExtractedText: answerText || rawBody || '(No answer text detected for this question)',
+          correctedText: answerText || rawBody || '',
           pageNumber,
           confidence: defaultConfidence,
           maxMarks: 5,
@@ -59,8 +95,12 @@ export function organizeExtractedText(pages, defaultConfidence = null) {
         });
       }
     } else {
-      // If no question markers detected, treat page text as a page-level answer block
-      // Preserves ground truth without fabricating question numbers or text!
+      // If no question markers detected, check if there are distinct multi-paragraph blocks
+      const paragraphs = cleanText
+        .split(/\n\s*\n+/)
+        .map((p) => p.trim())
+        .filter((p) => p.length > 0);
+
       const uncertainParts = [];
       if (defaultConfidence !== null && defaultConfidence < 70) {
         uncertainParts.push(`Low OCR confidence (${defaultConfidence}%)`);
@@ -69,18 +109,36 @@ export function organizeExtractedText(pages, defaultConfidence = null) {
         uncertainParts.push('Short or partially readable text');
       }
 
-      items.push({
-        questionNumber: `Page ${pageNumber}`,
-        prompt: `Extracted content from Page ${pageNumber}`,
-        rawExtractedText: cleanText,
-        correctedText: cleanText,
-        pageNumber,
-        confidence: defaultConfidence,
-        maxMarks: 5,
-        awardedMarks: 0,
-        status: 'Needs Review',
-        uncertainParts,
-      });
+      if (paragraphs.length > 1 && paragraphs.length <= 10) {
+        paragraphs.forEach((pText, pIdx) => {
+          items.push({
+            questionNumber: `P${pageNumber}-Q${pIdx + 1}`,
+            prompt: `Page ${pageNumber} — Section ${pIdx + 1}`,
+            rawExtractedText: pText,
+            correctedText: pText,
+            pageNumber,
+            confidence: defaultConfidence,
+            maxMarks: 5,
+            awardedMarks: 0,
+            status: 'Needs Review',
+            uncertainParts: [...uncertainParts],
+          });
+        });
+      } else {
+        // Single page-level answer block
+        items.push({
+          questionNumber: `Page ${pageNumber}`,
+          prompt: `Extracted content from Page ${pageNumber}`,
+          rawExtractedText: cleanText,
+          correctedText: cleanText,
+          pageNumber,
+          confidence: defaultConfidence,
+          maxMarks: 5,
+          awardedMarks: 0,
+          status: 'Needs Review',
+          uncertainParts,
+        });
+      }
     }
   }
 

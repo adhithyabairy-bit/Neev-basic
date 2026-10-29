@@ -67,12 +67,12 @@ export default function UploadAnswerSheets({
               status: sheet.status === 'verified'
                 ? 'Verified Ground Truth'
                 : sheet.status === 'review_required'
-                ? 'Ready for Review'
-                : sheet.status === 'processing'
-                ? 'Processing OCR'
-                : sheet.status === 'processing_failed'
-                ? 'Processing Failed'
-                : 'Uploaded',
+                  ? 'Ready for Review'
+                  : sheet.status === 'processing'
+                    ? 'Processing OCR'
+                    : sheet.status === 'processing_failed'
+                      ? 'Processing Failed'
+                      : 'Uploaded',
               pages: sheet.pageCount || 1,
               studentName: sheet.studentName,
               rawSheet: sheet,
@@ -141,15 +141,17 @@ export default function UploadAnswerSheets({
         return;
       }
 
-      // If file with same name and size was already staged, allow re-upload/replacement
       filesToUpload.push(file);
     });
 
     if (errors.length > 0) {
-      setValidationError(errors.join(' '));
+      setValidationError(errors.join(' | '));
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
     }
 
     if (filesToUpload.length === 0) {
+      setValidationError('No valid files to upload.');
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
@@ -174,19 +176,17 @@ export default function UploadAnswerSheets({
     }
 
     // Real Authenticated Upload: Ensure student name exists
-    const activeStudentName = studentProfile?.name?.trim() || 'Student 1';
-    if (!studentProfile?.name?.trim() && onUpdateStudentProfile) {
-      onUpdateStudentProfile({
-        ...studentProfile,
-        name: activeStudentName,
-      });
+    const activeStudentName = studentProfile?.name?.trim() || '';
+    if (!activeStudentName) {
+      setValidationError("Please enter the student's full name before uploading.");
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
     }
 
     // Ensure Assessment is saved in MongoDB
     let currentAssessmentId = syllabusData?.assessmentId;
     if (!currentAssessmentId && typeof onSaveAssessment === 'function') {
       try {
-        setUploadNotice('Initializing assessment session in database...');
         const saved = await onSaveAssessment(syllabusData);
         currentAssessmentId = saved?._id;
       } catch (saveErr) {
@@ -197,9 +197,7 @@ export default function UploadAnswerSheets({
     }
 
     if (!currentAssessmentId) {
-      setValidationError(
-        'Please save the assessment in Step 1 before uploading real answer sheets.'
-      );
+      setValidationError('Please save the assessment in Step 1 before uploading real answer sheets.');
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
@@ -229,18 +227,18 @@ export default function UploadAnswerSheets({
           status: sheet.status === 'verified'
             ? 'Verified Ground Truth'
             : sheet.status === 'review_required'
-            ? 'Ready for Review'
-            : sheet.status === 'processing'
-            ? 'Processing OCR'
-            : sheet.status === 'processing_failed'
-            ? 'Processing Failed'
-            : 'Uploaded',
+              ? 'Ready for Review'
+              : sheet.status === 'processing'
+                ? 'Processing OCR'
+                : sheet.status === 'processing_failed'
+                  ? 'Processing Failed'
+                  : 'Uploaded',
           pages: sheet.pageCount || 1,
           studentName: sheet.studentName,
           rawSheet: sheet,
         }));
 
-        // Merge with existing, replacing any duplicates
+        // Merge with existing, replacing any duplicates by name
         const filteredOld = uploadedFiles.filter(
           (old) => !newlyMapped.some((n) => n.name === old.name)
         );
@@ -260,11 +258,11 @@ export default function UploadAnswerSheets({
       }
     } catch (err) {
       console.error('[UploadAnswerSheets] Upload failed:', err);
-      setValidationError(err.message || 'Failed to upload answer sheets to backend.');
+      setValidationError(err.message || 'Upload failed. Please check your connection and try again.');
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
-      setTimeout(() => setUploadNotice(null), 5000);
+      setTimeout(() => setUploadNotice(null), 6000);
     }
   };
 
@@ -650,17 +648,17 @@ export default function UploadAnswerSheets({
                 file.category === 'answer-sheet'
                   ? 'badge-orange'
                   : file.category === 'question-paper'
-                  ? 'badge-neutral'
-                  : 'badge-success';
+                    ? 'badge-neutral'
+                    : 'badge-success';
 
               const statusBadge =
                 file.status?.includes('Verified')
                   ? 'badge-success'
                   : file.status?.includes('Ready')
-                  ? 'badge-warning'
-                  : file.status?.includes('Failed')
-                  ? 'badge-danger'
-                  : 'badge-neutral';
+                    ? 'badge-warning'
+                    : file.status?.includes('Failed')
+                      ? 'badge-danger'
+                      : 'badge-neutral';
 
               return (
                 <div
@@ -710,7 +708,7 @@ export default function UploadAnswerSheets({
                           {file.category.replace('-', ' ')}
                         </span>
                         <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--secondary-text)' }}>
-                          {formatSize(file.size)} &bull; {file.pages} {file.pages === 1 ? 'page' : 'pages'}
+                          {formatSize(file.size)} &bull; {file.pages || 1} {(file.pages || 1) === 1 ? 'page' : 'pages'}
                         </span>
                         {file.studentName && (
                           <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--secondary-text)' }}>

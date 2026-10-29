@@ -13,7 +13,6 @@ export const WORKFLOW_STEPS = [
   { id: 7, title: 'Learning Roadmap', desc: 'Ordered remediation study plan' },
   { id: 8, title: 'Gap-Based Test', desc: 'Diagnostic retest generation' },
   { id: 9, title: 'Export', desc: 'Reports & learning deliverables' },
-  { id: 10, title: 'Class Priorities', desc: 'Class-wide learning gaps' },
 ];
 
 export const INITIAL_SYLLABUS = {

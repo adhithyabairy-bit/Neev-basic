@@ -288,7 +288,7 @@ export default function ExtractPreview({
                         {q.prompt || `Question ${q.questionNumber || idx + 1}`}
                       </p>
                       <p style={{ color: '#8C5B14', marginTop: '6px', whiteSpace: 'pre-wrap' }}>
-                        {q.rawExtractedText || q.extractedAnswer || '(No text detected)'}
+                        {q.correctedText || q.rawExtractedText || q.extractedAnswer || '(No text detected)'}
                       </p>
                       {q.uncertainParts && q.uncertainParts.length > 0 && (
                         <div style={{ marginTop: '8px' }}>
@@ -374,7 +374,7 @@ export default function ExtractPreview({
                           color: 'var(--main-text)',
                         }}
                       >
-                        {q.rawExtractedText || q.extractedAnswer || '(No text)'}
+                        {q.correctedText || q.rawExtractedText || q.extractedAnswer || '(No text)'}
                       </div>
 
                       {/* Uncertainties if any */}
