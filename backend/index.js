@@ -5,11 +5,11 @@ import mongoose from 'mongoose';
 /**
  * Vercel Express Entry Point
  * Automatically connects to MongoDB Atlas on serverless cold starts
- * and delegates requests to the Express app.
+ * and exports the Express app instance directly for Vercel.
  */
 let dbConnected = false;
 
-const handler = async (req, res) => {
+app.use(async (req, res, next) => {
   if (!dbConnected && mongoose.connection.readyState !== 1 && process.env.MONGODB_URI) {
     try {
       await connectDB();
@@ -18,12 +18,9 @@ const handler = async (req, res) => {
       console.warn('[Vercel Express] MongoDB connection notice:', err.message);
     }
   }
-  return app(req, res);
-};
+  next();
+});
 
-// Inherit Express app methods and properties
-Object.setPrototypeOf(handler, app);
-
-export default handler;
+export default app;
 
 
