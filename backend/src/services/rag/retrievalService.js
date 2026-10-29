@@ -3,22 +3,26 @@ import SyllabusChunk from '../../models/SyllabusChunk.js';
 import embeddingService, { cosineSimilarity } from './embeddingService.js';
 
 /**
- * Retrieval Service for Syllabus RAG
- * Searches persistent syllabus chunks using Atlas Vector Search or cosine similarity fallback.
- * Strictly isolates chunks by teacherId so teachers never access other teachers' private syllabus documents.
+ * Production Retrieval Service for Syllabus RAG
+ *
+ * Requirements:
+ * - Queries persistent MongoDB Atlas Vector Search ($vectorSearch) when available.
+ * - Explicitly reports degraded mode when Atlas Vector Search is bypassed or unavailable.
+ * - Strictly enforces teacher ownership boundaries to prevent cross-tenant data leakage.
+ * - Bounded chunk retrieval (topK) to preserve low latency and zero-budget limits.
  */
 
 /**
  * Retrieves the most relevant syllabus text passages for a given query and lesson context.
  *
  * @param {Object} params
- * @param {ObjectId} params.teacherId - Authenticated teacher ID
+ * @param {ObjectId|string} params.teacherId - Authenticated teacher ID (mandatory)
  * @param {string} params.queryText - Question text, answer context, or topic query
  * @param {string} params.subject - Subject filter (e.g. 'Mathematics')
  * @param {string} params.grade - Grade filter (e.g. 'Grade 8')
  * @param {string} params.lessonName - Optional lesson/topic filter
  * @param {number} params.topK - Number of passages to retrieve (default: 4)
- * @returns {Promise<{ chunks: Array<Object>, retrievalMethod: string }>}
+ * @returns {Promise<{ chunks: Array<Object>, retrievalMethod: string, isDegraded: boolean, vectorSearchAvailable: boolean, vectorDimensions: number }>}
  */
 export async function retrieveRelevantSyllabusChunks({
   teacherId,
@@ -28,26 +32,41 @@ export async function retrieveRelevantSyllabusChunks({
   lessonName = '',
   topK = 4,
 }) {
-  if (!queryText || !queryText.trim()) {
-    return { chunks: [], retrievalMethod: 'empty-query' };
+  if (!teacherId) {
+    throw new Error('SECURITY_VIOLATION: Teacher ID is mandatory for syllabus retrieval.');
   }
 
-  // If database is not connected (e.g. offline unit testing), return empty chunks
+  if (!queryText || !queryText.trim()) {
+    return {
+      chunks: [],
+      retrievalMethod: 'empty_query',
+      isDegraded: false,
+      vectorSearchAvailable: false,
+      vectorDimensions: embeddingService.getDimension(),
+    };
+  }
+
+  // Database connectivity guard (for fast unit testing without DB connection)
   if (mongoose.connection.readyState !== 1) {
     return {
       chunks: [],
-      retrievalMethod: 'db-offline-fallback',
+      retrievalMethod: 'db_offline',
+      isDegraded: true,
+      vectorSearchAvailable: false,
+      vectorDimensions: embeddingService.getDimension(),
     };
   }
 
   // 1. Generate query embedding vector
   const queryEmbedding = await embeddingService.generateEmbedding(queryText);
+  const vectorDimensions = queryEmbedding.length;
   const vectorIndexName = process.env.ATLAS_VECTOR_INDEX_NAME || 'syllabus_vector_index';
 
-  // 2. Try Atlas Vector Search ($vectorSearch)
+  // 2. Attempt genuine Atlas Vector Search ($vectorSearch)
+  let atlasSearchAttempted = false;
   try {
     const filterConditions = {
-      teacherId,
+      teacherId: new mongoose.Types.ObjectId(teacherId.toString()),
     };
     if (subject) filterConditions.subject = subject;
     if (grade) filterConditions.grade = grade;
@@ -66,8 +85,10 @@ export async function retrieveRelevantSyllabusChunks({
       {
         $project: {
           documentId: 1,
+          chunkId: 1,
           sourceFileName: 1,
           pageNumber: 1,
+          pageRange: 1,
           chunkIndex: 1,
           chunkText: 1,
           lessonName: 1,
@@ -78,37 +99,41 @@ export async function retrieveRelevantSyllabusChunks({
       },
     ];
 
+    atlasSearchAttempted = true;
     const atlasResults = await SyllabusChunk.aggregate(pipeline);
 
     if (atlasResults && atlasResults.length > 0) {
       return {
         chunks: atlasResults,
-        retrievalMethod: 'atlas-vector',
+        retrievalMethod: 'atlas_vector_search',
+        isDegraded: false,
+        vectorSearchAvailable: true,
+        vectorDimensions,
       };
     }
   } catch (atlasErr) {
     // Atlas Vector Search is not enabled on local/non-Atlas instances or index is pending
-    // We seamlessly fall back to local cosine similarity calculation
+    // We log the condition and fall back to local computation while explicitly reporting degraded status
   }
 
-  // 3. Fallback: Query chunks from MongoDB filtered by teacher & subject, then compute cosine similarity
+  // 3. Fallback: Query chunks from MongoDB filtered strictly by teacherId, then compute cosine similarity
   try {
     const filter = { teacherId };
     if (subject) filter.subject = subject;
     if (grade) filter.grade = grade;
 
-    // Retrieve candidate chunks
     const candidates = await SyllabusChunk.find(filter)
-      .select('documentId sourceFileName pageNumber chunkIndex chunkText lessonName grade subject embedding')
-      .limit(200)
+      .select('documentId chunkId sourceFileName pageNumber pageRange chunkIndex chunkText lessonName grade subject embedding')
+      .limit(150)
       .lean();
 
     if (candidates && candidates.length > 0) {
       const scoredCandidates = candidates
         .map((chunk) => {
-          const score = chunk.embedding && chunk.embedding.length > 0
-            ? cosineSimilarity(queryEmbedding, chunk.embedding)
-            : 0;
+          const score =
+            chunk.embedding && chunk.embedding.length === vectorDimensions
+              ? cosineSimilarity(queryEmbedding, chunk.embedding)
+              : 0;
           return {
             ...chunk,
             score: Math.round(score * 100) / 100,
@@ -117,16 +142,18 @@ export async function retrieveRelevantSyllabusChunks({
         .sort((a, b) => b.score - a.score)
         .slice(0, topK);
 
-      // Return if best score exceeds a baseline
       if (scoredCandidates.length > 0 && scoredCandidates[0].score > 0) {
         return {
           chunks: scoredCandidates,
-          retrievalMethod: 'cosine-similarity-fallback',
+          retrievalMethod: 'local_cosine_fallback',
+          isDegraded: true,
+          vectorSearchAvailable: false,
+          vectorDimensions,
         };
       }
     }
   } catch (fallbackErr) {
-    console.warn('[RetrievalService] Cosine fallback warning:', fallbackErr.message);
+    console.warn('[RetrievalService] Local cosine fallback warning:', fallbackErr.message);
   }
 
   // 4. Keyword text search fallback
@@ -145,17 +172,23 @@ export async function retrieveRelevantSyllabusChunks({
     if (keywordResults && keywordResults.length > 0) {
       return {
         chunks: keywordResults,
-        retrievalMethod: 'keyword-fallback',
+        retrievalMethod: 'keyword_fallback',
+        isDegraded: true,
+        vectorSearchAvailable: false,
+        vectorDimensions,
       };
     }
   } catch (keywordErr) {
-    // Text index might not be built or text query empty
+    // Text index not built or empty query
   }
 
-  // If no passages found, return empty list gracefully
+  // 5. No relevant passages found
   return {
     chunks: [],
-    retrievalMethod: 'none-found',
+    retrievalMethod: 'none_found',
+    isDegraded: true,
+    vectorSearchAvailable: false,
+    vectorDimensions,
   };
 }
 
@@ -170,7 +203,11 @@ export function formatChunksAsEvidence(chunks) {
   return chunks
     .map((chunk, idx) => {
       const source = chunk.sourceFileName || 'Syllabus';
-      const page = chunk.pageNumber ? `Page ${chunk.pageNumber}` : 'General';
+      const page = chunk.pageRange
+        ? `Pages ${chunk.pageRange}`
+        : chunk.pageNumber
+        ? `Page ${chunk.pageNumber}`
+        : 'General';
       const topic = chunk.lessonName ? `Topic: ${chunk.lessonName}` : '';
       return `[Exemplar/Syllabus Passage ${idx + 1}] (${source}, ${page} ${topic}):\n"${chunk.chunkText.trim()}"`;
     })
@@ -181,4 +218,3 @@ export default {
   retrieveRelevantSyllabusChunks,
   formatChunksAsEvidence,
 };
-

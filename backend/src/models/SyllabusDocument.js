@@ -8,6 +8,12 @@ const syllabusDocumentSchema = new mongoose.Schema(
       required: [true, 'Teacher ID is required for syllabus ownership'],
       index: true,
     },
+    classId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Class',
+      default: null,
+      index: true,
+    },
     fileName: {
       type: String,
       required: [true, 'Filename is required'],
@@ -29,9 +35,20 @@ const syllabusDocumentSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    storageProvider: {
+      type: String,
+      enum: ['firebase', 'filebase', 'r2', 's3', 'local'],
+      default: 'firebase',
+      index: true,
+    },
     storageKey: {
       type: String,
       required: true,
+      trim: true,
+    },
+    storageBucket: {
+      type: String,
+      default: '',
       trim: true,
     },
     grade: {
@@ -56,11 +73,19 @@ const syllabusDocumentSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    embeddingModel: {
+      type: String,
+      default: '',
+    },
+    embeddingDimensions: {
+      type: Number,
+      default: 768,
+    },
     status: {
       type: String,
       enum: {
-        values: ['pending', 'processing', 'completed', 'failed'],
-        message: 'Status must be one of: pending, processing, completed, failed',
+        values: ['pending', 'processing', 'completed', 'failed', 'ocr_required'],
+        message: 'Status must be one of: pending, processing, completed, failed, ocr_required',
       },
       default: 'pending',
       index: true,
@@ -84,4 +109,3 @@ const SyllabusDocument =
   mongoose.model('SyllabusDocument', syllabusDocumentSchema);
 
 export default SyllabusDocument;
-

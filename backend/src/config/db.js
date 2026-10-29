@@ -2,58 +2,71 @@ import mongoose from 'mongoose';
 
 let connectionStatus = 'disconnected';
 let lastError = null;
+let cachedPromise = null;
 
 /**
  * Connect to MongoDB Atlas via Mongoose using MONGODB_URI.
- * Does not crash the process if the connection fails or if MONGODB_URI is not set,
- * allowing the server to start, serve health status, and handle requests gracefully.
+ * Supports connection caching across warm serverless function invocations (Vercel).
+ * Does not crash the process if connection fails, allowing health checks to run.
  */
 export async function connectDB(uri = process.env.MONGODB_URI) {
   if (!uri) {
     connectionStatus = 'unconfigured';
     lastError = 'MONGODB_URI is not defined in environment';
-    console.warn('[MongoDB] Notice: MONGODB_URI is not set in backend/.env. Database features will be unavailable.');
+    console.warn('[MongoDB] Notice: MONGODB_URI is not set. Database features will be unavailable.');
     return null;
   }
 
-  // If already connected, return existing connection
+  // If already connected, return existing connection immediately
   if (mongoose.connection.readyState === 1) {
     connectionStatus = 'connected';
     return mongoose.connection;
   }
 
-  try {
-    connectionStatus = 'connecting';
-    lastError = null;
+  // If a connection attempt is already in flight, reuse the cached promise
+  if (cachedPromise && mongoose.connection.readyState === 2) {
+    return cachedPromise;
+  }
 
-    mongoose.connection.on('connected', () => {
+  connectionStatus = 'connecting';
+  lastError = null;
+
+  cachedPromise = (async () => {
+    try {
+      mongoose.connection.on('connected', () => {
+        connectionStatus = 'connected';
+        console.log('[MongoDB] Connected successfully to MongoDB Atlas.');
+      });
+
+      mongoose.connection.on('error', (err) => {
+        connectionStatus = 'error';
+        lastError = err.message;
+        console.error('[MongoDB Error]:', err.message);
+      });
+
+      mongoose.connection.on('disconnected', () => {
+        connectionStatus = 'disconnected';
+        cachedPromise = null;
+        console.warn('[MongoDB] Disconnected from MongoDB Atlas.');
+      });
+
+      const conn = await mongoose.connect(uri, {
+        serverSelectionTimeoutMS: 5000,
+        maxPoolSize: 10,
+      });
+
       connectionStatus = 'connected';
-      console.log('[MongoDB] Connected successfully to MongoDB Atlas.');
-    });
-
-    mongoose.connection.on('error', (err) => {
+      return conn;
+    } catch (err) {
       connectionStatus = 'error';
       lastError = err.message;
-      console.error('[MongoDB Error]:', err.message);
-    });
+      cachedPromise = null;
+      console.error(`[MongoDB] Connection failed: ${err.message}`);
+      return null;
+    }
+  })();
 
-    mongoose.connection.on('disconnected', () => {
-      connectionStatus = 'disconnected';
-      console.warn('[MongoDB] Disconnected from MongoDB Atlas.');
-    });
-
-    const conn = await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 5000,
-    });
-
-    connectionStatus = 'connected';
-    return conn;
-  } catch (err) {
-    connectionStatus = 'error';
-    lastError = err.message;
-    console.error(`[MongoDB] Connection failed: ${err.message}`);
-    return null;
-  }
+  return cachedPromise;
 }
 
 /**
@@ -82,6 +95,7 @@ export function getDBStatus() {
  * Disconnect from MongoDB gracefully (useful for tests and shutdowns).
  */
 export async function disconnectDB() {
+  cachedPromise = null;
   if (mongoose.connection.readyState !== 0) {
     await mongoose.disconnect();
     connectionStatus = 'disconnected';

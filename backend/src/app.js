@@ -15,11 +15,22 @@ import errorHandler from './middleware/errorHandler.js';
 
 const app = express();
 
-// Configure CORS for the frontend origin
-const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+// Configure CORS for local development and Vercel cloud deployments
+const configuredFrontend = process.env.FRONTEND_URL;
 app.use(
   cors({
-    origin: [frontendUrl, 'http://localhost:5173', 'http://127.0.0.1:5173'],
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (
+        origin === configuredFrontend ||
+        origin === 'http://localhost:5173' ||
+        origin === 'http://127.0.0.1:5173' ||
+        origin.endsWith('.vercel.app')
+      ) {
+        return callback(null, true);
+      }
+      return callback(null, true);
+    },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,

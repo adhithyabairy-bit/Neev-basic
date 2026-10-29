@@ -143,6 +143,14 @@ const evaluationSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    isMock: {
+      type: Boolean,
+      default: false,
+    },
+    evaluatorProvider: {
+      type: String,
+      default: 'grok_ai',
+    },
     evaluationVersion: {
       type: Number,
       default: 1,

@@ -157,6 +157,8 @@ export async function evaluateAnswerSheet(req, res, next) {
         isEvidenceSufficient: aiResult.isEvidenceSufficient,
         syllabusEvidence,
         modelUsed: grokService.getModelName(),
+        isMock: Boolean(aiResult.isMock),
+        evaluatorProvider: aiResult.evaluatorProvider || 'grok_ai',
         evaluationVersion: nextVersion,
       };
 

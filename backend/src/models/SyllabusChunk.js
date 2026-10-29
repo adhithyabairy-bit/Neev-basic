@@ -2,6 +2,11 @@ import mongoose from 'mongoose';
 
 const syllabusChunkSchema = new mongoose.Schema(
   {
+    chunkId: {
+      type: String,
+      unique: true,
+      index: true,
+    },
     documentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'SyllabusDocument',
@@ -12,6 +17,12 @@ const syllabusChunkSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Teacher',
       required: true,
+      index: true,
+    },
+    classId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Class',
+      default: null,
       index: true,
     },
     grade: {
@@ -42,6 +53,11 @@ const syllabusChunkSchema = new mongoose.Schema(
       default: 1,
       min: 1,
     },
+    pageRange: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     chunkIndex: {
       type: Number,
       required: true,
@@ -52,9 +68,32 @@ const syllabusChunkSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    contentHash: {
+      type: String,
+      trim: true,
+      index: true,
+    },
     embedding: {
       type: [Number],
       default: [],
+    },
+    embeddingModel: {
+      type: String,
+      default: '',
+    },
+    embeddingVersion: {
+      type: String,
+      default: 'v1',
+    },
+    embeddingDimensions: {
+      type: Number,
+      default: 768,
+    },
+    status: {
+      type: String,
+      enum: ['indexed', 'pending', 'failed'],
+      default: 'indexed',
+      index: true,
     },
   },
   {
@@ -78,4 +117,3 @@ const SyllabusChunk =
   mongoose.model('SyllabusChunk', syllabusChunkSchema);
 
 export default SyllabusChunk;
-

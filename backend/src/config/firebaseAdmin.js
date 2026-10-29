@@ -20,6 +20,11 @@ function initFirebaseAdmin() {
   const projectId = process.env.FIREBASE_PROJECT_ID;
 
   try {
+    const storageBucket =
+      process.env.FIREBASE_STORAGE_BUCKET ||
+      (projectId ? `${projectId}.firebasestorage.app` : null) ||
+      (projectId ? `${projectId}.appspot.com` : null);
+
     // Strategy 1: Explicit Service Account JSON file path
     if (credentialsPath) {
       const resolvedPath = path.isAbsolute(credentialsPath)
@@ -33,6 +38,7 @@ function initFirebaseAdmin() {
         admin.initializeApp({
           credential: admin.credential.cert(serviceAccount),
           projectId: serviceAccount.project_id || projectId,
+          storageBucket: storageBucket,
         });
 
         isConfigured = true;
@@ -50,6 +56,7 @@ function initFirebaseAdmin() {
       try {
         admin.initializeApp({
           projectId: projectId,
+          storageBucket: storageBucket,
         });
 
         isConfigured = true;

@@ -3,10 +3,10 @@
  * Evaluates student answers against rubric and retrieved syllabus evidence.
  *
  * Implements strict security, structured JSON parsing, prompt boundaries,
- * and resilient offline test fallback when credentials are not configured.
+ * and explicit provider configuration (never silently fabricating marks in production).
  */
 
-const DEFAULT_GROK_MODEL = 'grok-beta';
+const DEFAULT_GROK_MODEL = 'grok-2-latest';
 const GROK_API_ENDPOINT = 'https://api.x.ai/v1/chat/completions';
 
 /**
@@ -74,8 +74,7 @@ Evaluate the student's work and return your assessment in the required JSON form
 }
 
 /**
- * Fallback evaluator when GROK_API_KEY is not defined (for offline tests and local development).
- * Provides deterministic, rubric-aware evaluation without incurring API charges.
+ * Fallback evaluator strictly for test environments and explicit offline development.
  */
 function evaluateWithLocalHeuristic({
   studentAnswer,
@@ -97,53 +96,58 @@ function evaluateWithLocalHeuristic({
     hypothesis = 'Unanswered question or unreadable handwriting.';
     confidence = 'High (95%)';
   } else if (cleanRef && cleanStudent !== cleanRef) {
-    // Check for common algebra signs
-    if (cleanStudent.includes('-') && !cleanRef.includes('-')) {
+    if (cleanStudent.includes('-') && !cleanStudent.includes('+') && cleanRef.includes('+')) {
       suggestedMarks = Math.max(0, maxMarks - 2);
-      observedErrors = 'Transposition or negative sign reversal discrepancy observed in intermediate working steps.';
-      hypothesis = 'Possible inverse operation or signed arithmetic confusion during equation transformation.';
-      confidence = 'Moderate (85%)';
+      observedErrors = 'Sign error identified during algebraic operation or transposition step.';
+      hypothesis = 'Likely inverse operation misconception during balance step.';
     } else {
-      suggestedMarks = Math.max(1, Math.round(maxMarks * 0.5));
-      observedErrors = 'Partial working steps present, but does not fully match the reference answer.';
-      hypothesis = 'Partial conceptual understanding with possible procedural gaps.';
-      confidence = 'Moderate (80%)';
+      suggestedMarks = Math.max(1, Math.round(maxMarks / 2));
+      observedErrors = 'Partial computation discrepancy against reference solution.';
+      hypothesis = 'Multi-step execution slip; core foundation partially present.';
     }
   }
 
   return {
-    suggestedMarks: Math.min(maxMarks, Math.max(0, suggestedMarks)),
-    explanation: `Evaluation based on rubric criteria (Maximum marks: ${maxMarks}).`,
+    suggestedMarks,
+    explanation: 'Evaluated using deterministic rubric-aware heuristic (Offline/Test Mode).',
     observedErrors,
     misconceptionHypothesis: hypothesis,
-    evidenceQuotes: ['Syllabus topic guideline reference'],
+    evidenceQuotes: ['Standard curriculum syllabus criteria applied.'],
     isEvidenceSufficient: true,
     confidence,
+    isMock: true,
+    evaluatorProvider: 'heuristic_mock',
   };
 }
 
-class GrokService {
-  constructor() {
-    this.apiKey = process.env.GROK_API_KEY || null;
-    this.model = process.env.GROK_MODEL || DEFAULT_GROK_MODEL;
-    this.timeoutMs = parseInt(process.env.GROK_TIMEOUT_MS, 10) || 25000;
+export class GrokService {
+  constructor(options = {}) {
+    this.apiKey = options.apiKey || process.env.GROK_API_KEY || null;
+    this.model = options.model || process.env.GROK_MODEL || DEFAULT_GROK_MODEL;
+    this.timeoutMs = parseInt(process.env.GROK_TIMEOUT_MS, 10) || 30000;
+
+    const inTest =
+      process.env.NODE_ENV === 'test' ||
+      process.env.ALLOW_MOCK_AI === 'true' ||
+      process.env.npm_lifecycle_event === 'test' ||
+      process.execArgv.some((a) => a.includes('test')) ||
+      process.argv.some((a) => a.includes('test'));
+
+    this.allowMock = typeof options.allowMock === 'boolean' ? options.allowMock : inTest;
   }
 
   isConfigured() {
-    return Boolean(this.apiKey);
+    return Boolean(this.apiKey && this.apiKey.trim().length > 0);
   }
 
   getModelName() {
-    return this.apiKey ? this.model : 'heuristic-mock-evaluator';
+    return this.model;
   }
 
   /**
-   * Evaluates a single student answer item.
-   *
-   * @param {Object} params - Evaluation parameters
-   * @returns {Promise<Object>} Structured evaluation object
+   * Evaluates an individual student answer against rubric and evidence.
    */
-  async evaluateAnswer(params) {
+  async evaluateAnswer(params = {}) {
     const {
       questionNumber = 'Q1',
       prompt = '',
@@ -157,17 +161,22 @@ class GrokService {
 
     const parsedMaxMarks = Number(maxMarks) || 5;
 
-    // If no Grok API key is configured, use safe local heuristic (preserves tests & offline dev)
+    // Strict Production Gate: NEVER silently fabricate marks in production
     if (!this.apiKey) {
-      return evaluateWithLocalHeuristic({
-        studentAnswer,
-        maxMarks: parsedMaxMarks,
-        referenceAnswer,
-        prompt,
-      });
+      if (this.allowMock) {
+        return evaluateWithLocalHeuristic({
+          studentAnswer,
+          maxMarks: parsedMaxMarks,
+          referenceAnswer,
+          prompt,
+        });
+      }
+      throw new Error(
+        'GROK_UNCONFIGURED: Grok AI API key is not configured. Real answer evaluation requires a valid GROK_API_KEY in environment variables.'
+      );
     }
 
-    // Call live Grok API via fetch with timeout and retry
+    // Call live Grok API via fetch with timeout
     const systemPrompt = buildSystemPrompt();
     const userPrompt = buildUserPrompt({
       questionNumber,
@@ -196,7 +205,7 @@ class GrokService {
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },
           ],
-          temperature: 0.1, // Low temperature for consistent grading
+          temperature: 0.1,
           response_format: { type: 'json_object' },
         }),
         signal: controller.signal,
@@ -216,12 +225,10 @@ class GrokService {
         throw new Error('Grok API returned empty completion content.');
       }
 
-      // Parse JSON output
       let parsed;
       try {
         parsed = JSON.parse(content);
       } catch (parseErr) {
-        // Fallback: extract json block if enclosed in ```json ```
         const jsonMatch = content.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           parsed = JSON.parse(jsonMatch[0]);
@@ -230,7 +237,7 @@ class GrokService {
         }
       }
 
-      // Validate and clamp suggestedMarks within [0, parsedMaxMarks]
+      // Clamp suggestedMarks strictly within [0, parsedMaxMarks]
       let marks = Number(parsed.suggestedMarks);
       if (isNaN(marks) || marks < 0) marks = 0;
       if (marks > parsedMaxMarks) marks = parsedMaxMarks;
@@ -243,15 +250,17 @@ class GrokService {
         evidenceQuotes: Array.isArray(parsed.evidenceQuotes) ? parsed.evidenceQuotes : [],
         isEvidenceSufficient: parsed.isEvidenceSufficient !== false,
         confidence: parsed.confidence || 'Moderate',
+        isMock: false,
+        evaluatorProvider: 'grok_ai',
       };
     } catch (err) {
       clearTimeout(timeoutId);
       console.error('[GrokService] Error evaluating answer:', err.message);
-      throw err;
+      // In production, do NOT fall back to heuristic marks — throw real error
+      throw new Error(`AI Evaluation Failed: ${err.message}`);
     }
   }
 }
 
 export const grokService = new GrokService();
 export default grokService;
-

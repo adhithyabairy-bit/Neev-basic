@@ -2,6 +2,8 @@ import mongoose from 'mongoose';
 import multer from 'multer';
 import SyllabusDocument from '../models/SyllabusDocument.js';
 import { ingestSyllabusFile, deleteSyllabusDocument } from '../services/rag/ingestionService.js';
+import storageService from '../services/storage/storageService.js';
+import embeddingService from '../services/rag/embeddingService.js';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -10,7 +12,7 @@ const upload = multer({
   },
 });
 
-export const uploadSyllabusMiddleware = upload.single('file');
+export const uploadSyllabusMiddleware = upload.single('syllabusFile');
 
 /**
  * POST /api/syllabus/ingest
@@ -80,6 +82,76 @@ export async function getSyllabusDocuments(req, res, next) {
 }
 
 /**
+ * GET /api/syllabus/documents/:id/download-url
+ * Generates an authenticated short-lived presigned download URL for a syllabus document.
+ */
+export async function getSyllabusDownloadUrl(req, res, next) {
+  try {
+    const { id } = req.params;
+    const teacherId = req.teacher._id;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid document ID format: '${id}'`,
+        code: 'INVALID_ID_FORMAT',
+      });
+    }
+
+    const document = await SyllabusDocument.findOne({ _id: id, teacherId });
+    if (!document) {
+      return res.status(404).json({
+        success: false,
+        error: 'Syllabus document not found or access denied.',
+        code: 'NOT_FOUND',
+      });
+    }
+
+    const downloadUrl = await storageService.getPresignedDownloadUrl(document.storageKey, 900);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        documentId: document._id,
+        fileName: document.fileName,
+        downloadUrl,
+        expiresInSeconds: 900,
+        storageProvider: document.storageProvider || storageService.getProviderName(),
+      },
+    });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+/**
+ * GET /api/syllabus/storage-status
+ * Diagnostic endpoint reporting cloud object storage and embedding configuration.
+ */
+export async function getStorageStatus(req, res, next) {
+  try {
+    const storageVerification = await storageService.verifyConnection();
+
+    return res.status(200).json({
+      success: true,
+      storage: {
+        provider: storageService.getProviderName(),
+        isConfigured: storageService.isConfigured(),
+        verification: storageVerification,
+      },
+      embedding: {
+        provider: embeddingService.getProvider(),
+        model: embeddingService.getModelName(),
+        dimensions: embeddingService.getDimension(),
+        isMock: embeddingService.isMockProvider(),
+      },
+    });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+/**
  * DELETE /api/syllabus/documents/:id
  * Deletes a syllabus document and all its indexed chunks.
  */
@@ -119,7 +191,8 @@ export async function deleteSyllabus(req, res, next) {
 export default {
   ingestSyllabus,
   getSyllabusDocuments,
+  getSyllabusDownloadUrl,
+  getStorageStatus,
   deleteSyllabus,
   uploadSyllabusMiddleware,
 };
-
