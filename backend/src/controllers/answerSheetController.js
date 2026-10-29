@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import multer from 'multer';
 import Assessment from '../models/Assessment.js';
 import AnswerSheet from '../models/AnswerSheet.js';
+import Evaluation from '../models/Evaluation.js';
 import storageService from '../services/storage/storageService.js';
 import { validateUploadedFile } from '../utils/fileValidation.js';
 import { processDocumentExtraction } from '../services/extraction/extractionService.js';
@@ -424,6 +425,18 @@ export async function updateAnswerCorrection(req, res, next) {
       };
     }
 
+    // Invalidate any existing AI evaluation as stale since the answer/marks changed
+    if (mongoose.connection.readyState === 1) {
+      try {
+        await Evaluation.updateMany(
+          { answerSheetId: answerSheet._id, answerItemId: answerId },
+          { status: 'stale' }
+        );
+      } catch {
+        // Evaluation might not exist yet
+      }
+    }
+
     await answerSheet.save();
 
     return res.status(200).json({
@@ -583,6 +596,11 @@ export async function deleteAnswerSheet(req, res, next) {
 
     // Delete stored file
     await storageService.deleteFile(answerSheet.storageKey);
+
+    // Delete associated evaluations
+    if (mongoose.connection.readyState === 1) {
+      await Evaluation.deleteMany({ answerSheetId: id });
+    }
 
     // Delete MongoDB record
     await AnswerSheet.deleteOne({ _id: id });

@@ -61,7 +61,7 @@ export async function getAssessments(req, res, next) {
 export async function createAssessment(req, res, next) {
   try {
     const teacherId = req.teacher._id;
-    const { classId, title, subject, maximumMarks, examDate, status } = req.body;
+    const { classId, title, subject, maximumMarks, examDate, status, lessons, rubric } = req.body;
 
     // Validate classId format and ownership
     if (!classId || !mongoose.isValidObjectId(classId)) {
@@ -123,6 +123,58 @@ export async function createAssessment(req, res, next) {
       }
     }
 
+    // Validate optional rubric if provided
+    let finalRubric = [];
+    if (rubric !== undefined) {
+      if (!Array.isArray(rubric)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Rubric must be an array of question marking specifications.',
+          code: 'INVALID_RUBRIC',
+        });
+      }
+      let rubricSum = 0;
+      for (const item of rubric) {
+        if (!item.questionNumber || !item.questionNumber.trim()) {
+          return res.status(400).json({
+            success: false,
+            error: 'Each rubric item must have a valid questionNumber (e.g. Q1).',
+            code: 'INVALID_RUBRIC_ITEM',
+          });
+        }
+        const qMarks = Number(item.maximumMarks);
+        if (isNaN(qMarks) || qMarks <= 0) {
+          return res.status(400).json({
+            success: false,
+            error: `Question ${item.questionNumber} maximum marks must be a finite number greater than 0.`,
+            code: 'INVALID_QUESTION_MARKS',
+          });
+        }
+        rubricSum += qMarks;
+      }
+      if (rubricSum > parsedMarks) {
+        return res.status(400).json({
+          success: false,
+          error: `Total rubric marks (${rubricSum}) cannot exceed assessment maximumMarks (${parsedMarks}).`,
+          code: 'RUBRIC_EXCEEDS_TOTAL_MARKS',
+        });
+      }
+      finalRubric = rubric;
+    }
+
+    // Validate optional lessons if provided
+    let finalLessons = [];
+    if (lessons !== undefined) {
+      if (!Array.isArray(lessons)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Lessons must be an array of syllabus topics.',
+          code: 'INVALID_LESSONS',
+        });
+      }
+      finalLessons = lessons;
+    }
+
     const newAssessment = await Assessment.create({
       teacherId, // Derived strictly from verified identity
       classId: owningClass._id,
@@ -131,6 +183,8 @@ export async function createAssessment(req, res, next) {
       maximumMarks: parsedMarks,
       examDate: parsedDate,
       status: finalStatus,
+      lessons: finalLessons,
+      rubric: finalRubric,
     });
 
     return res.status(201).json({
@@ -208,7 +262,7 @@ export async function updateAssessment(req, res, next) {
       });
     }
 
-    const { classId, title, subject, maximumMarks, examDate, status } = req.body;
+    const { classId, title, subject, maximumMarks, examDate, status, lessons, rubric } = req.body;
 
     // If updating classId, verify new class belongs to this teacher
     if (classId !== undefined) {
@@ -291,6 +345,54 @@ export async function updateAssessment(req, res, next) {
         }
         existingAssessment.examDate = parsedDate;
       }
+    }
+
+    if (lessons !== undefined) {
+      if (!Array.isArray(lessons)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Lessons must be an array of syllabus topics.',
+          code: 'INVALID_LESSONS',
+        });
+      }
+      existingAssessment.lessons = lessons;
+    }
+
+    if (rubric !== undefined) {
+      if (!Array.isArray(rubric)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Rubric must be an array of question marking specifications.',
+          code: 'INVALID_RUBRIC',
+        });
+      }
+      let rubricSum = 0;
+      for (const item of rubric) {
+        if (!item.questionNumber || !item.questionNumber.trim()) {
+          return res.status(400).json({
+            success: false,
+            error: 'Each rubric item must have a valid questionNumber (e.g. Q1).',
+            code: 'INVALID_RUBRIC_ITEM',
+          });
+        }
+        const qMarks = Number(item.maximumMarks);
+        if (isNaN(qMarks) || qMarks <= 0) {
+          return res.status(400).json({
+            success: false,
+            error: `Question ${item.questionNumber} maximum marks must be greater than 0.`,
+            code: 'INVALID_QUESTION_MARKS',
+          });
+        }
+        rubricSum += qMarks;
+      }
+      if (rubricSum > existingAssessment.maximumMarks) {
+        return res.status(400).json({
+          success: false,
+          error: `Total rubric marks (${rubricSum}) cannot exceed assessment maximumMarks (${existingAssessment.maximumMarks}).`,
+          code: 'RUBRIC_EXCEEDS_TOTAL_MARKS',
+        });
+      }
+      existingAssessment.rubric = rubric;
     }
 
     await existingAssessment.save();

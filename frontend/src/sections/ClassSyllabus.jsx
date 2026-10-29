@@ -1,10 +1,46 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PageHeader from '../components/PageHeader';
 import FormField from '../components/FormField';
 import LessonCard from '../components/LessonCard';
 import EmptyState from '../components/EmptyState';
 import ConfirmationModal from '../components/ConfirmationModal';
-import { IconPlus, IconCheck, IconAlertTriangle, IconBookOpen } from '../components/Icons';
+import {
+  IconPlus,
+  IconCheck,
+  IconAlertTriangle,
+  IconBookOpen,
+  IconTrash,
+  IconUpload,
+  IconSparkles,
+} from '../components/Icons';
+import {
+  fetchSyllabusDocuments,
+  ingestSyllabusDocument,
+  deleteSyllabusDocument,
+} from '../services/syllabusService';
+
+const DEMO_SYLLABUS_DOCS = [
+  {
+    _id: 'demo-doc-1',
+    title: 'NCERT Grade 8 Mathematics — Linear Equations in One Variable',
+    fileName: 'NCERT-Class8-Maths-Chapter2.pdf',
+    fileSize: 2457600,
+    chunkCount: 38,
+    status: 'indexed',
+    grade: 'Grade 8',
+    subject: 'Mathematics',
+  },
+  {
+    _id: 'demo-doc-2',
+    title: 'NCERT Grade 7 Mathematics — Integers & Foundational Arithmetic',
+    fileName: 'NCERT-Class7-Maths-Integers.pdf',
+    fileSize: 1843200,
+    chunkCount: 29,
+    status: 'indexed',
+    grade: 'Grade 7',
+    subject: 'Mathematics',
+  },
+];
 
 export default function ClassSyllabus({
   syllabusData,
@@ -22,6 +58,7 @@ export default function ClassSyllabus({
     totalMarks = 50,
     examDate = new Date().toISOString().split('T')[0],
     lessons = [],
+    rubric = [],
     assessmentId = null,
   } = syllabusData;
 
@@ -29,6 +66,20 @@ export default function ClassSyllabus({
   const [editingLessonId, setEditingLessonId] = useState(null);
   const [lessonNameInput, setLessonNameInput] = useState('');
   const [lessonGradeInput, setLessonGradeInput] = useState('Grade 8');
+
+  // Rubric state
+  const [qNumInput, setQNumInput] = useState('');
+  const [qTopicInput, setQTopicInput] = useState('');
+  const [qMaxMarksInput, setQMaxMarksInput] = useState(5);
+  const [qExpectedInput, setQExpectedInput] = useState('');
+  const [qCriteriaInput, setQCriteriaInput] = useState('');
+  const [editingRubricIdx, setEditingRubricIdx] = useState(null);
+  const [rubricFormError, setRubricFormError] = useState(null);
+
+  // Syllabus documents state
+  const [syllabusDocs, setSyllabusDocs] = useState([]);
+  const [isUploadingDoc, setIsUploadingDoc] = useState(false);
+  const [docUploadError, setDocUploadError] = useState(null);
 
   // Validation & alerts
   const [formError, setFormError] = useState(null);
@@ -40,6 +91,28 @@ export default function ClassSyllabus({
   const [lessonToDelete, setLessonToDelete] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [dependentLessonsWarning, setDependentLessonsWarning] = useState(null);
+
+  // Load syllabus documents for RAG
+  useEffect(() => {
+    if (isDemoMode) {
+      setSyllabusDocs(DEMO_SYLLABUS_DOCS);
+      return;
+    }
+
+    let isMounted = true;
+    async function loadDocs() {
+      try {
+        const docs = await fetchSyllabusDocuments({ subject: selectedSubject });
+        if (isMounted) setSyllabusDocs(docs || []);
+      } catch (err) {
+        // Non-blocking error for documents
+      }
+    }
+    loadDocs();
+    return () => {
+      isMounted = false;
+    };
+  }, [isDemoMode, selectedSubject]);
 
   // Handle general field change
   const handleConfigChange = (field, value) => {
@@ -101,7 +174,6 @@ export default function ClassSyllabus({
     }
 
     if (editingLessonId) {
-      // Update existing lesson
       const updatedLessons = lessons.map((l) =>
         l.id === editingLessonId
           ? {
@@ -114,7 +186,6 @@ export default function ClassSyllabus({
       onUpdateSyllabus({ ...syllabusData, lessons: updatedLessons });
       setSuccessBanner(`Updated lesson "${trimmedName}" successfully.`);
     } else {
-      // Create new lesson
       const newLesson = {
         id: `les-${Date.now()}`,
         name: trimmedName,
@@ -134,7 +205,6 @@ export default function ClassSyllabus({
   const handlePromptDelete = (lesson) => {
     setLessonToDelete(lesson);
 
-    // Find any lessons that have this lesson as a prerequisite
     const dependents = lessons.filter(
       (l) => l.prerequisites && l.prerequisites.includes(lesson.id)
     );
@@ -158,7 +228,6 @@ export default function ClassSyllabus({
     const targetId = lessonToDelete.id;
     const targetName = lessonToDelete.name;
 
-    // Remove the target lesson AND clean up any dependent references
     const updatedLessons = lessons
       .filter((l) => l.id !== targetId)
       .map((l) => ({
@@ -168,7 +237,6 @@ export default function ClassSyllabus({
 
     onUpdateSyllabus({ ...syllabusData, lessons: updatedLessons });
 
-    // If currently editing this lesson, reset form
     if (editingLessonId === targetId) {
       resetLessonForm();
     }
@@ -180,11 +248,147 @@ export default function ClassSyllabus({
     setTimeout(() => setSuccessBanner(null), 4000);
   };
 
+  // Rubric Form Handlers
+  const handleSaveRubricItem = (e) => {
+    e.preventDefault();
+    if (!qNumInput.trim()) {
+      setRubricFormError('Question number (e.g. Q1) is required.');
+      return;
+    }
+    if (Number(qMaxMarksInput) <= 0) {
+      setRubricFormError('Maximum marks must be greater than zero.');
+      return;
+    }
+
+    const newItem = {
+      questionNumber: qNumInput.trim().toUpperCase(),
+      topic: qTopicInput.trim() || 'General Mathematics',
+      maximumMarks: Number(qMaxMarksInput),
+      expectedAnswer: qExpectedInput.trim(),
+      scoringCriteria: qCriteriaInput
+        ? qCriteriaInput.split('\n').map((s) => s.trim()).filter(Boolean)
+        : ['Full correct calculation steps: full marks', 'Minor arithmetic slip: -1 mark'],
+    };
+
+    let updatedRubric = [...rubric];
+    if (editingRubricIdx !== null) {
+      updatedRubric[editingRubricIdx] = newItem;
+    } else {
+      updatedRubric.push(newItem);
+    }
+
+    onUpdateSyllabus({ ...syllabusData, rubric: updatedRubric });
+    setQNumInput('');
+    setQTopicInput('');
+    setQMaxMarksInput(5);
+    setQExpectedInput('');
+    setQCriteriaInput('');
+    setEditingRubricIdx(null);
+    setRubricFormError(null);
+    setSuccessBanner('Question rubric updated.');
+    setTimeout(() => setSuccessBanner(null), 3000);
+  };
+
+  const handleDeleteRubricItem = (index) => {
+    const updated = rubric.filter((_, idx) => idx !== index);
+    onUpdateSyllabus({ ...syllabusData, rubric: updated });
+  };
+
+  const handlePopulateDefaultRubric = () => {
+    const defaultRubric = [
+      {
+        questionNumber: 'Q1',
+        topic: 'One-Step Linear Equations & Transposition',
+        maximumMarks: 3,
+        expectedAnswer: '3x - 7 = 14 => 3x = 14 + 7 => 3x = 21 => x = 7',
+        scoringCriteria: ['Sign reversal during transposition (+1)', 'Isolation of x (+1)', 'Final calculation (+1)'],
+      },
+      {
+        questionNumber: 'Q2',
+        topic: 'Integers & Signed Arithmetic',
+        maximumMarks: 2,
+        expectedAnswer: '-5 - (-12) + 3 = -5 + 12 + 3 = 7 + 3 = 10',
+        scoringCriteria: ['Double negative conversion -(-12) = +12 (+1)', 'Correct integer addition (+1)'],
+      },
+      {
+        questionNumber: 'Q3',
+        topic: 'Order of Operations & Parentheses',
+        maximumMarks: 4,
+        expectedAnswer: '5(y - 2) = 2y + 8 => 5y - 10 = 2y + 8 => 3y = 18 => y = 6',
+        scoringCriteria: ['Distributive multiplication over bracket (+1)', 'Grouping like terms (+1)', 'Correct simplification (+2)'],
+      },
+    ];
+    onUpdateSyllabus({ ...syllabusData, rubric: defaultRubric });
+    setSuccessBanner('Sample question rubric populated.');
+    setTimeout(() => setSuccessBanner(null), 3000);
+  };
+
+  // Syllabus Document Ingestion Handler
+  const handleUploadSyllabusDoc = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (isDemoMode) {
+      setSyllabusDocs((prev) => [
+        ...prev,
+        {
+          _id: `demo-doc-${Date.now()}`,
+          title: file.name.replace(/\.[^/.]+$/, ''),
+          fileName: file.name,
+          fileSize: file.size,
+          chunkCount: Math.ceil(file.size / 50000) || 12,
+          status: 'indexed',
+          grade: selectedClass,
+          subject: selectedSubject,
+        },
+      ]);
+      setSuccessBanner(`Ingested "${file.name}" into syllabus vector store (Demo).`);
+      e.target.value = '';
+      setTimeout(() => setSuccessBanner(null), 4000);
+      return;
+    }
+
+    setIsUploadingDoc(true);
+    setDocUploadError(null);
+    try {
+      const result = await ingestSyllabusDocument(file, {
+        title: file.name.replace(/\.[^/.]+$/, ''),
+        subject: selectedSubject,
+        grade: selectedClass,
+      });
+      setSyllabusDocs((prev) => [result.document, ...prev]);
+      setSuccessBanner(`Ingested "${file.name}" into vector store (${result.chunkCount} chunks generated).`);
+      setTimeout(() => setSuccessBanner(null), 4000);
+    } catch (err) {
+      setDocUploadError(err.message || 'Failed to ingest syllabus document.');
+    } finally {
+      setIsUploadingDoc(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleDeleteSyllabusDoc = async (docId) => {
+    if (isDemoMode) {
+      setSyllabusDocs((prev) => prev.filter((d) => d._id !== docId));
+      return;
+    }
+    try {
+      await deleteSyllabusDocument(docId);
+      setSyllabusDocs((prev) => prev.filter((d) => d._id !== docId));
+      setSuccessBanner('Syllabus document removed from vector store.');
+      setTimeout(() => setSuccessBanner(null), 3000);
+    } catch (err) {
+      setDocUploadError(err.message || 'Failed to delete syllabus document.');
+    }
+  };
+
+  const rubricTotalMarks = rubric.reduce((sum, item) => sum + (Number(item.maximumMarks) || 0), 0);
+
   return (
     <div className="section-container" aria-label="Class and Syllabus Setup Section">
       <PageHeader
         title="Class & Syllabus Setup"
-        subtitle="Configure the examination scope and map curriculum topics, including earlier foundational concepts."
+        subtitle="Configure the examination scope, map curriculum topics, define question rubrics, and maintain the syllabus RAG knowledge base."
         badgeText="Setup Phase"
       />
 
@@ -344,6 +548,279 @@ export default function ClassSyllabus({
             />
           </FormField>
         </div>
+      </section>
+
+      {/* Curriculum Textbooks & RAG Knowledge Store */}
+      <section className="card" style={{ marginBottom: 'var(--space-6)' }} aria-labelledby="curriculum-rag-heading">
+        <div className="card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+          <div>
+            <h2 id="curriculum-rag-heading" className="card-title">Curriculum Textbooks & RAG Knowledge Store</h2>
+            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--secondary-text)', marginTop: '2px' }}>
+              Persistent syllabus documents embedded for AI answer evaluation and evidence retrieval.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <label className="btn btn-outline btn-sm" style={{ cursor: isUploadingDoc ? 'not-allowed' : 'pointer' }}>
+              <IconUpload size={14} />
+              <span>{isUploadingDoc ? 'Ingesting Document...' : 'Ingest Syllabus PDF/TXT'}</span>
+              <input
+                type="file"
+                accept=".pdf,.txt,.md"
+                onChange={handleUploadSyllabusDoc}
+                disabled={isUploadingDoc}
+                style={{ display: 'none' }}
+              />
+            </label>
+          </div>
+        </div>
+
+        {docUploadError && (
+          <div className="alert alert-danger" style={{ margin: 'var(--space-3) 0' }}>
+            <IconAlertTriangle size={16} />
+            <span>{docUploadError}</span>
+          </div>
+        )}
+
+        {syllabusDocs.length === 0 ? (
+          <EmptyState
+            icon={<IconBookOpen size={28} />}
+            title="No syllabus documents ingested yet"
+            description="Upload textbook chapters or curriculum guides to enable persistent vector-grounded RAG evaluation."
+          />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: 'var(--space-3)' }}>
+            {syllabusDocs.map((doc) => (
+              <div
+                key={doc._id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '10px 14px',
+                  backgroundColor: 'var(--surface-bg)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 'var(--radius-sm)',
+                  flexWrap: 'wrap',
+                  gap: '8px',
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 'var(--font-weight-semibold)', color: 'var(--main-text)', fontSize: 'var(--font-size-sm)' }}>
+                    {doc.title || doc.fileName}
+                  </div>
+                  <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--secondary-text)', marginTop: '2px' }}>
+                    {doc.grade || selectedClass} &bull; {doc.subject || selectedSubject} &bull; {doc.chunkCount || 0} Vector Chunks &bull; {Math.round((doc.fileSize || 0) / 1024)} KB
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span className="badge badge-success" style={{ fontSize: '10px' }}>
+                    Vector Indexed
+                  </span>
+                  <button
+                    type="button"
+                    className="btn-icon-only"
+                    onClick={() => handleDeleteSyllabusDoc(doc._id)}
+                    title="Remove syllabus document from vector store"
+                  >
+                    <IconTrash size={14} color="var(--danger-dark)" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Question Rubric & Marking Scheme */}
+      <section className="card" style={{ marginBottom: 'var(--space-6)' }} aria-labelledby="rubric-heading">
+        <div className="card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+          <div>
+            <h2 id="rubric-heading" className="card-title">Question Rubric & Exemplar Solutions</h2>
+            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--secondary-text)', marginTop: '2px' }}>
+              Define expected solutions and scoring criteria for accurate AI pedagogical evaluation.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className="badge badge-neutral">
+              Rubric Total: {rubricTotalMarks} / {totalMarks} Marks
+            </span>
+            {rubric.length === 0 && (
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={handlePopulateDefaultRubric}
+              >
+                <IconSparkles size={14} />
+                <span>Sample Rubric</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {rubricFormError && (
+          <div className="alert alert-warning" style={{ margin: 'var(--space-3) 0' }}>
+            <IconAlertTriangle size={16} />
+            <span>{rubricFormError}</span>
+          </div>
+        )}
+
+        {/* Rubric Item Form */}
+        <form
+          onSubmit={handleSaveRubricItem}
+          style={{
+            backgroundColor: 'var(--surface-bg)',
+            border: '1px solid var(--border-color)',
+            borderRadius: 'var(--radius-md)',
+            padding: 'var(--space-4)',
+            marginBottom: 'var(--space-4)',
+          }}
+        >
+          <h3 style={{ fontSize: 'var(--font-size-sm)', fontWeight: 'var(--font-weight-bold)', color: 'var(--main-text)', marginBottom: '8px' }}>
+            {editingRubricIdx !== null ? 'Edit Rubric Question' : 'Add Rubric Question'}
+          </h3>
+
+          <div className="form-grid">
+            <FormField id="q-num-field" label="Question Number" required>
+              <input
+                type="text"
+                placeholder="E.g. Q1"
+                value={qNumInput}
+                onChange={(e) => setQNumInput(e.target.value)}
+                className="form-input"
+              />
+            </FormField>
+
+            <FormField id="q-topic-field" label="Topic / Concept" required>
+              <input
+                type="text"
+                placeholder="E.g. Transposition & Linear Equations"
+                value={qTopicInput}
+                onChange={(e) => setQTopicInput(e.target.value)}
+                className="form-input"
+              />
+            </FormField>
+
+            <FormField id="q-max-marks-field" label="Question Marks" required>
+              <input
+                type="number"
+                min="1"
+                max="50"
+                value={qMaxMarksInput}
+                onChange={(e) => setQMaxMarksInput(Number(e.target.value) || 1)}
+                className="form-input"
+              />
+            </FormField>
+          </div>
+
+          <div style={{ marginTop: 'var(--space-3)' }}>
+            <label style={{ fontSize: 'var(--font-size-xs)', fontWeight: 'var(--font-weight-semibold)', color: 'var(--main-text)', display: 'block', marginBottom: '4px' }}>
+              Expected Exemplar Solution (Steps):
+            </label>
+            <textarea
+              rows={2}
+              placeholder="E.g. 3x - 7 = 14 => 3x = 21 => x = 7"
+              value={qExpectedInput}
+              onChange={(e) => setQExpectedInput(e.target.value)}
+              className="form-input"
+              style={{ width: '100%', fontFamily: 'monospace' }}
+            />
+          </div>
+
+          <div style={{ marginTop: 'var(--space-3)', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+            {editingRubricIdx !== null && (
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={() => {
+                  setEditingRubricIdx(null);
+                  setQNumInput('');
+                  setQTopicInput('');
+                  setQExpectedInput('');
+                }}
+              >
+                Cancel
+              </button>
+            )}
+            <button type="submit" className="btn btn-primary btn-sm">
+              <IconPlus size={14} />
+              <span>{editingRubricIdx !== null ? 'Save Question Rubric' : 'Add Question to Rubric'}</span>
+            </button>
+          </div>
+        </form>
+
+        {/* Existing Rubric Items List */}
+        {rubric.length === 0 ? (
+          <EmptyState
+            title="No rubric items defined"
+            description="Add question criteria above or click 'Sample Rubric' to provide answer exemplars for AI scoring."
+          />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {rubric.map((item, idx) => (
+              <div
+                key={idx}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  padding: '10px 14px',
+                  backgroundColor: '#FFFFFF',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 'var(--radius-sm)',
+                  flexWrap: 'wrap',
+                  gap: '8px',
+                }}
+              >
+                <div style={{ flex: 1, minWidth: '240px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontWeight: 'var(--font-weight-bold)', color: 'var(--dark-orange)' }}>
+                      {item.questionNumber}
+                    </span>
+                    <span style={{ fontWeight: 'var(--font-weight-semibold)', color: 'var(--main-text)', fontSize: 'var(--font-size-sm)' }}>
+                      {item.topic}
+                    </span>
+                    <span className="badge badge-neutral" style={{ fontSize: '11px' }}>
+                      {item.maximumMarks} Marks
+                    </span>
+                  </div>
+                  {item.expectedAnswer && (
+                    <div style={{ fontSize: 'var(--font-size-xs)', fontFamily: 'monospace', color: 'var(--secondary-text)', marginTop: '4px' }}>
+                      {item.expectedAnswer}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    onClick={() => {
+                      setEditingRubricIdx(idx);
+                      setQNumInput(item.questionNumber);
+                      setQTopicInput(item.topic);
+                      setQMaxMarksInput(item.maximumMarks);
+                      setQExpectedInput(item.expectedAnswer || '');
+                      setQCriteriaInput((item.scoringCriteria || []).join('\n'));
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-icon-only"
+                    onClick={() => handleDeleteRubricItem(idx)}
+                    title="Delete rubric item"
+                  >
+                    <IconTrash size={14} color="var(--danger-dark)" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Lesson & Prerequisites Builder */}

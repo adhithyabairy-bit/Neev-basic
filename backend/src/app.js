@@ -7,6 +7,8 @@ import authRoutes from './routes/authRoutes.js';
 import classRoutes from './routes/class.routes.js';
 import assessmentRoutes from './routes/assessment.routes.js';
 import answerSheetRoutes from './routes/answerSheet.routes.js';
+import syllabusRoutes from './routes/syllabus.routes.js';
+import evaluationRoutes from './routes/evaluation.routes.js';
 
 // Middlewares
 import errorHandler from './middleware/errorHandler.js';
@@ -38,6 +40,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/classes', classRoutes);
 app.use('/api/assessments', assessmentRoutes);
 app.use('/api/answer-sheets', answerSheetRoutes);
+app.use('/api/syllabus', syllabusRoutes);
+app.use('/api', evaluationRoutes);
 
 // 404 Route Handler
 app.use((req, res) => {

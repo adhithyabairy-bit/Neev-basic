@@ -24,6 +24,7 @@ import PrerequisiteGaps from './sections/PrerequisiteGaps';
 import LearningRoadmap from './sections/LearningRoadmap';
 import GapBasedTest from './sections/GapBasedTest';
 import ExportFollowUp from './sections/ExportFollowUp';
+import ClassGapOverview from './sections/ClassGapOverview';
 
 // Initial Demonstration Reference Data
 import {
@@ -38,7 +39,7 @@ import {
 } from './data/initialData';
 
 import { fetchClasses } from './services/classService';
-import { createAssessment } from './services/assessmentService';
+import { createAssessment, updateAssessment } from './services/assessmentService';
 
 const EMPTY_SYLLABUS = {
   selectedClass: '',
@@ -266,17 +267,31 @@ export default function App() {
       throw new Error('Maximum marks must be greater than zero.');
     }
 
-    const created = await createAssessment({
+    const payload = {
       classId: dataToSave.classId,
       title: dataToSave.examName.trim(),
       subject: dataToSave.selectedSubject || 'Mathematics',
       maximumMarks: Number(dataToSave.totalMarks) || 50,
       examDate: dataToSave.examDate || new Date().toISOString(),
       status: 'draft',
-    });
+      lessons: dataToSave.lessons || [],
+      rubric: dataToSave.rubric || [],
+    };
 
-    setSyllabusData((prev) => ({ ...prev, assessmentId: created._id }));
-    return created;
+    let saved;
+    if (dataToSave.assessmentId && !dataToSave.assessmentId.startsWith('demo-')) {
+      saved = await updateAssessment(dataToSave.assessmentId, payload);
+    } else {
+      saved = await createAssessment(payload);
+    }
+
+    setSyllabusData((prev) => ({
+      ...prev,
+      assessmentId: saved._id,
+      lessons: saved.lessons || prev.lessons,
+      rubric: saved.rubric || prev.rubric,
+    }));
+    return saved;
   };
 
   // Navigation Handlers
@@ -418,6 +433,8 @@ export default function App() {
               selectedSubject: asm.subject,
               totalMarks: asm.maximumMarks,
               examDate: asm.examDate ? asm.examDate.split('T')[0] : prev.examDate,
+              lessons: asm.lessons || [],
+              rubric: asm.rubric || [],
             }));
           }
           setViewMode('workflow');
@@ -502,6 +519,15 @@ export default function App() {
           <AIAnswerAnalysis
             analysisData={analysisData}
             isTeacherConfirmed={isTeacherConfirmed}
+            activeAnswerSheet={activeAnswerSheet}
+            syllabusData={syllabusData}
+            isDemoMode={isDemoMode}
+            onEvaluationsUpdated={(evals) => {
+              // Update app state if evaluations generated
+              if (evals && evals.length > 0) {
+                setAnalysisData(evals);
+              }
+            }}
           />
         );
       case 6:
@@ -534,6 +560,13 @@ export default function App() {
             roadmapData={roadmapData}
             testQuestions={testQuestions}
             studentProfile={studentProfile}
+          />
+        );
+      case 10:
+        return (
+          <ClassGapOverview
+            syllabusData={syllabusData}
+            isDemoMode={isDemoMode}
           />
         );
       default:
