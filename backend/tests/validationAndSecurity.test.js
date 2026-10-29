@@ -142,6 +142,22 @@ describe('Validation, Schema Constraints & Security Tests', () => {
       assert.equal(res.body.success, false);
       assert.equal(res.body.code, 'ROUTE_NOT_FOUND');
     });
+
+    it('rejects cross-origin requests from unapproved origins with HTTP 403', async () => {
+      const res = await fetchResponse(app, 'GET', '/api/health', {
+        Origin: 'https://malicious-site.example.com',
+      });
+      assert.equal(res.status, 403);
+      assert.equal(res.body.code, 'CORS_ORIGIN_DENIED');
+    });
+
+    it('allows cross-origin requests from authorized origins (localhost:5173)', async () => {
+      const res = await fetchResponse(app, 'GET', '/api/health', {
+        Origin: 'http://localhost:5173',
+      });
+      assert.equal(res.status, 200);
+      assert.equal(res.body.success, true);
+    });
   });
 });
 

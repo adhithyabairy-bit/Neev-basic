@@ -1,96 +1,155 @@
 # Neev — AI-Powered Learning Gap Analysis Platform
 
-Neev (Foundation) is a teacher-focused educational platform that analyzes student answer sheets, detects conceptual learning gaps, traces prerequisite dependencies across grade levels, and generates personalized remediation roadmaps, diagnostic retests, and class-wide teaching priorities.
+[![Node.js CI](https://img.shields.io/badge/Node.js-v20%2B-brightgreen)](https://nodejs.org/)
+[![React](https://img.shields.io/badge/React-19-blue)](https://react.dev/)
+[![MongoDB Atlas](https://img.shields.io/badge/MongoDB-Atlas%20Vector-green)](https://www.mongodb.com/atlas)
+[![Filebase S3](https://img.shields.io/badge/Storage-Filebase%20S3-orange)](https://filebase.com/)
+[![Tests](https://img.shields.io/badge/Tests-105%20Passing-success)](backend/tests/)
 
-## Project Structure
+Neev (*Foundation*) is a teacher-first diagnostic learning platform that analyzes student answer sheets, detects conceptual learning gaps, traces prerequisite knowledge across grade levels, and generates personalized remediation roadmaps and targeted diagnostic retests.
+
+---
+
+## 🌟 Key Capabilities
+
+1. **Direct-to-Cloud Uploads (Up to 200 MB)**:
+   - High-throughput syllabus and curriculum textbook uploads directly to private cloud storage (Filebase S3 / Cloudflare R2 / Firebase Storage).
+   - Zero memory consumption on serverless and API layers via browser-generated presigned PUT URLs with real-time transfer progress.
+
+2. **Asynchronous RAG Ingestion Pipeline**:
+   - Background worker processes queued documents asynchronously.
+   - Intelligent text extraction (`pdf-parse`) with scanned image OCR detection (`ocr_required`).
+   - Bounded semantic chunking (750 chars / 120 char overlap).
+   - Gemini `text-embedding-004` (768d) vectors indexed into MongoDB Atlas Vector Search.
+   - SHA-256 content deduplication prevents re-embedding identical files.
+
+3. **Multi-Student Answer Sheet OCR & Segmentation**:
+   - Multipart file upload validation (signatures, magic bytes, MIME types).
+   - Automatic question-and-answer extraction with smart regex pattern recognition (`Q1`, `1.`, `Ans 1`, `(1)`, `A.`, etc.).
+   - Full teacher editability with raw OCR text preservation and audit history.
+
+4. **Syllabus-Grounded Pedagogical AI Evaluation**:
+   - Multi-stage evaluation powered by xAI Grok (with deterministic mock fallback in offline tests).
+   - Retrieval-Augmented Generation (RAG) grounds feedback strictly in verified curriculum chunks.
+   - Rigorous rubric compliance with score bounds validation ($0 \le \text{suggestedMarks} \le \text{maxMarks}$).
+
+5. **Diagnostic Analytics & Learning Roadmaps**:
+   - Aggregated Class Gap Overview with per-topic mastery metrics and student performance categorization.
+   - Prerequisite knowledge graphs linking detected gaps to foundational concepts.
+   - Dynamic remediation roadmaps and instant diagnostic retest generation with print/PDF export.
+
+---
+
+## 🏗️ Repository Architecture
 
 ```text
 Neev/
-├── frontend/                     # React 19 + Vite frontend application
-│   ├── package.json              # Frontend dependencies & scripts
-│   ├── vite.config.js            # Vite build configuration
-│   ├── index.html                # HTML entry point with Plus Jakarta Sans
-│   ├── public/                   # Static public assets
-│   ├── .env.example              # Public Firebase client & API URL template
-│   └── src/
-│       ├── components/           # Reusable UI components (Header, Sidebar, Forms, Icons, Auth)
-│       ├── pages/                # High-level pages (Login, Register, ForgotPassword, TeacherDashboard)
-│       ├── sections/             # 10-step teacher assessment workflow sections
-│       ├── services/             # Auth service connecting to Firebase & Express backend
-│       ├── styles/               # Modular CSS system (dashboard, auth, class-gap-overview, etc.)
-│       ├── utils/                # Utilities (filename sanitization, PDF generation)
-│       ├── data/                 # Initial syllabus & dashboard demonstration data
-│       ├── App.jsx               # View coordinator (Dashboard / Auth / 10-Step Workflow)
-│       ├── App.css               # Style bundle entry point
-│       └── main.jsx              # React application bootstrap
+├── api/
+│   └── index.js                         # Vercel serverless entry point routing /api/* to Express
 │
-├── backend/                      # Express.js Authentication Backend
-│   ├── package.json              # Express, CORS, Dotenv, Firebase Admin SDK
-│   ├── .env.example              # Backend environment configuration template
-│   └── src/
-│       ├── config/
-│       │   └── firebaseAdmin.js  # Singleton Firebase Admin SDK initialization
-│       ├── middleware/
-│       │   └── verifyFirebaseToken.js # Bearer ID token verification middleware
-│       ├── controllers/
-│       │   └── authController.js # Session, current user, and health check handlers
-│       ├── routes/
-│       │   └── authRoutes.js     # /api/auth/session, /api/auth/me, /api/health
-│       ├── app.js                # Express app configuration & middleware
-│       └── server.js             # Server startup & graceful shutdown
+├── frontend/                            # React 19 + Vite client application
+│   ├── src/
+│   │   ├── components/                  # Navigation, header, modals, form controls, icons
+│   │   ├── pages/                       # Login, Register, ForgotPassword, TeacherDashboard
+│   │   ├── sections/                    # 9-Step Teacher Assessment Workflow
+│   │   │   ├── ClassSyllabus.jsx        # Step 1: Class details & direct cloud textbook upload
+│   │   │   ├── UploadAnswerSheets.jsx   # Step 2: Answer sheets upload
+│   │   │   ├── ExtractPreview.jsx       # Step 3: OCR text extraction & segmentation
+│   │   │   ├── TeacherCorrection.jsx    # Step 4: Teacher verification & correction
+│   │   │   ├── AIAnswerAnalysis.jsx     # Step 5: Syllabus-grounded AI grading & rubrics
+│   │   │   ├── ClassGapOverview.jsx     # Step 6: Class-wide mastery & topic gap analytics
+│   │   │   ├── PrerequisiteGaps.jsx     # Step 7: Cross-grade conceptual dependency graph
+│   │   │   ├── LearningRoadmap.jsx      # Step 8: Adaptive remediation milestones
+│   │   │   └── GapBasedTest.jsx         # Step 9: Diagnostic retest & printable PDF export
+│   │   ├── services/                    # apiClient, authService, syllabusService, etc.
+│   │   ├── data/                        # initialData.js, dashboardDemoData.js (Demo Mode)
+│   │   └── utils/                       # filename sanitization, PDF generation
+│   ├── package.json
+│   └── vite.config.js
 │
-└── package.json                  # Root scripts for running frontend & backend
+├── backend/                             # Express.js REST API & Ingestion Worker
+│   ├── src/
+│   │   ├── controllers/                 # syllabus, answerSheet, assessment, class, auth
+│   │   ├── models/                      # SyllabusDocument, SyllabusChunk, IngestionJob, Teacher, etc.
+│   │   ├── routes/                      # Protected REST API routes
+│   │   ├── services/
+│   │   │   ├── storage/                 # s3StorageProvider, firebaseStorageProvider, storageService
+│   │   │   ├── rag/                     # ingestionService, chunkingService, embeddingService, retrievalService
+│   │   │   ├── ai/                      # grokService (AI grading & feedback)
+│   │   │   └── extraction/              # extractionService (OCR & segmentation)
+│   │   ├── workers/
+│   │   │   └── ingestionWorker.js       # Background queue worker for chunking & embedding
+│   │   ├── scripts/                     # ZIP ingestion, CORS config, storage test, status check
+│   │   ├── middleware/                  # verifyFirebaseToken, authenticate, errorHandler
+│   │   ├── app.js                       # Express configuration & CORS validation
+│   │   └── server.js                    # Server bootstrap & graceful shutdown
+│   ├── tests/                           # 105 automated unit and integration tests
+│   └── package.json
+│
+├── vercel.json                          # Monorepo deployment routing configuration
+├── DEPLOYMENT_AND_SETUP.md              # Authoritative deployment & configuration guide
+└── REPOSITORY_CLEANUP_REPORT.md         # Repository audit, security review & cleanup report
 ```
 
-## Running the Application
+---
 
-### 1. Install Dependencies
+## ⚡ Quick Start
 
-```bash
-# Frontend
-cd frontend
-npm install
-
-# Backend
-cd ../backend
-npm install
-```
-
-Or from the root directory:
+### 1. Installation
 ```bash
 npm run install:all
 ```
 
 ### 2. Configure Environment Variables
-
-**Frontend (`frontend/.env`):**
-```env
-VITE_FIREBASE_API_KEY=AIzaSy...
-VITE_FIREBASE_AUTH_DOMAIN=your-project-id.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=your-project-id
-VITE_FIREBASE_APP_ID=1:1234567890:web:abcdef123456
-VITE_API_BASE_URL=http://localhost:5000
-```
-
-**Backend (`backend/.env`):**
-```env
-PORT=5000
-NODE_ENV=development
-FRONTEND_URL=http://localhost:5173
-FIREBASE_PROJECT_ID=your-project-id
-GOOGLE_APPLICATION_CREDENTIALS=./serviceAccountKey.json
-```
-
-### 3. Start Development Servers
-
-Run the backend:
+Copy `.env.example` templates and insert your credentials:
 ```bash
-cd backend
-npm run dev
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+```
+*(See [DEPLOYMENT_AND_SETUP.md](DEPLOYMENT_AND_SETUP.md) for full configuration details and placeholders).*
+
+### 3. Run Automated Tests
+```bash
+# Backend unit & integration test suite (105 tests across 33 suites)
+npm --prefix backend test
+
+# Frontend production bundle build
+npm --prefix frontend run build
+
+# Frontend linting
+npm --prefix frontend run lint
 ```
 
-Run the frontend (in another terminal):
+### 4. Start Development Servers
 ```bash
-cd frontend
-npm run dev
+# Terminal 1: Backend API (http://localhost:5000)
+npm --prefix backend run dev
+
+# Terminal 2: Frontend Client (http://localhost:5173)
+npm --prefix frontend run dev
+
+# Terminal 3: Background Ingestion Worker (optional, for processing uploaded PDFs)
+npm --prefix backend run worker:ingest
 ```
+
+---
+
+## 🔒 Security Best Practices Implemented
+
+- **CORS Whitelist Protection**: `backend/src/app.js` enforces strict origin matching; unauthorized origins are rejected with HTTP 403 (`CORS_ORIGIN_DENIED`).
+- **Fail-Closed Storage Architecture**: In production mode (`NODE_ENV=production`), `storageService` strictly refuses to run if cloud storage is unconfigured or set to local disk (`PRODUCTION_STORAGE_UNCONFIGURED`).
+- **Isolated Tenant Storage**: All cloud storage keys are prefixed by `syllabus/${teacherId}/` and verified server-side via `HeadObjectCommand` before creating database records.
+- **Server-Side Secret Isolation**: All cloud credentials (`FILEBASE_SECRET_ACCESS_KEY`, `MONGODB_URI`, `GEMINI_API_KEY`, `GROK_API_KEY`) remain exclusively on the server or worker environment.
+- **Credential Rotation Notice**: Any real credentials previously checked into historical Git commits must be rotated in their respective cloud consoles.
+
+---
+
+## 📖 Documentation Index
+
+- [Complete Deployment & Setup Guide](DEPLOYMENT_AND_SETUP.md): Authoritative instructions for MongoDB Atlas, Filebase S3, Firebase Auth, Gemini embeddings, and Vercel.
+- [Repository Cleanup Report](REPOSITORY_CLEANUP_REPORT.md): Audit findings, file classification, security remediations, and cleanup documentation.
+
+---
+
+## 📄 License
+ISC License — Neev Platform.

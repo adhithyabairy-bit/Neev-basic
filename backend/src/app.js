@@ -20,16 +20,24 @@ const configuredFrontend = process.env.FRONTEND_URL;
 app.use(
   cors({
     origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
       if (!origin) return callback(null, true);
-      if (
+
+      // Check allowed origins
+      const isAllowed =
         origin === configuredFrontend ||
         origin === 'http://localhost:5173' ||
         origin === 'http://127.0.0.1:5173' ||
-        origin.endsWith('.vercel.app')
-      ) {
+        (origin.endsWith('.vercel.app') && !origin.includes('@'));
+
+      if (isAllowed) {
         return callback(null, true);
       }
-      return callback(null, true);
+
+      const corsError = new Error(`Origin '${origin}' not permitted by CORS policy.`);
+      corsError.status = 403;
+      corsError.code = 'CORS_ORIGIN_DENIED';
+      return callback(corsError, false);
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],

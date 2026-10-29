@@ -175,7 +175,7 @@ async function main() {
   }
 
   console.log(`Teacher Account: ${teacher.name || teacher.email} (${teacher._id})`);
-  console.log(`Storage Bucket : ${process.env.FILEBASE_BUCKET_NAME || 'neev-project-123456789'} (Filebase S3)`);
+  console.log(`Storage Bucket : ${process.env.FILEBASE_BUCKET_NAME || 'neev-syllabus-bucket'} (Filebase S3)`);
   console.log('='.repeat(78) + '\n');
 
   let uploadedCount = 0;
@@ -254,7 +254,7 @@ async function main() {
         originalFileName: fileName,
         storageKey: saveResult.storageKey,
         storageProvider: saveResult.storageProvider,
-        storageBucket: saveResult.bucket || 'neev-project-123456789',
+        storageBucket: saveResult.bucket || process.env.FILEBASE_BUCKET_NAME || 'neev-syllabus-bucket',
         mimeType: 'application/pdf',
         fileSize: stat.size,
         fileHash,

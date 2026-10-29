@@ -220,6 +220,43 @@ describe('Phase 5: Production-Ready RAG, Cloud Storage & Deployment Tests', () =
       assert.equal(check.connected, false);
       assert.ok(check.reason.includes('not configured'));
     });
+
+    it('storageService fails closed in production when cloud storage is unconfigured or set to local', () => {
+      const origEnv = process.env.NODE_ENV;
+      const origProvider = process.env.STORAGE_PROVIDER;
+      try {
+        process.env.NODE_ENV = 'production';
+        process.env.STORAGE_PROVIDER = 'local';
+
+        assert.throws(
+          () => {
+            storageService.createProvider();
+          },
+          {
+            message: /PRODUCTION_STORAGE_UNCONFIGURED: Local storage is prohibited in production/,
+          }
+        );
+
+        process.env.STORAGE_PROVIDER = 'filebase';
+        const origKey = process.env.FILEBASE_ACCESS_KEY_ID;
+        delete process.env.FILEBASE_ACCESS_KEY_ID;
+        delete process.env.S3_ACCESS_KEY_ID;
+
+        assert.throws(
+          () => {
+            storageService.createProvider();
+          },
+          {
+            message: /PRODUCTION_STORAGE_UNCONFIGURED/,
+          }
+        );
+
+        process.env.FILEBASE_ACCESS_KEY_ID = origKey;
+      } finally {
+        process.env.NODE_ENV = origEnv;
+        process.env.STORAGE_PROVIDER = origProvider;
+      }
+    });
   });
 
   describe('4. Persistent Chunk & Document Schema Constraints', () => {

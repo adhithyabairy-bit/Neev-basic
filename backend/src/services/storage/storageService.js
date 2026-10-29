@@ -19,19 +19,43 @@ class StorageService {
   }
 
   createProvider() {
-    const providerType = (process.env.STORAGE_PROVIDER || 'firebase').toLowerCase();
+    const isProduction = process.env.NODE_ENV === 'production';
+    const providerType = (process.env.STORAGE_PROVIDER || (isProduction ? '' : 'local')).toLowerCase();
 
+    if (isProduction && (!providerType || providerType === 'local')) {
+      throw new Error(
+        'PRODUCTION_STORAGE_UNCONFIGURED: Local storage is prohibited in production. A cloud object storage provider (filebase, r2, firebase, or s3) must be configured.'
+      );
+    }
+
+    let provider;
     switch (providerType) {
       case 'firebase':
-        return new FirebaseStorageProvider();
+        provider = new FirebaseStorageProvider();
+        break;
       case 'filebase':
       case 'r2':
       case 's3':
-        return new S3StorageProvider({ providerType });
+        provider = new S3StorageProvider({ providerType });
+        break;
       case 'local':
       default:
-        return new LocalStorageProvider();
+        if (isProduction) {
+          throw new Error(
+            `PRODUCTION_STORAGE_UNCONFIGURED: Provider '${providerType}' is not a valid cloud storage provider in production.`
+          );
+        }
+        provider = new LocalStorageProvider();
+        break;
     }
+
+    if (isProduction && typeof provider.isConfigured === 'function' && !provider.isConfigured()) {
+      throw new Error(
+        `PRODUCTION_STORAGE_UNCONFIGURED: Cloud storage provider '${providerType}' is missing required environment credentials.`
+      );
+    }
+
+    return provider;
   }
 
   /**

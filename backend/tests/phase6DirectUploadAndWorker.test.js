@@ -191,7 +191,7 @@ describe('Phase 6: Direct Cloud PDF Upload & Asynchronous Ingestion Tests', () =
         exists: true,
         size: 15 * 1024 * 1024,
         contentType: 'application/pdf',
-        bucket: 'neev-project-123456789',
+        bucket: 'neev-syllabus-bucket',
         storageProvider: 'filebase',
       });
 

@@ -96,7 +96,7 @@ async function main() {
   }
 
   // Upload to Filebase S3
-  console.log(`\nUploading directly to Filebase S3 (${process.env.FILEBASE_BUCKET_NAME || 'neev-project-123456789'})...`);
+  console.log(`\nUploading directly to Filebase S3 (${process.env.FILEBASE_BUCKET_NAME || 'neev-syllabus-bucket'})...`);
   const safeName = sanitizeFileName(path.basename(resolvedPath));
   const storageKey = storageService.generateKey(safeName, 'syllabus');
 

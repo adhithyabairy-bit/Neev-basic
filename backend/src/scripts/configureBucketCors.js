@@ -12,7 +12,7 @@ async function configureCors() {
     forcePathStyle: true,
   });
 
-  const bucket = process.env.FILEBASE_BUCKET_NAME || 'neev-project-123456789';
+  const bucket = process.env.FILEBASE_BUCKET_NAME || 'neev-syllabus-bucket';
   console.log(`Setting CORS on bucket: ${bucket}...`);
 
   try {
