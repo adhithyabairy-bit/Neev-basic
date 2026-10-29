@@ -229,7 +229,7 @@ export default function ExtractPreview({
           </div>
 
           {/* Document & Question Preview Split Layout */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 'var(--space-4)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: 'var(--space-4)' }}>
             {/* Scanned Document View Panel */}
             <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
               <div className="card-header">

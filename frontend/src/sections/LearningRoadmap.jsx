@@ -122,7 +122,7 @@ export default function LearningRoadmap({
                 <div
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))',
                     gap: 'var(--space-3)',
                     backgroundColor: 'var(--surface-bg)',
                     border: '1px solid var(--border-color)',

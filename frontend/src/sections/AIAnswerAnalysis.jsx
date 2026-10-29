@@ -533,7 +533,7 @@ export default function AIAnswerAnalysis({
                 <div
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
                     gap: 'var(--space-3)',
                     marginBottom: 'var(--space-4)',
                     fontSize: 'var(--font-size-sm)',
@@ -559,7 +559,7 @@ export default function AIAnswerAnalysis({
                 </div>
 
                 {/* Pedagogical Analysis Cards: Observed Fact vs Conceptual Hypothesis */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
                   {/* Observed Evidence */}
                   <div
                     style={{

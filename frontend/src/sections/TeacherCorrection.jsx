@@ -305,7 +305,7 @@ export default function TeacherCorrection({
       </div>
 
       {/* Editor & Scan Comparison Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: showOriginalScan ? 'repeat(auto-fit, minmax(320px, 1fr))' : '1fr', gap: 'var(--space-4)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: showOriginalScan ? 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))' : '1fr', gap: 'var(--space-4)' }}>
         {/* Active Question Editor Card */}
         <div className="card">
           <div className="card-header">

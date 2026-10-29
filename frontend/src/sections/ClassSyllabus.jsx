@@ -431,7 +431,7 @@ export default function ClassSyllabus({
             description="Add lessons using the form above to build the topic progression and trace prerequisite gaps."
           />
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: 'var(--space-3)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: 'var(--space-3)' }}>
             {lessons.map((lesson) => (
               <LessonCard
                 key={lesson.id}

@@ -460,24 +460,28 @@ export default function TeacherDashboard({
             <div
               className="badge badge-danger"
               style={{
-                padding: '12px 18px',
+                padding: '12px 16px',
                 fontSize: '13px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '8px',
                 width: '100%',
+                maxWidth: '100%',
                 borderRadius: 'var(--radius-md)',
+                wordBreak: 'break-word',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <IconAlertTriangle size={16} />
-                <span>{backendError}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: '1 1 200px' }}>
+                <IconAlertTriangle size={16} style={{ flexShrink: 0 }} />
+                <span style={{ wordBreak: 'break-word' }}>{backendError}</span>
               </div>
               <button
                 type="button"
                 className="btn btn-outline btn-sm"
                 onClick={loadLiveDashboardData}
-                style={{ backgroundColor: '#FFFFFF', color: 'var(--danger-dark)', padding: '4px 10px' }}
+                style={{ backgroundColor: '#FFFFFF', color: 'var(--danger-dark)', padding: '5px 12px', flexShrink: 0 }}
               >
                 <IconRefreshCw size={13} />
                 <span>Retry</span>

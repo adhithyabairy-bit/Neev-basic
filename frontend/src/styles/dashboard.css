@@ -467,12 +467,6 @@
   }
 }
 
-@media (max-width: 640px) {
-  .dashboard-metrics-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
 @media (max-width: 768px) {
   .dashboard-header-inner {
     padding: var(--space-2) var(--space-4);
@@ -506,6 +500,12 @@
   .classes-filter-bar select {
     flex: 1;
     min-width: 110px;
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboard-metrics-grid {
+    grid-template-columns: 1fr;
   }
 }
 
