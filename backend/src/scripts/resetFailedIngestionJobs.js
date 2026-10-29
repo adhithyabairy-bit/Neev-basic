@@ -41,3 +41,4 @@ main().catch(async (err) => {
   console.error(err);
   await disconnectDB();
 });
+
