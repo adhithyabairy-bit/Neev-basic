@@ -15,6 +15,12 @@ import errorHandler from './middleware/errorHandler.js';
 
 const app = express();
 
+// Request logging for cloud observability
+app.use((req, res, next) => {
+  console.log(`[API] ${req.method} ${req.url}`);
+  next();
+});
+
 // Configure CORS for local development and Vercel cloud deployments
 const configuredFrontend = process.env.FRONTEND_URL;
 app.use(
