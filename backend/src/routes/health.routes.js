@@ -1,5 +1,6 @@
 import express from 'express';
-import { getDBStatus } from '../config/db.js';
+import mongoose from 'mongoose';
+import { getDBStatus, connectDB } from '../config/db.js';
 import { getFirebaseAdminStatus } from '../config/firebaseAdmin.js';
 
 const router = express.Router();
@@ -8,7 +9,15 @@ const router = express.Router();
  * GET /api/health
  * Returns server, database, and auth status safely without exposing secrets.
  */
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
+  if (mongoose.connection.readyState !== 1 && process.env.MONGODB_URI) {
+    try {
+      await connectDB();
+    } catch {
+      // Safe fallback to degraded status reporting
+    }
+  }
+
   const dbStatus = getDBStatus();
   const firebaseStatus = getFirebaseAdminStatus();
 

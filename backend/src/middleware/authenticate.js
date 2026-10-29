@@ -1,6 +1,7 @@
+import mongoose from 'mongoose';
 import { admin, isFirebaseAdminConfigured } from '../config/firebaseAdmin.js';
 import Teacher from '../models/Teacher.js';
-import { getDBStatus } from '../config/db.js';
+import { getDBStatus, connectDB } from '../config/db.js';
 
 /**
  * Express middleware to authenticate teachers via Firebase ID Token
@@ -43,7 +44,15 @@ export async function authenticate(req, res, next) {
     });
   }
 
-  // Check Database connection
+  // Check Database connection - connect on-demand if disconnected or on cold start
+  if (mongoose.connection.readyState !== 1 && process.env.MONGODB_URI) {
+    try {
+      await connectDB();
+    } catch (connErr) {
+      console.warn('[Authenticate] Database connection attempt notice:', connErr.message);
+    }
+  }
+
   const dbStatus = getDBStatus();
   if (!dbStatus.connected) {
     return res.status(503).json({
