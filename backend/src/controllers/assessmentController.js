@@ -304,3 +304,42 @@ export async function updateAssessment(req, res, next) {
     return next(err);
   }
 }
+
+/**
+ * DELETE /api/assessments/:id
+ * Deletes an owned assessment by ID.
+ */
+export async function deleteAssessment(req, res, next) {
+  try {
+    const { id } = req.params;
+    const teacherId = req.teacher._id;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid assessment ID format: '${id}'`,
+        code: 'INVALID_ID_FORMAT',
+      });
+    }
+
+    const assessment = await Assessment.findOneAndDelete({ _id: id, teacherId });
+    if (!assessment) {
+      return res.status(404).json({
+        success: false,
+        error: 'Assessment not found or you do not have permission to delete it.',
+        code: 'NOT_FOUND',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Assessment deleted successfully.',
+      data: {
+        deletedAssessmentId: id,
+        deletedAssessmentTitle: assessment.title,
+      },
+    });
+  } catch (err) {
+    return next(err);
+  }
+}

@@ -14,7 +14,7 @@ export default function ExtractPreview({
   extractionData = [],
   onUpdateExtraction,
   uploadedFiles = [],
-  studentProfile = { name: 'Aarav Sharma' },
+  studentProfile = { name: '' },
 }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [filterMode, setFilterMode] = useState('all'); // 'all' | 'needs-review'
@@ -64,9 +64,11 @@ export default function ExtractPreview({
       <div className="alert alert-notice" role="status">
         <IconInfo size={18} style={{ flexShrink: 0 }} />
         <div>
-          <strong>AI OCR Simulation: </strong>
+          <strong>AI OCR Pipeline: </strong>
           <span>
-            Displaying high-fidelity demonstration extraction data. In production, Neev uses computer vision to parse bounding boxes and handwriting.
+            {extractionData.length > 0
+              ? 'Displaying high-fidelity demonstration extraction data. In production, Neev uses computer vision to parse bounding boxes and handwriting.'
+              : 'Handwritten OCR parsing runs in Phase 3. Staged student answer sheets are ready for automated handwriting extraction.'}
           </span>
         </div>
       </div>
@@ -76,6 +78,12 @@ export default function ExtractPreview({
           icon={<IconEye size={28} />}
           title="No uploaded documents to extract"
           description="Go back to Step 2 and stage at least one student answer sheet to preview extracted questions and answers."
+        />
+      ) : extractionData.length === 0 ? (
+        <EmptyState
+          icon={<IconEye size={28} />}
+          title="No OCR extraction performed yet"
+          description="Student answer sheets have been staged. In Phase 3, computer vision and handwriting OCR will transcribe questions and bounding boxes."
         />
       ) : (
         <>
@@ -109,7 +117,7 @@ export default function ExtractPreview({
                 Needs Review ({totalNeedsReview})
               </button>
               <span className="badge badge-orange" style={{ alignSelf: 'center' }}>
-                Student: {studentProfile?.name || 'Aarav Sharma'}
+                Student: {studentProfile?.name || 'Unassigned'}
               </span>
             </div>
 
@@ -160,7 +168,9 @@ export default function ExtractPreview({
                 <h2 className="card-title" style={{ fontSize: 'var(--font-size-md)' }}>
                   Scanned Document View &bull; Page {currentPage}
                 </h2>
-                <span className="badge badge-neutral">Aarav Sharma - Student Copy</span>
+                <span className="badge badge-neutral">
+                  {studentProfile?.name ? `${studentProfile.name} - Student Copy` : 'Student Document View'}
+                </span>
               </div>
 
               {/* Styled Mock Scan Sheet */}

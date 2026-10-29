@@ -14,11 +14,11 @@ export default function ExportFollowUp({
   gapsData = [],
   roadmapData = [],
   testQuestions = [],
-  studentProfile = { name: 'Aarav Sharma', rollNumber: '2025-08-42', section: 'Section A' },
+  studentProfile = { name: '', rollNumber: '', section: 'Section A' },
 }) {
   const [downloadSuccess, setDownloadSuccess] = useState(null);
 
-  const activeStudentName = studentProfile?.name?.trim() || 'student';
+  const activeStudentName = studentProfile?.name?.trim() || 'Student';
 
   // Client-side real PDF blob document exporter
   const triggerDownload = (filename, blobOrContent, mimeType = 'application/pdf') => {

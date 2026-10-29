@@ -76,7 +76,12 @@ export default function AIAnswerAnalysis({
 
       {/* Analysis Cards List */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-        {filteredItems.length === 0 ? (
+        {analysisData.length === 0 ? (
+          <EmptyState
+            title="No AI analysis available yet"
+            description="Student answer sheets have not yet been evaluated by the AI pedagogical analysis pipeline (Phase 3). Once answer sheets are processed, conceptual misconceptions and observed errors will be detailed here."
+          />
+        ) : filteredItems.length === 0 ? (
           <EmptyState
             title="No questions match this filter"
             description="Toggle the filter button above to view all questions."

@@ -9,14 +9,20 @@ import { IconPlus, IconCheck, IconAlertTriangle, IconBookOpen } from '../compone
 export default function ClassSyllabus({
   syllabusData,
   onUpdateSyllabus,
+  classes = [],
+  isDemoMode = false,
+  onSaveAssessment,
 }) {
   const {
     selectedClass = 'Grade 8',
+    classId = '',
     selectedSubject = 'Mathematics',
     examName = '',
     academicTerm = '',
     totalMarks = 50,
+    examDate = new Date().toISOString().split('T')[0],
     lessons = [],
+    assessmentId = null,
   } = syllabusData;
 
   // Local form state for Add/Edit lesson
@@ -27,6 +33,8 @@ export default function ClassSyllabus({
   // Validation & alerts
   const [formError, setFormError] = useState(null);
   const [successBanner, setSuccessBanner] = useState(null);
+  const [saveError, setSaveError] = useState(null);
+  const [isSavingAssessment, setIsSavingAssessment] = useState(false);
 
   // Deletion modal state
   const [lessonToDelete, setLessonToDelete] = useState(null);
@@ -39,6 +47,21 @@ export default function ClassSyllabus({
       ...syllabusData,
       [field]: value,
     });
+  };
+
+  const handleManualSave = async () => {
+    if (!onSaveAssessment) return;
+    setIsSavingAssessment(true);
+    setSaveError(null);
+    try {
+      const saved = await onSaveAssessment(syllabusData);
+      setSuccessBanner(`Assessment '${saved.title}' saved successfully in MongoDB Atlas.`);
+      setTimeout(() => setSuccessBanner(null), 5000);
+    } catch (err) {
+      setSaveError(err.message || 'Failed to save assessment.');
+    } finally {
+      setIsSavingAssessment(false);
+    }
   };
 
   // Reset lesson form
@@ -174,23 +197,87 @@ export default function ClassSyllabus({
 
       {/* Examination Configuration Card */}
       <section className="card" style={{ marginBottom: 'var(--space-6)' }} aria-labelledby="exam-details-heading">
-        <div className="card-header">
-          <h2 id="exam-details-heading" className="card-title">Examination Details</h2>
+        <div className="card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+          <div>
+            <h2 id="exam-details-heading" className="card-title">Examination Details</h2>
+            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--secondary-text)', marginTop: '2px' }}>
+              Configure scope, maximum marks, and link to one of your classroom sections.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {assessmentId && (
+              <span className="badge badge-success" style={{ fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <IconCheck size={12} />
+                <span>Persisted in MongoDB</span>
+              </span>
+            )}
+            {!isDemoMode && onSaveAssessment && (
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={handleManualSave}
+                disabled={isSavingAssessment}
+                title="Persist this assessment in your MongoDB database"
+              >
+                <IconCheck size={14} />
+                <span>{isSavingAssessment ? 'Saving...' : assessmentId ? 'Update Assessment' : 'Save Assessment'}</span>
+              </button>
+            )}
+          </div>
         </div>
+
+        {saveError && (
+          <div className="alert alert-warning" style={{ margin: 'var(--space-4) var(--space-4) 0' }} role="alert">
+            <IconAlertTriangle size={16} />
+            <span>{saveError}</span>
+          </div>
+        )}
 
         <div className="form-grid">
           <FormField id="class-select" label="Class / Grade" required>
-            <select
-              value={selectedClass}
-              onChange={(e) => handleConfigChange('selectedClass', e.target.value)}
-              className="form-select"
-            >
-              <option value="Grade 6">Grade 6</option>
-              <option value="Grade 7">Grade 7</option>
-              <option value="Grade 8">Grade 8</option>
-              <option value="Grade 9">Grade 9</option>
-              <option value="Grade 10">Grade 10</option>
-            </select>
+            {!isDemoMode && classes.length > 0 ? (
+              <select
+                value={classId || ''}
+                onChange={(e) => {
+                  const targetClass = classes.find((c) => c._id === e.target.value);
+                  if (targetClass) {
+                    onUpdateSyllabus({
+                      ...syllabusData,
+                      classId: targetClass._id,
+                      selectedClass: targetClass.grade,
+                      selectedSubject: targetClass.subject || selectedSubject,
+                    });
+                  } else {
+                    onUpdateSyllabus({
+                      ...syllabusData,
+                      classId: '',
+                      selectedClass: e.target.value,
+                    });
+                  }
+                }}
+                className="form-select"
+              >
+                <option value="">Select a class...</option>
+                {classes.map((cls) => (
+                  <option key={cls._id} value={cls._id}>
+                    {cls.name} ({cls.grade} &bull; {cls.subject})
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <select
+                value={selectedClass}
+                onChange={(e) => handleConfigChange('selectedClass', e.target.value)}
+                className="form-select"
+              >
+                <option value="Grade 6">Grade 6</option>
+                <option value="Grade 7">Grade 7</option>
+                <option value="Grade 8">Grade 8</option>
+                <option value="Grade 9">Grade 9</option>
+                <option value="Grade 10">Grade 10</option>
+              </select>
+            )}
           </FormField>
 
           <FormField id="subject-select" label="Subject" required>
@@ -244,6 +331,15 @@ export default function ClassSyllabus({
               max="500"
               value={totalMarks}
               onChange={(e) => handleConfigChange('totalMarks', Number(e.target.value) || 0)}
+              className="form-input"
+            />
+          </FormField>
+
+          <FormField id="exam-date-input" label="Examination Date">
+            <input
+              type="date"
+              value={examDate}
+              onChange={(e) => handleConfigChange('examDate', e.target.value)}
               className="form-input"
             />
           </FormField>

@@ -37,6 +37,18 @@ export function errorHandler(err, req, res, next) {
     message = `A record with this ${field} already exists.`;
   }
 
+  // Handle MongoDB Connection & Network Failures
+  if (
+    err.name === 'MongooseServerSelectionError' ||
+    err.name === 'MongoNetworkError' ||
+    err.name === 'MongoTimeoutError' ||
+    err.name === 'MongoServerClosedError'
+  ) {
+    statusCode = 503;
+    code = 'DATABASE_UNAVAILABLE';
+    message = 'Service Unavailable: Database connection failed or timed out.';
+  }
+
   // Handle JSON Syntax Errors in request body
   if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
     statusCode = 400;

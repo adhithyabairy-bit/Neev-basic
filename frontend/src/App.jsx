@@ -37,14 +37,115 @@ import {
   INITIAL_GAP_TEST,
 } from './data/initialData';
 
+import { fetchClasses } from './services/classService';
+import { createAssessment } from './services/assessmentService';
+
+const EMPTY_SYLLABUS = {
+  selectedClass: '',
+  classId: '',
+  selectedSubject: 'Mathematics',
+  examName: '',
+  academicTerm: '',
+  totalMarks: 50,
+  examDate: new Date().toISOString().split('T')[0],
+  lessons: [],
+  assessmentId: null,
+};
+
+const EMPTY_STUDENT_PROFILE = {
+  name: '',
+  rollNumber: '',
+  section: 'Section A',
+};
+
 export default function App() {
   // Authentication & Session State
   const [currentUser, setCurrentUser] = useState(() => getCurrentTeacherSession());
   const [authView, setAuthView] = useState('login'); // 'login' | 'register' | 'forgot-password'
   const [isDemoMode, setIsDemoMode] = useState(false);
+  const [teacherClasses, setTeacherClasses] = useState([]);
 
   // Application View: 'dashboard' | 'workflow'
   const [viewMode, setViewMode] = useState('dashboard');
+
+  // Navigation & Step Tracking State
+  const [currentStep, setCurrentStep] = useState(1);
+  const [completedSteps, setCompletedSteps] = useState([1]);
+
+  // Section 1 State: Syllabus & Exam (Clean empty state for real teacher, demo fixture in demo mode)
+  const [syllabusData, setSyllabusData] = useState(() =>
+    isDemoMode ? INITIAL_SYLLABUS : EMPTY_SYLLABUS
+  );
+
+  // Student Profile State (Shared across workflow)
+  const [studentProfile, setStudentProfile] = useState(() =>
+    isDemoMode ? { name: 'Aarav Sharma', rollNumber: '2025-08-42', section: 'Section A' } : EMPTY_STUDENT_PROFILE
+  );
+
+  // Section 2 State: Uploaded Documents
+  const [uploadedFiles, setUploadedFiles] = useState(() =>
+    isDemoMode ? INITIAL_UPLOADED_FILES : []
+  );
+
+  // Section 3 & 4 State: Extracted OCR & Corrections
+  const [extractionData, setExtractionData] = useState(() =>
+    isDemoMode ? INITIAL_EXTRACTION_DATA : []
+  );
+  const [isTeacherConfirmed, setIsTeacherConfirmed] = useState(() =>
+    isDemoMode ? true : false
+  );
+
+  // Section 5 State: AI Analysis Findings
+  const [analysisData, setAnalysisData] = useState(() =>
+    isDemoMode ? INITIAL_AI_ANALYSIS : []
+  );
+
+  // Section 6 State: Prerequisite Gaps
+  const [gapsData, setGapsData] = useState(() =>
+    isDemoMode ? INITIAL_PREREQUISITE_GAPS : []
+  );
+
+  // Section 7 State: Learning Remediation Roadmap
+  const [roadmapData, setRoadmapData] = useState(() =>
+    isDemoMode ? INITIAL_ROADMAP : []
+  );
+
+  // Section 8 State: Diagnostic Gap Test Questions
+  const [testQuestions, setTestQuestions] = useState(() =>
+    isDemoMode ? INITIAL_GAP_TEST : []
+  );
+
+  // Helper to load full demonstration dataset
+  const loadDemoData = () => {
+    setIsDemoMode(true);
+    setSyllabusData(INITIAL_SYLLABUS);
+    setStudentProfile({
+      name: 'Aarav Sharma',
+      rollNumber: '2025-08-42',
+      section: 'Section A',
+    });
+    setUploadedFiles(INITIAL_UPLOADED_FILES);
+    setExtractionData(INITIAL_EXTRACTION_DATA);
+    setIsTeacherConfirmed(true);
+    setAnalysisData(INITIAL_AI_ANALYSIS);
+    setGapsData(INITIAL_PREREQUISITE_GAPS);
+    setRoadmapData(INITIAL_ROADMAP);
+    setTestQuestions(INITIAL_GAP_TEST);
+  };
+
+  // Helper to reset workflow states to empty for real authenticated teacher
+  const resetToEmptyWorkflow = () => {
+    setIsDemoMode(false);
+    setSyllabusData(EMPTY_SYLLABUS);
+    setStudentProfile(EMPTY_STUDENT_PROFILE);
+    setUploadedFiles([]);
+    setExtractionData([]);
+    setIsTeacherConfirmed(false);
+    setAnalysisData([]);
+    setGapsData([]);
+    setRoadmapData([]);
+    setTestQuestions([]);
+  };
 
   // Sync auth state
   useEffect(() => {
@@ -53,43 +154,32 @@ export default function App() {
       if (user) {
         setIsDemoMode(false);
         setViewMode('dashboard');
+        resetToEmptyWorkflow();
       }
     });
     return unsubscribe;
   }, []);
 
-  // Navigation & Step Tracking State
-  const [currentStep, setCurrentStep] = useState(1);
-  const [completedSteps, setCompletedSteps] = useState([1]);
-
-  // Section 1 State: Syllabus & Exam
-  const [syllabusData, setSyllabusData] = useState(INITIAL_SYLLABUS);
-
-  // Student Profile State (Shared across workflow)
-  const [studentProfile, setStudentProfile] = useState({
-    name: 'Aarav Sharma',
-    rollNumber: '2025-08-42',
-    section: 'Section A',
-  });
-
-  // Section 2 State: Uploaded Documents
-  const [uploadedFiles, setUploadedFiles] = useState(INITIAL_UPLOADED_FILES);
-
-  // Section 3 & 4 State: Extracted OCR & Corrections
-  const [extractionData, setExtractionData] = useState(INITIAL_EXTRACTION_DATA);
-  const [isTeacherConfirmed, setIsTeacherConfirmed] = useState(true);
-
-  // Section 5 State: AI Analysis Findings
-  const [analysisData, setAnalysisData] = useState(INITIAL_AI_ANALYSIS);
-
-  // Section 6 State: Prerequisite Gaps
-  const [gapsData, setGapsData] = useState(INITIAL_PREREQUISITE_GAPS);
-
-  // Section 7 State: Learning Remediation Roadmap
-  const [roadmapData, setRoadmapData] = useState(INITIAL_ROADMAP);
-
-  // Section 8 State: Diagnostic Gap Test Questions
-  const [testQuestions, setTestQuestions] = useState(INITIAL_GAP_TEST);
+  // Fetch teacher's real classes when authenticated
+  useEffect(() => {
+    if (currentUser && !isDemoMode) {
+      fetchClasses()
+        .then((data) => {
+          setTeacherClasses(data || []);
+          if (data && data.length > 0 && !syllabusData.classId) {
+            setSyllabusData((prev) => ({
+              ...prev,
+              classId: data[0]._id,
+              selectedClass: data[0].grade,
+              selectedSubject: data[0].subject || prev.selectedSubject,
+            }));
+          }
+        })
+        .catch((err) => {
+          console.error('[App] Failed to fetch teacher classes:', err);
+        });
+    }
+  }, [currentUser, isDemoMode]);
 
   // Handle beginning a new student assessment cleanly without state collision
   const handleStartNewStudentAssessment = () => {
@@ -97,7 +187,7 @@ export default function App() {
       "Begin a new student assessment? This will clear the student's name and staged answer sheets while preserving syllabus configuration."
     );
     if (confirmed) {
-      setStudentProfile({ name: '', rollNumber: '', section: 'Section A' });
+      setStudentProfile(EMPTY_STUDENT_PROFILE);
       setUploadedFiles(uploadedFiles.filter((f) => f.category !== 'answer-sheet'));
       setCurrentStep(2);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -108,13 +198,13 @@ export default function App() {
   const getValidationState = () => {
     switch (currentStep) {
       case 1: {
-        const hasExamName = syllabusData.examName && syllabusData.examName.trim().length > 0;
+        const hasClass = isDemoMode || Boolean(syllabusData.classId || syllabusData.selectedClass);
+        const hasExamName = Boolean(syllabusData.examName && syllabusData.examName.trim().length > 0);
         const hasMarks = Number(syllabusData.totalMarks) > 0;
-        const hasLessons = syllabusData.lessons && syllabusData.lessons.length > 0;
 
+        if (!hasClass) return { canContinue: false, error: 'Please select a Class for this assessment.' };
         if (!hasExamName) return { canContinue: false, error: 'Please enter an Examination Name.' };
         if (!hasMarks) return { canContinue: false, error: 'Total marks must be greater than zero.' };
-        if (!hasLessons) return { canContinue: false, error: 'Add at least one lesson or topic to the syllabus.' };
         return { canContinue: true, error: null };
       }
       case 2: {
@@ -153,9 +243,55 @@ export default function App() {
 
   const validation = getValidationState();
 
+  // Explicit Assessment Creation Action linked to backend service
+  const handleSaveAssessment = async (currentData) => {
+    const dataToSave = currentData || syllabusData;
+    if (isDemoMode) {
+      return { _id: 'demo-asm-' + Date.now(), ...dataToSave };
+    }
+    if (!dataToSave.classId) {
+      throw new Error('Please select a valid class owned by your account.');
+    }
+    if (!dataToSave.examName || !dataToSave.examName.trim()) {
+      throw new Error('Assessment title is required.');
+    }
+    if (Number(dataToSave.totalMarks) <= 0) {
+      throw new Error('Maximum marks must be greater than zero.');
+    }
+
+    const created = await createAssessment({
+      classId: dataToSave.classId,
+      title: dataToSave.examName.trim(),
+      subject: dataToSave.selectedSubject || 'Mathematics',
+      maximumMarks: Number(dataToSave.totalMarks) || 50,
+      examDate: dataToSave.examDate || new Date().toISOString(),
+      status: 'draft',
+    });
+
+    setSyllabusData((prev) => ({ ...prev, assessmentId: created._id }));
+    return created;
+  };
+
   // Navigation Handlers
-  const handleNext = () => {
+  const handleNext = async () => {
     if (!validation.canContinue) return;
+
+    // Auto-create assessment if moving past Step 1 and not yet persisted
+    if (currentStep === 1 && !isDemoMode && !syllabusData.assessmentId && syllabusData.classId) {
+      try {
+        const created = await createAssessment({
+          classId: syllabusData.classId,
+          title: syllabusData.examName.trim(),
+          subject: syllabusData.selectedSubject || 'Mathematics',
+          maximumMarks: Number(syllabusData.totalMarks) || 50,
+          examDate: syllabusData.examDate || new Date().toISOString(),
+          status: 'draft',
+        });
+        setSyllabusData((prev) => ({ ...prev, assessmentId: created._id }));
+      } catch (err) {
+        console.error('[App] Auto-create assessment failed:', err);
+      }
+    }
 
     if (!completedSteps.includes(currentStep)) {
       setCompletedSteps((prev) => [...prev, currentStep]);
@@ -189,8 +325,7 @@ export default function App() {
     setIsDemoMode(false);
     setViewMode('dashboard');
     setAuthView('login');
-    setStudentProfile({ name: '', rollNumber: '', section: 'Section A' });
-    setUploadedFiles([]);
+    resetToEmptyWorkflow();
     setCurrentStep(1);
   };
 
@@ -201,12 +336,12 @@ export default function App() {
         <Register
           onAuthSuccess={(user) => {
             setCurrentUser(user);
-            setIsDemoMode(false);
+            resetToEmptyWorkflow();
             setViewMode('dashboard');
           }}
           onNavigateLogin={() => setAuthView('login')}
           onBypassToDemo={() => {
-            setIsDemoMode(true);
+            loadDemoData();
             setViewMode('dashboard');
           }}
         />
@@ -218,7 +353,7 @@ export default function App() {
         <ForgotPassword
           onNavigateLogin={() => setAuthView('login')}
           onBypassToDemo={() => {
-            setIsDemoMode(true);
+            loadDemoData();
             setViewMode('dashboard');
           }}
         />
@@ -229,13 +364,13 @@ export default function App() {
       <Login
         onAuthSuccess={(user) => {
           setCurrentUser(user);
-          setIsDemoMode(false);
+          resetToEmptyWorkflow();
           setViewMode('dashboard');
         }}
         onNavigateRegister={() => setAuthView('register')}
         onNavigateForgotPassword={() => setAuthView('forgot-password')}
         onBypassToDemo={() => {
-          setIsDemoMode(true);
+          loadDemoData();
           setViewMode('dashboard');
         }}
       />
@@ -257,14 +392,27 @@ export default function App() {
           if (cls) {
             setSyllabusData((prev) => ({
               ...prev,
+              classId: cls._id || '',
               selectedClass: cls.grade,
+              selectedSubject: cls.subject || prev.selectedSubject,
             }));
           }
           setViewMode('workflow');
           setCurrentStep(10);
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
-        onOpenAssessment={() => {
+        onOpenAssessment={(asm) => {
+          if (asm) {
+            setSyllabusData((prev) => ({
+              ...prev,
+              assessmentId: asm._id,
+              classId: asm.classId?._id || asm.classId,
+              examName: asm.title,
+              selectedSubject: asm.subject,
+              totalMarks: asm.maximumMarks,
+              examDate: asm.examDate ? asm.examDate.split('T')[0] : prev.examDate,
+            }));
+          }
           setViewMode('workflow');
           setCurrentStep(1);
           window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -282,6 +430,9 @@ export default function App() {
           <ClassSyllabus
             syllabusData={syllabusData}
             onUpdateSyllabus={setSyllabusData}
+            classes={teacherClasses}
+            isDemoMode={isDemoMode}
+            onSaveAssessment={handleSaveAssessment}
           />
         );
       case 2:

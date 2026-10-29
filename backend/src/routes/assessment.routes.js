@@ -5,6 +5,7 @@ import {
   createAssessment,
   getAssessmentById,
   updateAssessment,
+  deleteAssessment,
 } from '../controllers/assessmentController.js';
 
 const router = express.Router();
@@ -18,6 +19,7 @@ router.route('/')
 
 router.route('/:id')
   .get(getAssessmentById)
-  .put(updateAssessment);
+  .put(updateAssessment)
+  .delete(deleteAssessment);
 
 export default router;

@@ -35,8 +35,21 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('[Neev Backend Unhandled Rejection]:', reason);
 });
 
-// Attempt MongoDB Atlas connection on bootstrap (non-blocking for diagnostics)
-connectDB();
+// MongoDB Atlas Connection Startup Policy
+if (NODE_ENV === 'production') {
+  if (!process.env.MONGODB_URI) {
+    console.error('[FATAL STARTUP ERROR] MONGODB_URI is strictly required in production mode. Refusing to start.');
+    process.exit(1);
+  }
+  const conn = await connectDB();
+  if (!conn) {
+    console.error('[FATAL STARTUP ERROR] Could not establish connection to MongoDB Atlas in production. Process exiting.');
+    process.exit(1);
+  }
+} else {
+  // Non-blocking connection in development/test so health checks and diagnostics can still report status
+  connectDB();
+}
 
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log('====================================================');

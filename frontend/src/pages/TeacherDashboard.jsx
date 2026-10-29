@@ -502,42 +502,52 @@ export default function TeacherDashboard({
                 </div>
               </div>
 
-              {/* Card 2: Teachings Completed */}
+              {/* Card 2: Assessments / Teachings */}
               <div className="dash-metric-card">
                 <div className="dash-metric-top">
-                  <span className="dash-metric-label">Teachings Completed</span>
+                  <span className="dash-metric-label">
+                    {isDemoMode ? 'Teachings Completed' : 'Assessments Recorded'}
+                  </span>
                   <IconCheckCircle size={18} color="var(--success)" />
                 </div>
                 <div className="dash-metric-number" style={{ color: 'var(--success)' }}>
-                  {totalCompletedTeachings}
+                  {isDemoMode ? totalCompletedTeachings : realAssessments.length}
                 </div>
                 <div className="dash-metric-subtext">
-                  {isDemoMode ? `Foundational topics revised • ${totalCompletedPriorities} this session` : 'Completed assessment cycles'}
+                  {isDemoMode ? `Foundational topics revised • ${totalCompletedPriorities} this session` : 'Persisted in MongoDB database'}
                 </div>
               </div>
 
-              {/* Card 3: Teachings Pending */}
+              {/* Card 3: Teaching Priorities */}
               <div className="dash-metric-card">
                 <div className="dash-metric-top">
-                  <span className="dash-metric-label">Teachings Pending</span>
+                  <span className="dash-metric-label">
+                    {isDemoMode ? 'Teachings Pending' : 'Teaching Priorities'}
+                  </span>
                   <IconBookOpen size={18} color="var(--warning-dark)" />
                 </div>
                 <div className="dash-metric-number" style={{ color: 'var(--warning-dark)' }}>
-                  {totalPendingTeachings}
+                  {isDemoMode ? totalPendingTeachings : '—'}
                 </div>
-                <div className="dash-metric-subtext">Class revision topics requiring teacher session</div>
+                <div className="dash-metric-subtext">
+                  {isDemoMode ? 'Class revision topics requiring teacher session' : 'Requires student answer sheet evaluation (Phase 3)'}
+                </div>
               </div>
 
-              {/* Card 4: Pending Tests */}
+              {/* Card 4: Diagnostic Retests */}
               <div className="dash-metric-card">
                 <div className="dash-metric-top">
-                  <span className="dash-metric-label">Pending Tests</span>
+                  <span className="dash-metric-label">
+                    {isDemoMode ? 'Pending Tests' : 'Diagnostic Retests'}
+                  </span>
                   <IconRefreshCw size={18} color="var(--primary-orange)" />
                 </div>
                 <div className="dash-metric-number" style={{ color: 'var(--primary-orange)' }}>
-                  {totalPendingTests}
+                  {isDemoMode ? totalPendingTests : '—'}
                 </div>
-                <div className="dash-metric-subtext">Diagnostic tests scheduled across classes</div>
+                <div className="dash-metric-subtext">
+                  {isDemoMode ? 'Diagnostic tests scheduled across classes' : 'Scheduled after gap diagnosis (Phase 3)'}
+                </div>
               </div>
             </div>
           </section>
@@ -566,20 +576,8 @@ export default function TeacherDashboard({
                 </p>
               </div>
 
-              {/* Actions & Filters Bar */}
+              {/* Filters Bar */}
               <div className="classes-filter-bar">
-                {/* Add Class Button for Authenticated Teachers */}
-                {!isDemoMode && (
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    onClick={() => setIsAddClassModalOpen(true)}
-                    title="Add a new class to your database"
-                  >
-                    <IconPlus size={14} />
-                    <span>Add Class</span>
-                  </button>
-                )}
 
                 <select
                   value={gradeFilter}
@@ -637,20 +635,8 @@ export default function TeacherDashboard({
                 title={rawClasses.length === 0 ? 'No classes created yet' : 'No classes match current filters'}
                 description={
                   rawClasses.length === 0
-                    ? "You haven't added any classes to your teacher account yet. Click below to add your first class and begin learning gap analysis."
+                    ? "No classes are registered for this teacher account."
                     : 'Adjust your grade or subject filter to view individual class records.'
-                }
-                action={
-                  !isDemoMode && rawClasses.length === 0 ? (
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      onClick={() => setIsAddClassModalOpen(true)}
-                    >
-                      <IconPlus size={16} />
-                      <span>Add Your First Class</span>
-                    </button>
-                  ) : null
                 }
               />
             ) : (
@@ -717,20 +703,6 @@ export default function TeacherDashboard({
                               {classAssessments.length} Assessment(s)
                             </span>
                           )}
-
-                          {/* Delete Class Button for Authenticated Teachers */}
-                          {!isDemoMode && (
-                            <button
-                              type="button"
-                              className="btn-icon-only danger"
-                              onClick={(e) => handleDeleteClass(cls._id, cls.name, e)}
-                              title={`Delete ${cls.name}`}
-                              aria-label={`Delete ${cls.name}`}
-                              style={{ width: '28px', height: '28px', padding: 0 }}
-                            >
-                              <IconTrash size={14} />
-                            </button>
-                          )}
                         </div>
                       </div>
 
@@ -750,8 +722,8 @@ export default function TeacherDashboard({
                         </div>
                       </div>
 
-                      {/* Gaps Preview (if present) */}
-                      {cls.topGaps && cls.topGaps.length > 0 && (
+                      {/* Gaps Preview (if present in demo mode) */}
+                      {isDemoMode && cls.topGaps && cls.topGaps.length > 0 && (
                         <div className="class-card-gaps">
                           <span style={{ fontWeight: 'var(--font-weight-bold)', color: 'var(--main-text)' }}>
                             Identified Gaps:
@@ -760,28 +732,46 @@ export default function TeacherDashboard({
                         </div>
                       )}
 
-                      {/* Below Identified Gaps: Mark Retest as Conducted Button */}
+                      {!isDemoMode && (
+                        <div className="class-card-gaps" style={{ fontSize: '11px', color: 'var(--secondary-text)' }}>
+                          <span>Phase 3 Diagnostics: Awaiting answer sheet processing</span>
+                        </div>
+                      )}
+
+                      {/* Below Identified Gaps: Retest Action */}
                       <div className="class-card-retest-action" style={{ paddingTop: 'var(--space-2)', borderTop: '1px solid var(--divider-color)', marginTop: '2px' }}>
-                        <button
-                          type="button"
-                          className={`btn btn-sm ${isRetestDone ? 'btn-retest-completed' : 'btn-retest-pending'}`}
-                          onClick={(e) => handleMarkRetestConducted(classKey, e)}
-                          disabled={isRetestDone}
-                          title={isRetestDone ? 'Test Completed' : 'Record diagnostic retest as conducted'}
-                          style={{ width: '100%', justifyContent: 'center', cursor: isRetestDone ? 'default' : 'pointer' }}
-                        >
-                          {isRetestDone ? (
-                            <>
-                              <IconCheckCircle size={14} color="var(--success)" />
-                              <span>Test Completed</span>
-                            </>
-                          ) : (
-                            <>
-                              <IconCheck size={14} />
-                              <span>Mark Retest as Conducted</span>
-                            </>
-                          )}
-                        </button>
+                        {isDemoMode ? (
+                          <button
+                            type="button"
+                            className={`btn btn-sm ${isRetestDone ? 'btn-retest-completed' : 'btn-retest-pending'}`}
+                            onClick={(e) => handleMarkRetestConducted(classKey, e)}
+                            disabled={isRetestDone}
+                            title={isRetestDone ? 'Test Completed' : 'Record diagnostic retest as conducted'}
+                            style={{ width: '100%', justifyContent: 'center', cursor: isRetestDone ? 'default' : 'pointer' }}
+                          >
+                            {isRetestDone ? (
+                              <>
+                                <IconCheckCircle size={14} color="var(--success)" />
+                                <span>Test Completed</span>
+                              </>
+                            ) : (
+                              <>
+                                <IconCheck size={14} />
+                                <span>Mark Retest as Conducted</span>
+                              </>
+                            )}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline"
+                            disabled
+                            title="Diagnostic retests will be generated automatically once student answer sheets are processed in Phase 3."
+                            style={{ width: '100%', justifyContent: 'center', opacity: 0.65, cursor: 'not-allowed', fontSize: '11px' }}
+                          >
+                            <span>Retest Scheduled in Phase 3</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   );

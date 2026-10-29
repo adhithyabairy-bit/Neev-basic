@@ -40,3 +40,11 @@ export async function updateAssessment(id, assessmentData) {
   const response = await apiClient.put(`/api/assessments/${id}`, assessmentData);
   return response.data;
 }
+
+/**
+ * Delete an owned assessment by ID.
+ */
+export async function deleteAssessment(id) {
+  const response = await apiClient.delete(`/api/assessments/${id}`);
+  return response.data;
+}
