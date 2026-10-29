@@ -1,5 +1,5 @@
 import React from 'react';
-import { IconCheck } from './Icons';
+import { IconLock } from './Icons';
 
 export default function Sidebar({
   steps = [],
@@ -14,22 +14,34 @@ export default function Sidebar({
         {steps.map((step) => {
           const isActive = step.id === currentStep;
           const isCompleted = completedSteps.includes(step.id);
+          const isUnlocked =
+            step.id === 1 ||
+            isCompleted ||
+            completedSteps.includes(step.id - 1) ||
+            isActive;
+          const isLocked = !isUnlocked;
 
           return (
             <li
               key={step.id}
-              className={`sidebar-step-item ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
+              className={`sidebar-step-item ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''}`}
             >
               <button
                 type="button"
                 className="sidebar-step-button"
-                onClick={() => onStepSelect && onStepSelect(step.id)}
+                onClick={() => {
+                  if (!isLocked && onStepSelect) {
+                    onStepSelect(step.id);
+                  }
+                }}
+                disabled={isLocked}
+                aria-disabled={isLocked}
                 aria-current={isActive ? 'step' : undefined}
-                aria-label={`Step ${step.id}: ${step.title}. ${isCompleted ? 'Completed' : ''}`}
+                aria-label={`Step ${step.id}: ${step.title}. ${isCompleted ? 'Completed' : isLocked ? 'Locked' : ''}`}
               >
                 <div className="step-badge" aria-hidden="true">
-                  {isCompleted && !isActive ? (
-                    <IconCheck size={14} color="#FFFFFF" />
+                  {isLocked ? (
+                    <IconLock size={12} color="#9CA3AF" />
                   ) : (
                     <span>{step.id}</span>
                   )}

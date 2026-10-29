@@ -70,7 +70,7 @@ export default function App() {
 
   // Navigation & Step Tracking State
   const [currentStep, setCurrentStep] = useState(1);
-  const [completedSteps, setCompletedSteps] = useState([1]);
+  const [completedSteps, setCompletedSteps] = useState(() => (isDemoMode ? [1, 2, 3, 4, 5, 6, 7, 8] : []));
 
   // Section 1 State: Syllabus & Exam (Clean empty state for real teacher, demo fixture in demo mode)
   const [syllabusData, setSyllabusData] = useState(() =>
@@ -133,6 +133,7 @@ export default function App() {
     setGapsData(INITIAL_PREREQUISITE_GAPS);
     setRoadmapData(INITIAL_ROADMAP);
     setTestQuestions(INITIAL_GAP_TEST);
+    setCompletedSteps([1, 2, 3, 4, 5, 6, 7, 8]);
   };
 
   // Helper to reset workflow states to empty for real authenticated teacher
@@ -148,6 +149,8 @@ export default function App() {
     setGapsData([]);
     setRoadmapData([]);
     setTestQuestions([]);
+    setCompletedSteps([]);
+    setCurrentStep(1);
   };
 
   // Sync auth state
@@ -359,8 +362,17 @@ export default function App() {
   };
 
   const handleStepSelect = (stepId) => {
-    setCurrentStep(stepId);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // A step is accessible if it is Step 1, or already completed, or the immediate next step after a completed step, or the current step
+    const isUnlocked =
+      stepId === 1 ||
+      completedSteps.includes(stepId) ||
+      completedSteps.includes(stepId - 1) ||
+      stepId === currentStep;
+
+    if (isUnlocked) {
+      setCurrentStep(stepId);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   const handleLogout = () => {
@@ -428,8 +440,10 @@ export default function App() {
         currentUser={currentUser}
         onLogout={handleLogout}
         onStartNewAssessment={() => {
+          resetToEmptyWorkflow();
           setViewMode('workflow');
           setCurrentStep(1);
+          setCompletedSteps([]);
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onOpenAssessment={(asm) => {
@@ -445,6 +459,7 @@ export default function App() {
               lessons: asm.lessons || [],
               rubric: asm.rubric || [],
             }));
+            setCompletedSteps([1]);
           }
           setViewMode('workflow');
           setCurrentStep(1);

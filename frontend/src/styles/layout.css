@@ -243,10 +243,44 @@
   background-color: var(--success);
   border-color: var(--success);
   color: #FFFFFF;
+  font-weight: var(--font-weight-bold);
+}
+
+.sidebar-step-item.completed.active .step-badge {
+  background-color: var(--success);
+  border-color: var(--success);
+  color: #FFFFFF;
+  box-shadow: 0 0 0 3px rgba(242, 107, 29, 0.35);
 }
 
 .sidebar-step-item.completed:not(.active) .step-title {
   color: var(--main-text);
+}
+
+/* Sidebar Locked State */
+.sidebar-step-item.locked .sidebar-step-button {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.sidebar-step-item.locked .sidebar-step-button:hover {
+  background-color: transparent;
+  border-color: transparent;
+}
+
+.sidebar-step-item.locked .step-badge {
+  background-color: #F3F4F6;
+  border-color: #D1D5DB;
+  color: #9CA3AF;
+  box-shadow: none;
+}
+
+.sidebar-step-item.locked .step-title {
+  color: #9CA3AF;
+}
+
+.sidebar-step-item.locked .step-desc {
+  color: #C0C7D2;
 }
 
 /* ==========================================================================
