@@ -116,6 +116,70 @@ export class FirebaseStorageProvider {
   }
 
   /**
+   * Generates a short-lived presigned upload URL for direct browser PUT upload.
+   * Default expiration: 15 minutes (900 seconds).
+   */
+  async getPresignedUploadUrl({ storageKey, mimeType = 'application/pdf', expiresIn = 900 }) {
+    if (!storageKey) {
+      throw new Error('A storageKey is required to generate a presigned upload URL.');
+    }
+
+    const bucket = this.getBucket();
+    const file = bucket.file(storageKey);
+
+    const [uploadUrl] = await file.getSignedUrl({
+      version: 'v4',
+      action: 'write',
+      expires: Date.now() + expiresIn * 1000,
+      contentType: mimeType,
+    });
+
+    return {
+      uploadUrl,
+      storageKey,
+      storageProvider: this.name,
+      bucket: this.bucketName,
+      method: 'PUT',
+      expiresInSeconds: expiresIn,
+      headers: {
+        'Content-Type': mimeType,
+      },
+    };
+  }
+
+  /**
+   * Verifies an uploaded cloud object via GCS file metadata.
+   */
+  async verifyUploadedObject(storageKey) {
+    if (!storageKey) {
+      throw new Error('A storageKey is required to verify an uploaded cloud object.');
+    }
+
+    const bucket = this.getBucket();
+    const file = bucket.file(storageKey);
+
+    const [exists] = await file.exists();
+    if (!exists) {
+      return {
+        exists: false,
+        error: 'OBJECT_NOT_FOUND',
+        reason: `Object not found at key '${storageKey}' in Firebase bucket '${this.bucketName}'`,
+      };
+    }
+
+    const [metadata] = await file.getMetadata();
+    return {
+      exists: true,
+      size: parseInt(metadata.size, 10) || 0,
+      contentType: metadata.contentType || 'application/octet-stream',
+      etag: metadata.etag || '',
+      lastModified: metadata.updated || new Date(),
+      storageProvider: this.name,
+      bucket: this.bucketName,
+    };
+  }
+
+  /**
    * Deletes a file safely from Firebase Storage.
    */
   async deleteFile(storageKey) {

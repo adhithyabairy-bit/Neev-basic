@@ -4,6 +4,7 @@ import {
   GetObjectCommand,
   DeleteObjectCommand,
   HeadBucketCommand,
+  HeadObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import crypto from 'crypto';
@@ -151,13 +152,13 @@ export class R2StorageProvider {
    * Generates a short-lived presigned upload URL for direct client-to-R2 upload.
    * Default expiration: 15 minutes (900 seconds).
    */
-  async getPresignedUploadUrl({ originalName, mimeType = 'application/pdf', prefix = '', expiresIn = 900 }) {
+  async getPresignedUploadUrl({ storageKey, originalName, mimeType = 'application/pdf', prefix = '', expiresIn = 900 }) {
     const client = this.ensureClient();
-    const storageKey = this.generateKey(originalName, prefix);
+    const finalKey = storageKey || this.generateKey(originalName, prefix);
 
     const command = new PutObjectCommand({
       Bucket: this.bucketName,
-      Key: storageKey,
+      Key: finalKey,
       ContentType: mimeType,
     });
 
@@ -165,10 +166,54 @@ export class R2StorageProvider {
 
     return {
       uploadUrl,
-      storageKey,
+      storageKey: finalKey,
       storageProvider: this.name,
-      expiresIn,
+      bucket: this.bucketName,
+      method: 'PUT',
+      expiresInSeconds: expiresIn,
+      headers: {
+        'Content-Type': mimeType,
+      },
     };
+  }
+
+  /**
+   * Verifies an uploaded cloud object via HeadObjectCommand.
+   */
+  async verifyUploadedObject(storageKey) {
+    if (!storageKey) {
+      throw new Error('A storageKey is required to verify an uploaded cloud object.');
+    }
+
+    const client = this.ensureClient();
+
+    try {
+      const command = new HeadObjectCommand({
+        Bucket: this.bucketName,
+        Key: storageKey,
+      });
+
+      const response = await client.send(command);
+
+      return {
+        exists: true,
+        size: response.ContentLength || 0,
+        contentType: response.ContentType || 'application/octet-stream',
+        etag: response.ETag || '',
+        lastModified: response.LastModified || new Date(),
+        storageProvider: this.name,
+        bucket: this.bucketName,
+      };
+    } catch (err) {
+      if (err.name === 'NotFound' || err.$metadata?.httpStatusCode === 404 || err.name === 'NoSuchKey') {
+        return {
+          exists: false,
+          error: 'OBJECT_NOT_FOUND',
+          reason: `Object not found at key '${storageKey}' in bucket '${this.bucketName}'`,
+        };
+      }
+      throw err;
+    }
   }
 
   /**

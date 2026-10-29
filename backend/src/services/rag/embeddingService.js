@@ -15,7 +15,7 @@ import crypto from 'crypto';
 
 export const PROVIDER_DEFAULTS = {
   gemini: {
-    model: 'text-embedding-004',
+    model: 'gemini-embedding-001',
     dimension: 768,
   },
   openai: {
@@ -199,59 +199,72 @@ export class EmbeddingService {
    * Google Gemini Batch Embedding API Integration
    */
   async _generateGeminiEmbeddings(texts) {
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:batchEmbedContents?key=${this.apiKey}`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
+    const executeBatch = async (modelName) => {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:batchEmbedContents?key=${this.apiKey}`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
 
-    try {
-      const requests = texts.map((t) => ({
-        model: `models/${this.model}`,
-        content: { parts: [{ text: (t || '').slice(0, 8000) }] },
-        outputDimensionality: this.dimension,
-      }));
+      try {
+        const requests = texts.map((t) => ({
+          model: `models/${modelName}`,
+          content: { parts: [{ text: (t || '').slice(0, 8000) }] },
+          outputDimensionality: this.dimension,
+        }));
 
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requests }),
-        signal: controller.signal,
-      });
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ requests }),
+          signal: controller.signal,
+        });
 
-      clearTimeout(timeoutId);
+        clearTimeout(timeoutId);
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const status = response.status;
-        const msg = errorData.error?.message || response.statusText;
-
-        if (status === 429) {
-          throw new Error(`Gemini Embedding rate limit or quota exceeded (HTTP 429): ${msg}`);
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          const status = response.status;
+          const msg = errorData.error?.message || response.statusText;
+          const err = new Error(`Gemini Embedding API returned HTTP ${status}: ${msg}`);
+          err.status = status;
+          throw err;
         }
-        throw new Error(`Gemini Embedding API returned HTTP ${status}: ${msg}`);
-      }
 
-      const data = await response.json();
-      const embeddingsList = data.embeddings || [];
+        const data = await response.json();
+        const embeddingsList = data.embeddings || [];
 
-      if (embeddingsList.length !== texts.length) {
-        throw new Error(
-          `Gemini Embedding returned ${embeddingsList.length} embeddings for ${texts.length} inputs.`
-        );
-      }
-
-      return embeddingsList.map((item) => {
-        const vector = item.values || [];
-        if (vector.length !== this.dimension && this.dimension) {
+        if (embeddingsList.length !== texts.length) {
           throw new Error(
-            `Gemini vector dimension mismatch: Expected ${this.dimension}d but received ${vector.length}d.`
+            `Gemini Embedding returned ${embeddingsList.length} embeddings for ${texts.length} inputs.`
           );
         }
-        return vector;
-      });
-    } catch (err) {
-      clearTimeout(timeoutId);
-      // NEVER silently fall back to mock embeddings in production
-      throw new Error(`[Gemini Embedding Error] ${err.message}`);
+
+        return embeddingsList.map((item) => {
+          const vector = item.values || [];
+          if (vector.length !== this.dimension && this.dimension) {
+            throw new Error(
+              `Gemini vector dimension mismatch: Expected ${this.dimension}d but received ${vector.length}d.`
+            );
+          }
+          return vector;
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    };
+
+    try {
+      return await executeBatch(this.model);
+    } catch (primaryErr) {
+      // If primary model returned 404 (e.g. text-embedding-004 not enabled for key), fallback to gemini-embedding-001
+      if (primaryErr.status === 404 && this.model !== 'gemini-embedding-001') {
+        console.warn(`[EmbeddingService] Model '${this.model}' returned 404. Falling back to 'gemini-embedding-001'...`);
+        try {
+          return await executeBatch('gemini-embedding-001');
+        } catch (fallbackErr) {
+          throw new Error(`[Gemini Embedding Error] ${fallbackErr.message}`);
+        }
+      }
+      throw new Error(`[Gemini Embedding Error] ${primaryErr.message}`);
     }
   }
 

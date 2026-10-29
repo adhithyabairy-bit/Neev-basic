@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import SyllabusDocument from '../../models/SyllabusDocument.js';
 import SyllabusChunk from '../../models/SyllabusChunk.js';
+import IngestionJob from '../../models/IngestionJob.js';
 import { extractPdfText } from '../extraction/extractionService.js';
 import { chunkDocumentPages } from './chunkingService.js';
 import embeddingService from './embeddingService.js';
@@ -230,8 +231,9 @@ export async function deleteSyllabusDocument(documentId, teacherId) {
     await storageService.deleteFile(document.storageKey);
   }
 
-  // Cascade delete chunks
+  // Cascade delete chunks and jobs
   await SyllabusChunk.deleteMany({ documentId: document._id });
+  await IngestionJob.deleteMany({ documentId: document._id });
 
   // Delete document record
   await SyllabusDocument.deleteOne({ _id: document._id });

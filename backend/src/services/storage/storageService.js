@@ -87,12 +87,31 @@ class StorageService {
     return `/api/storage/file/${encodeURIComponent(storageKey)}`;
   }
 
+  generateKey(originalName, prefix = '') {
+    if (typeof this.provider?.generateKey === 'function') {
+      return this.provider.generateKey(originalName, prefix);
+    }
+    const cleanName = String(originalName || 'document.pdf').replace(/[^a-zA-Z0-9._-]/g, '_');
+    const timestamp = Date.now();
+    const key = `${timestamp}-${cleanName}`;
+    return prefix ? `${prefix}/${key}` : key;
+  }
+
   async getPresignedUploadUrl(params) {
     if (typeof this.provider.getPresignedUploadUrl === 'function') {
       return this.provider.getPresignedUploadUrl(params);
     }
     throw new Error(
-      `Presigned upload URLs are only supported by cloud object storage providers (firebase, filebase, r2, s3).`
+      `Presigned upload URLs are only supported by cloud object storage providers (firebase, filebase, r2, s3). Provider '${this.getProviderName()}' does not implement getPresignedUploadUrl.`
+    );
+  }
+
+  async verifyUploadedObject(storageKey) {
+    if (typeof this.provider.verifyUploadedObject === 'function') {
+      return this.provider.verifyUploadedObject(storageKey);
+    }
+    throw new Error(
+      `Object verification is only supported by cloud object storage providers (firebase, filebase, r2, s3). Provider '${this.getProviderName()}' does not implement verifyUploadedObject.`
     );
   }
 }

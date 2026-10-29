@@ -1,4 +1,12 @@
+import dns from 'dns';
 import mongoose from 'mongoose';
+
+// Configure reliable DNS servers to avoid queryTxt ESERVFAIL on Windows and ISP resolvers
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
+} catch {
+  // Safe fallback to system defaults
+}
 
 let connectionStatus = 'disconnected';
 let lastError = null;

@@ -26,8 +26,8 @@ const syllabusDocumentSchema = new mongoose.Schema(
     },
     fileHash: {
       type: String,
-      required: [true, 'File SHA-256 content hash is required for deduplication'],
       trim: true,
+      default: null,
       index: true,
     },
     mimeType: {
@@ -81,11 +81,21 @@ const syllabusDocumentSchema = new mongoose.Schema(
       type: Number,
       default: 768,
     },
+    pageCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    activeJobId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'IngestionJob',
+      default: null,
+    },
     status: {
       type: String,
       enum: {
-        values: ['pending', 'processing', 'completed', 'failed', 'ocr_required'],
-        message: 'Status must be one of: pending, processing, completed, failed, ocr_required',
+        values: ['pending', 'uploaded', 'queued', 'processing', 'completed', 'failed', 'ocr_required'],
+        message: 'Status must be one of: pending, uploaded, queued, processing, completed, failed, ocr_required',
       },
       default: 'pending',
       index: true,
@@ -101,7 +111,10 @@ const syllabusDocumentSchema = new mongoose.Schema(
 );
 
 // Compound index to guarantee per-teacher document deduplication
-syllabusDocumentSchema.index({ teacherId: 1, fileHash: 1 }, { unique: true });
+syllabusDocumentSchema.index(
+  { teacherId: 1, fileHash: 1 },
+  { unique: true, partialFilterExpression: { fileHash: { $type: 'string', $gt: '' } } }
+);
 syllabusDocumentSchema.index({ teacherId: 1, subject: 1, createdAt: -1 });
 
 const SyllabusDocument =

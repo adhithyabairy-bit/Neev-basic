@@ -10,6 +10,7 @@
     "dev": "node --watch src/server.js",
     "test": "node --test tests/**/*.test.js",
     "test:storage": "node src/scripts/testStorageConnection.js",
+    "worker:ingest": "node src/workers/ingestionWorker.js",
     "ingest:syllabus": "node src/scripts/ingestSyllabusDirectory.js"
   },
   "dependencies": {

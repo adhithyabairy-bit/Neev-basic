@@ -30,9 +30,29 @@ async function testStorage() {
     throw new Error('Retrieved content does not match uploaded content!');
   }
 
-  console.log('Generating presigned URL...');
+  console.log('Generating presigned download URL...');
   const presignedUrl = await storageService.getPresignedDownloadUrl(saveResult.storageKey, 300);
-  console.log('Presigned URL (truncated):', presignedUrl.substring(0, 80) + '...');
+  console.log('Presigned download URL (truncated):', presignedUrl.substring(0, 80) + '...');
+
+  console.log('Verifying uploaded object via storageService.verifyUploadedObject()...');
+  const verified = await storageService.verifyUploadedObject(saveResult.storageKey);
+  console.log('Verification result:', verified);
+  if (!verified.exists || verified.size !== testBuffer.length) {
+    throw new Error(`verifyUploadedObject failed! Expected size ${testBuffer.length}, got ${verified.size}`);
+  }
+
+  console.log('Generating presigned upload URL via storageService.getPresignedUploadUrl()...');
+  const directKey = storageService.generateKey('direct-upload-test.pdf', 'healthchecks');
+  const presignedUpload = await storageService.getPresignedUploadUrl({
+    storageKey: directKey,
+    mimeType: 'application/pdf',
+    expiresIn: 300,
+  });
+  console.log('Presigned upload URL result:', {
+    method: presignedUpload.method,
+    storageKey: presignedUpload.storageKey,
+    urlTruncated: presignedUpload.uploadUrl.substring(0, 80) + '...',
+  });
 
   console.log('Deleting test file via storageService.deleteFile()...');
   const deleted = await storageService.deleteFile(saveResult.storageKey);

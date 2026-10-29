@@ -61,7 +61,10 @@ describe('Phase 5: Production-Ready RAG, Cloud Storage & Deployment Tests', () =
         dimension: 768,
       });
       assert.equal(geminiService.getDimension(), 768);
-      assert.equal(geminiService.getModelName(), 'text-embedding-004');
+      assert.ok(
+        geminiService.getModelName() === 'gemini-embedding-001' ||
+        geminiService.getModelName() === 'text-embedding-004'
+      );
     });
 
     it('generates normalized vectors with explicit mock provider in test mode', async () => {

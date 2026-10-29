@@ -17,6 +17,11 @@ import {
   fetchSyllabusDocuments,
   ingestSyllabusDocument,
   deleteSyllabusDocument,
+  uploadSyllabusDirectToCloud,
+  fetchDocumentStatus,
+  retryDocumentIngestion,
+  MAX_FILE_SIZE_MB,
+  MAX_FILE_SIZE_BYTES,
 } from '../services/syllabusService';
 
 const DEMO_SYLLABUS_DOCS = [
@@ -80,6 +85,10 @@ export default function ClassSyllabus({
   const [syllabusDocs, setSyllabusDocs] = useState([]);
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
   const [docUploadError, setDocUploadError] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(null);
+  const [uploadStage, setUploadStage] = useState('idle');
+  const [uploadingFileName, setUploadingFileName] = useState('');
+  const [retryingDocId, setRetryingDocId] = useState(null);
 
   // Validation & alerts
   const [formError, setFormError] = useState(null);
@@ -113,6 +122,29 @@ export default function ClassSyllabus({
       isMounted = false;
     };
   }, [isDemoMode, selectedSubject]);
+
+  // Background polling for documents with status 'queued' or 'processing'
+  useEffect(() => {
+    if (isDemoMode) return;
+
+    const hasActiveDocs = syllabusDocs.some(
+      (d) => d.status === 'queued' || d.status === 'processing'
+    );
+    if (!hasActiveDocs) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const updatedDocs = await fetchSyllabusDocuments({ subject: selectedSubject });
+        if (updatedDocs && Array.isArray(updatedDocs)) {
+          setSyllabusDocs(updatedDocs);
+        }
+      } catch {
+        // Non-blocking poll error
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [isDemoMode, selectedSubject, syllabusDocs]);
 
   // Handle general field change
   const handleConfigChange = (field, value) => {
@@ -323,7 +355,7 @@ export default function ClassSyllabus({
     setTimeout(() => setSuccessBanner(null), 3000);
   };
 
-  // Syllabus Document Ingestion Handler
+  // Syllabus Document Direct Cloud Upload & Ingestion Handler
   const handleUploadSyllabusDoc = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -337,7 +369,7 @@ export default function ClassSyllabus({
           fileName: file.name,
           fileSize: file.size,
           chunkCount: Math.ceil(file.size / 50000) || 12,
-          status: 'indexed',
+          status: 'completed',
           grade: selectedClass,
           subject: selectedSubject,
         },
@@ -348,22 +380,102 @@ export default function ClassSyllabus({
       return;
     }
 
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      setDocUploadError(
+        `File size (${(file.size / (1024 * 1024)).toFixed(1)} MB) exceeds maximum allowed limit of ${MAX_FILE_SIZE_MB} MB.`
+      );
+      e.target.value = '';
+      return;
+    }
+
     setIsUploadingDoc(true);
+    setUploadStage('uploading');
+    setUploadingFileName(file.name);
+    setUploadProgress({ percent: 0, loaded: 0, total: file.size });
     setDocUploadError(null);
+
     try {
-      const result = await ingestSyllabusDocument(file, {
-        title: file.name.replace(/\.[^/.]+$/, ''),
-        subject: selectedSubject,
-        grade: selectedClass,
-      });
-      setSyllabusDocs((prev) => [result.document, ...prev]);
-      setSuccessBanner(`Ingested "${file.name}" into vector store (${result.chunkCount} chunks generated).`);
-      setTimeout(() => setSuccessBanner(null), 4000);
+      const result = await uploadSyllabusDirectToCloud(
+        file,
+        {
+          title: file.name.replace(/\.[^/.]+$/, ''),
+          subject: selectedSubject,
+          grade: selectedClass,
+          classId: classId || null,
+        },
+        (progress) => {
+          setUploadProgress(progress);
+        }
+      );
+
+      setUploadStage('queued');
+      const docId = result?.documentId || result?.document?._id;
+      const finalStatus = result?.status || (result?.viaServerFallback ? 'completed' : 'queued');
+
+      // Refresh documents list from backend immediately
+      try {
+        const freshDocs = await fetchSyllabusDocuments({ subject: selectedSubject });
+        if (freshDocs && Array.isArray(freshDocs) && freshDocs.length > 0) {
+          setSyllabusDocs(freshDocs);
+        } else {
+          setSyllabusDocs((prev) => [
+            {
+              _id: docId || `doc-${Date.now()}`,
+              fileName: file.name,
+              fileSize: file.size,
+              status: finalStatus,
+              grade: selectedClass,
+              subject: selectedSubject,
+              chunkCount: result?.chunkCount || result?.document?.chunkCount || 0,
+            },
+            ...prev.filter((d) => d._id !== docId),
+          ]);
+        }
+      } catch {
+        setSyllabusDocs((prev) => [
+          {
+            _id: docId || `doc-${Date.now()}`,
+            fileName: file.name,
+            fileSize: file.size,
+            status: finalStatus,
+            grade: selectedClass,
+            subject: selectedSubject,
+            chunkCount: result?.chunkCount || result?.document?.chunkCount || 0,
+          },
+          ...prev.filter((d) => d._id !== docId),
+        ]);
+      }
+
+      if (result?.viaServerFallback) {
+        setSuccessBanner(`Successfully ingested "${file.name}" into syllabus vector store!`);
+      } else {
+        setSuccessBanner(`Uploaded "${file.name}" to cloud storage! Background ingestion active.`);
+      }
+      setTimeout(() => setSuccessBanner(null), 5000);
     } catch (err) {
-      setDocUploadError(err.message || 'Failed to ingest syllabus document.');
+      setDocUploadError(err.message || 'PDF upload failed. Please try again.');
+      setUploadStage('error');
     } finally {
       setIsUploadingDoc(false);
+      setUploadProgress(null);
       e.target.value = '';
+    }
+  };
+
+  const handleRetryIngestion = async (docId) => {
+    setRetryingDocId(docId);
+    setDocUploadError(null);
+    try {
+      await retryDocumentIngestion(docId);
+      setSyllabusDocs((prev) =>
+        prev.map((d) => (d._id === docId ? { ...d, status: 'queued', errorDetails: null } : d))
+      );
+      setSuccessBanner('Ingestion job requeued for background processing.');
+      setTimeout(() => setSuccessBanner(null), 4000);
+    } catch (err) {
+      setDocUploadError(`Retry failed: ${err.message}`);
+    } finally {
+      setRetryingDocId(null);
     }
   };
 
@@ -561,12 +673,12 @@ export default function ClassSyllabus({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <label className="btn btn-outline btn-sm" style={{ cursor: isUploadingDoc ? 'not-allowed' : 'pointer' }}>
+            <label className="btn btn-primary btn-sm" style={{ cursor: isUploadingDoc ? 'not-allowed' : 'pointer' }}>
               <IconUpload size={14} />
-              <span>{isUploadingDoc ? 'Ingesting Document...' : 'Ingest Syllabus PDF/TXT'}</span>
+              <span>{isUploadingDoc ? 'Uploading & Ingesting...' : 'Upload Syllabus PDF'}</span>
               <input
                 type="file"
-                accept=".pdf,.txt,.md"
+                accept=".pdf,.PDF,.txt,.TXT,application/pdf,text/plain"
                 onChange={handleUploadSyllabusDoc}
                 disabled={isUploadingDoc}
                 style={{ display: 'none' }}
@@ -574,6 +686,64 @@ export default function ClassSyllabus({
             </label>
           </div>
         </div>
+
+        {/* Real-time Direct Cloud Upload Progress */}
+        {isUploadingDoc && uploadProgress && (
+          <div
+            style={{
+              margin: 'var(--space-3) 0',
+              padding: '12px 14px',
+              backgroundColor: 'var(--surface-bg)',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border-color)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                fontSize: 'var(--font-size-xs)',
+                marginBottom: '6px',
+              }}
+            >
+              <span style={{ fontWeight: 'var(--font-weight-semibold)', color: 'var(--main-text)' }}>
+                Processing document: {uploadingFileName}
+              </span>
+              <span style={{ color: 'var(--primary-color)', fontWeight: 'var(--font-weight-bold)' }}>
+                {uploadProgress.percent}% &bull; {(uploadProgress.loaded / (1024 * 1024)).toFixed(1)} /{' '}
+                {(uploadProgress.total / (1024 * 1024)).toFixed(1)} MB
+              </span>
+            </div>
+            <div
+              style={{
+                width: '100%',
+                height: '8px',
+                backgroundColor: 'var(--border-color)',
+                borderRadius: '4px',
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  width: `${uploadProgress.percent}%`,
+                  height: '100%',
+                  backgroundColor: 'var(--primary-color)',
+                  transition: 'width 0.2s ease-in-out',
+                }}
+              />
+            </div>
+            <div
+              style={{
+                fontSize: '11px',
+                color: 'var(--secondary-text)',
+                marginTop: '4px',
+              }}
+            >
+              Direct cloud storage stream with automatic server fallback • Supports files up to 200 MB
+            </div>
+          </div>
+        )}
 
         {docUploadError && (
           <div className="alert alert-danger" style={{ margin: 'var(--space-3) 0' }}>
@@ -587,6 +757,19 @@ export default function ClassSyllabus({
             icon={<IconBookOpen size={28} />}
             title="No syllabus documents ingested yet"
             description="Upload textbook chapters or curriculum guides to enable persistent vector-grounded RAG evaluation."
+            action={
+              <label className="btn btn-outline btn-sm" style={{ cursor: isUploadingDoc ? 'not-allowed' : 'pointer' }}>
+                <IconUpload size={14} />
+                <span>{isUploadingDoc ? 'Uploading...' : 'Select PDF Document'}</span>
+                <input
+                  type="file"
+                  accept=".pdf,.PDF,.txt,.TXT,application/pdf,text/plain"
+                  onChange={handleUploadSyllabusDoc}
+                  disabled={isUploadingDoc}
+                  style={{ display: 'none' }}
+                />
+              </label>
+            }
           />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: 'var(--space-3)' }}>
@@ -605,19 +788,63 @@ export default function ClassSyllabus({
                   gap: '8px',
                 }}
               >
-                <div>
+                <div style={{ flex: '1 1 300px' }}>
                   <div style={{ fontWeight: 'var(--font-weight-semibold)', color: 'var(--main-text)', fontSize: 'var(--font-size-sm)' }}>
                     {doc.title || doc.fileName}
                   </div>
                   <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--secondary-text)', marginTop: '2px' }}>
-                    {doc.grade || selectedClass} &bull; {doc.subject || selectedSubject} &bull; {doc.chunkCount || 0} Vector Chunks &bull; {Math.round((doc.fileSize || 0) / 1024)} KB
+                    {doc.grade || selectedClass} &bull; {doc.subject || selectedSubject} &bull; {doc.chunkCount || 0} Vector Chunks &bull;{' '}
+                    {doc.fileSize >= 1048576
+                      ? `${(doc.fileSize / (1024 * 1024)).toFixed(1)} MB`
+                      : `${Math.round((doc.fileSize || 0) / 1024)} KB`}
+                    {doc.pageCount ? ` • ${doc.pageCount} Pages` : ''}
                   </div>
+                  {doc.errorDetails && (
+                    <div style={{ fontSize: '11px', color: 'var(--danger-color)', marginTop: '2px' }}>
+                      {doc.errorDetails}
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span className="badge badge-success" style={{ fontSize: '10px' }}>
-                    Vector Indexed
-                  </span>
+                  {doc.status === 'completed' && (
+                    <span className="badge badge-success" style={{ fontSize: '10px' }}>
+                      Vector Indexed ({doc.chunkCount} Chunks)
+                    </span>
+                  )}
+                  {doc.status === 'queued' && (
+                    <span className="badge badge-warning" style={{ fontSize: '10px' }}>
+                      Queued for Ingestion
+                    </span>
+                  )}
+                  {doc.status === 'processing' && (
+                    <span className="badge badge-primary" style={{ fontSize: '10px' }}>
+                      Ingesting & Chunking...
+                    </span>
+                  )}
+                  {doc.status === 'ocr_required' && (
+                    <span className="badge badge-warning" style={{ fontSize: '10px' }}>
+                      Scanned PDF (OCR Required)
+                    </span>
+                  )}
+                  {doc.status === 'failed' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span className="badge badge-danger" style={{ fontSize: '10px' }}>
+                        Ingestion Failed
+                      </span>
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-xs"
+                        onClick={() => handleRetryIngestion(doc._id)}
+                        disabled={retryingDocId === doc._id}
+                        style={{ fontSize: '10px', padding: '2px 6px' }}
+                        title="Retry background ingestion"
+                      >
+                        {retryingDocId === doc._id ? 'Requeuing...' : 'Retry'}
+                      </button>
+                    </div>
+                  )}
+
                   <button
                     type="button"
                     className="btn-icon-only"
