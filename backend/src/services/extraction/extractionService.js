@@ -1,5 +1,21 @@
-import { PDFParse } from 'pdf-parse';
-import { createWorker } from 'tesseract.js';
+// Lazy dynamic imports for serverless cold start performance and AWS Lambda compatibility
+let PDFParseClass = null;
+async function getPDFParse() {
+  if (!PDFParseClass) {
+    const mod = await import('pdf-parse');
+    PDFParseClass = mod.PDFParse || mod.default?.PDFParse || mod.default;
+  }
+  return PDFParseClass;
+}
+
+let createWorkerFn = null;
+async function getCreateWorker() {
+  if (!createWorkerFn) {
+    const mod = await import('tesseract.js');
+    createWorkerFn = mod.createWorker || mod.default?.createWorker || mod.default;
+  }
+  return createWorkerFn;
+}
 
 /**
  * Segmentation Heuristic
@@ -167,6 +183,7 @@ export function organizeExtractedText(pages, defaultConfidence = null) {
  * @returns {Promise<{ text: string, pages: Array<{ pageNumber: number, text: string }>, pageCount: number }>}
  */
 export async function extractPdfText(buffer) {
+  const PDFParse = await getPDFParse();
   let parser = null;
   try {
     parser = new PDFParse({ data: buffer });
@@ -215,6 +232,7 @@ export async function extractPdfText(buffer) {
  * @returns {Promise<{ text: string, confidence: number, pages: Array<{ pageNumber: number, text: string }> }>}
  */
 export async function extractImageOcr(buffer) {
+  const createWorker = await getCreateWorker();
   let worker = null;
   try {
     worker = await createWorker('eng');

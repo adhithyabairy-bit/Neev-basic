@@ -1,6 +1,14 @@
 import app from './src/app.js';
 import { connectDB } from './src/config/db.js';
 
+process.on('uncaughtException', (err) => {
+  console.error('[Vercel Uncaught Exception]:', err.message, err.stack);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[Vercel Unhandled Rejection]:', reason);
+});
+
 /**
  * Vercel Express Entry Point
  * Automatically initiates connection to MongoDB Atlas asynchronously on serverless cold starts
