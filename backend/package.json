@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Neev — Express Authentication Backend with Firebase Admin SDK",
-  "main": "src/server.js",
+  "main": "index.js",
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",

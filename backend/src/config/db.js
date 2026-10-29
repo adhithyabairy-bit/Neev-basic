@@ -1,11 +1,14 @@
 import dns from 'dns';
 import mongoose from 'mongoose';
 
-// Configure reliable DNS servers to avoid queryTxt ESERVFAIL on Windows and ISP resolvers
-try {
-  dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
-} catch {
-  // Safe fallback to system defaults
+// Configure reliable DNS servers ONLY on Windows to avoid queryTxt ESERVFAIL on local Windows resolvers.
+// On Linux/Vercel (AWS Lambda), Lambda's native VPC DNS resolver must be used.
+if (process.platform === 'win32') {
+  try {
+    dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
+  } catch {
+    // Safe fallback to system defaults
+  }
 }
 
 let connectionStatus = 'disconnected';

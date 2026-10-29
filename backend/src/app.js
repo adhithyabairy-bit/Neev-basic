@@ -54,13 +54,23 @@ app.use('/health', healthRoutes);
 
 // Auth session verification
 app.use('/api/auth', authRoutes);
+app.use('/auth', authRoutes);
 
 // Teacher Resource Routes (Protected)
 app.use('/api/classes', classRoutes);
+app.use('/classes', classRoutes);
+
 app.use('/api/assessments', assessmentRoutes);
+app.use('/assessments', assessmentRoutes);
+
 app.use('/api/answer-sheets', answerSheetRoutes);
+app.use('/answer-sheets', answerSheetRoutes);
+
 app.use('/api/syllabus', syllabusRoutes);
+app.use('/syllabus', syllabusRoutes);
+
 app.use('/api', evaluationRoutes);
+app.use('/', evaluationRoutes);
 
 // 404 Route Handler
 app.use((req, res) => {

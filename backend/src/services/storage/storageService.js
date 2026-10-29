@@ -15,7 +15,23 @@ import S3StorageProvider from './s3StorageProvider.js';
  */
 class StorageService {
   constructor() {
-    this.provider = this.createProvider();
+    this.initError = null;
+    try {
+      this.provider = this.createProvider();
+    } catch (err) {
+      this.provider = null;
+      this.initError = err;
+    }
+  }
+
+  ensureProvider() {
+    if (this.initError) {
+      throw this.initError;
+    }
+    if (!this.provider) {
+      this.provider = this.createProvider();
+    }
+    return this.provider;
   }
 
   createProvider() {
@@ -70,6 +86,7 @@ class StorageService {
   }
 
   isConfigured() {
+    if (this.initError) return false;
     if (this.provider?.isConfigured) {
       return this.provider.isConfigured();
     }
@@ -77,6 +94,12 @@ class StorageService {
   }
 
   async verifyConnection() {
+    if (this.initError) {
+      return {
+        connected: false,
+        reason: this.initError.message,
+      };
+    }
     if (this.provider?.verifyConnection) {
       return this.provider.verifyConnection();
     }
@@ -88,32 +111,34 @@ class StorageService {
   }
 
   async saveFile(params) {
-    return this.provider.saveFile(params);
+    return this.ensureProvider().saveFile(params);
   }
 
   getFileStream(storageKey) {
-    return this.provider.getFileStream(storageKey);
+    return this.ensureProvider().getFileStream(storageKey);
   }
 
   async getFileBuffer(storageKey) {
-    return this.provider.getFileBuffer(storageKey);
+    return this.ensureProvider().getFileBuffer(storageKey);
   }
 
   async deleteFile(storageKey) {
-    return this.provider.deleteFile(storageKey);
+    return this.ensureProvider().deleteFile(storageKey);
   }
 
   async getPresignedDownloadUrl(storageKey, expiresIn = 900) {
-    if (typeof this.provider.getPresignedDownloadUrl === 'function') {
-      return this.provider.getPresignedDownloadUrl(storageKey, expiresIn);
+    const provider = this.ensureProvider();
+    if (typeof provider.getPresignedDownloadUrl === 'function') {
+      return provider.getPresignedDownloadUrl(storageKey, expiresIn);
     }
     // Local provider fallback
     return `/api/storage/file/${encodeURIComponent(storageKey)}`;
   }
 
   generateKey(originalName, prefix = '') {
-    if (typeof this.provider?.generateKey === 'function') {
-      return this.provider.generateKey(originalName, prefix);
+    const provider = this.provider || this.ensureProvider();
+    if (typeof provider?.generateKey === 'function') {
+      return provider.generateKey(originalName, prefix);
     }
     const cleanName = String(originalName || 'document.pdf').replace(/[^a-zA-Z0-9._-]/g, '_');
     const timestamp = Date.now();
@@ -122,8 +147,9 @@ class StorageService {
   }
 
   async getPresignedUploadUrl(params) {
-    if (typeof this.provider.getPresignedUploadUrl === 'function') {
-      return this.provider.getPresignedUploadUrl(params);
+    const provider = this.ensureProvider();
+    if (typeof provider.getPresignedUploadUrl === 'function') {
+      return provider.getPresignedUploadUrl(params);
     }
     throw new Error(
       `Presigned upload URLs are only supported by cloud object storage providers (firebase, filebase, r2, s3). Provider '${this.getProviderName()}' does not implement getPresignedUploadUrl.`
@@ -131,8 +157,9 @@ class StorageService {
   }
 
   async verifyUploadedObject(storageKey) {
-    if (typeof this.provider.verifyUploadedObject === 'function') {
-      return this.provider.verifyUploadedObject(storageKey);
+    const provider = this.ensureProvider();
+    if (typeof provider.verifyUploadedObject === 'function') {
+      return provider.verifyUploadedObject(storageKey);
     }
     throw new Error(
       `Object verification is only supported by cloud object storage providers (firebase, filebase, r2, s3). Provider '${this.getProviderName()}' does not implement verifyUploadedObject.`
