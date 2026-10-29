@@ -111,7 +111,7 @@ export default function ClassSyllabus({
     let isMounted = true;
     async function loadDocs() {
       try {
-        const docs = await fetchSyllabusDocuments({ subject: selectedSubject });
+        const docs = await fetchSyllabusDocuments();
         if (isMounted) setSyllabusDocs(docs || []);
       } catch (err) {
         // Non-blocking error for documents
@@ -121,7 +121,7 @@ export default function ClassSyllabus({
     return () => {
       isMounted = false;
     };
-  }, [isDemoMode, selectedSubject]);
+  }, [isDemoMode]);
 
   // Background polling for documents with status 'queued' or 'processing'
   useEffect(() => {
@@ -134,7 +134,7 @@ export default function ClassSyllabus({
 
     const interval = setInterval(async () => {
       try {
-        const updatedDocs = await fetchSyllabusDocuments({ subject: selectedSubject });
+        const updatedDocs = await fetchSyllabusDocuments();
         if (updatedDocs && Array.isArray(updatedDocs)) {
           setSyllabusDocs(updatedDocs);
         }
@@ -144,7 +144,7 @@ export default function ClassSyllabus({
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [isDemoMode, selectedSubject, syllabusDocs]);
+  }, [isDemoMode, syllabusDocs]);
 
   // Handle general field change
   const handleConfigChange = (field, value) => {
@@ -414,7 +414,7 @@ export default function ClassSyllabus({
 
       // Refresh documents list from backend immediately
       try {
-        const freshDocs = await fetchSyllabusDocuments({ subject: selectedSubject });
+        const freshDocs = await fetchSyllabusDocuments();
         if (freshDocs && Array.isArray(freshDocs) && freshDocs.length > 0) {
           setSyllabusDocs(freshDocs);
         } else {

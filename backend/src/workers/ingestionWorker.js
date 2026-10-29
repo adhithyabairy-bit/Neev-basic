@@ -237,18 +237,19 @@ export async function processJob(job, workerId = WORKER_ID) {
       pages = pdfData.pages || [{ pageNumber: 1, text: pdfData.text }];
       document.pageCount = pdfData.pageCount || pages.length;
 
-      // Scanned PDF detection
-      const totalTextLen = (pdfData.text || '').trim().length;
-      if (totalTextLen < 40) {
+      // Scanned PDF detection: if total extracted text contains no readable characters
+      const readableText = (pdfData.text || '').replace(/[\s\-_0-9of]+/gi, '');
+      if (!pdfData.text || pdfData.text.trim().length === 0 || (readableText.length === 0 && (pdfData.text || '').trim().length < 20)) {
         document.status = 'ocr_required';
         document.errorDetails = 'Document contains no digital text layer (scanned PDF). OCR extraction is required.';
         await document.save();
 
-        job.status = 'failed';
+        job.status = 'completed';
         job.errorDetails = 'SCANNED_PDF_DETECTED: Document has no readable text layer. OCR processing is required.';
+        job.completedAt = new Date();
         await job.save();
 
-        return { success: false, reason: 'OCR_REQUIRED' };
+        return { success: true, reason: 'OCR_REQUIRED' };
       }
     } else {
       // Plain text document

@@ -117,16 +117,19 @@ export async function ingestSyllabusFile({
       const pdfData = await extractPdfText(buffer);
       pages = pdfData.pages || [{ pageNumber: 1, text: pdfData.text }];
 
-      // Scanned PDF detection: if total extracted text is empty or trivially small
-      const totalTextLen = (pdfData.text || '').trim().length;
-      if (totalTextLen < 40) {
+      // Scanned PDF detection: if total extracted text contains no readable characters
+      const readableText = (pdfData.text || '').replace(/[\s\-_0-9of]+/gi, '');
+      if (!pdfData.text || pdfData.text.trim().length === 0 || (readableText.length === 0 && (pdfData.text || '').trim().length < 20)) {
         document.status = 'ocr_required';
         document.errorDetails =
           'Document contains no readable text layer (scanned PDF). OCR extraction is required before vector indexing.';
         await document.save();
-        throw new Error(
-          `SCANNED_PDF_DETECTED: '${originalName}' has no readable digital text layer. OCR processing is required.`
-        );
+        return {
+          document,
+          alreadyExisted: false,
+          ocrRequired: true,
+          message: `Document '${originalName}' saved to cloud storage. No readable digital text layer detected (scanned PDF); OCR is required.`,
+        };
       }
     } else if (mimeType.startsWith('text/') || originalName.endsWith('.txt')) {
       const textContent = buffer.toString('utf-8');

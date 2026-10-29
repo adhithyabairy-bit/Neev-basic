@@ -217,17 +217,14 @@ export async function uploadSyllabusDirectToCloud(
 export async function ingestSyllabusDocument(file, metadata = {}) {
   const formData = new FormData();
   formData.append('syllabusFile', file);
+  formData.append('file', file);
   if (metadata.title) formData.append('title', metadata.title);
   if (metadata.subject) formData.append('subject', metadata.subject);
   if (metadata.grade) formData.append('grade', metadata.grade);
   if (metadata.board) formData.append('board', metadata.board);
 
-  const response = await apiClient.post('/api/syllabus/ingest', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
-  return response.data;
+  const response = await apiClient.upload('/api/syllabus/ingest', formData);
+  return response.data || response;
 }
 
 /**

@@ -18,7 +18,10 @@ const upload = multer({
   },
 });
 
-export const uploadSyllabusMiddleware = upload.single('syllabusFile');
+export const uploadSyllabusMiddleware = upload.fields([
+  { name: 'syllabusFile', maxCount: 1 },
+  { name: 'file', maxCount: 1 },
+]);
 
 /**
  * POST /api/syllabus/ingest
@@ -27,7 +30,7 @@ export const uploadSyllabusMiddleware = upload.single('syllabusFile');
 export async function ingestSyllabus(req, res, next) {
   try {
     const teacherId = req.teacher._id;
-    const file = req.file;
+    const file = req.file || req.files?.syllabusFile?.[0] || req.files?.file?.[0];
     const { grade, subject, lessonName, forceReingest } = req.body;
 
     if (!file) {
@@ -70,8 +73,12 @@ export async function getSyllabusDocuments(req, res, next) {
     const { subject, grade } = req.query;
 
     const query = { teacherId };
-    if (subject) query.subject = subject;
-    if (grade) query.grade = grade;
+    if (subject && subject.trim() && subject.trim().toLowerCase() !== 'all') {
+      query.subject = { $regex: new RegExp(`^${subject.trim()}$`, 'i') };
+    }
+    if (grade && grade.trim() && grade.trim().toLowerCase() !== 'all') {
+      query.grade = { $regex: new RegExp(`^${grade.trim()}$`, 'i') };
+    }
 
     const documents = await SyllabusDocument.find(query)
       .sort({ createdAt: -1 })

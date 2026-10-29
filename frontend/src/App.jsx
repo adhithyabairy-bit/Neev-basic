@@ -38,7 +38,7 @@ import {
   INITIAL_GAP_TEST,
 } from './data/initialData';
 
-import { fetchClasses } from './services/classService';
+import { fetchClasses, createClass } from './services/classService';
 import { createAssessment, updateAssessment } from './services/assessmentService';
 
 const EMPTY_SYLLABUS = {
@@ -257,19 +257,39 @@ export default function App() {
     if (isDemoMode) {
       return { _id: 'demo-asm-' + Date.now(), ...dataToSave };
     }
-    if (!dataToSave.classId) {
-      throw new Error('Please select a valid class owned by your account.');
+
+    let targetClassId = dataToSave.classId;
+    if (!targetClassId) {
+      try {
+        const existingClasses = await fetchClasses();
+        if (existingClasses && existingClasses.length > 0) {
+          targetClassId = existingClasses[0]._id;
+        } else {
+          const newClass = await createClass({
+            name: `${dataToSave.selectedClass || 'Grade 8'} ${dataToSave.selectedSubject || 'Mathematics'}`,
+            grade: dataToSave.selectedClass || 'Grade 8',
+            subject: dataToSave.selectedSubject || 'Mathematics',
+          });
+          targetClassId = newClass._id;
+          setTeacherClasses([newClass]);
+        }
+      } catch (err) {
+        console.warn('[App] Could not resolve or auto-create class:', err);
+      }
     }
-    if (!dataToSave.examName || !dataToSave.examName.trim()) {
-      throw new Error('Assessment title is required.');
+
+    if (!targetClassId) {
+      throw new Error('Please select or create a valid class owned by your account.');
     }
+
+    const examTitle = (dataToSave.examName || '').trim() || 'Mid-Term Assessment';
     if (Number(dataToSave.totalMarks) <= 0) {
       throw new Error('Maximum marks must be greater than zero.');
     }
 
     const payload = {
-      classId: dataToSave.classId,
-      title: dataToSave.examName.trim(),
+      classId: targetClassId,
+      title: examTitle,
       subject: dataToSave.selectedSubject || 'Mathematics',
       maximumMarks: Number(dataToSave.totalMarks) || 50,
       examDate: dataToSave.examDate || new Date().toISOString(),
@@ -287,6 +307,8 @@ export default function App() {
 
     setSyllabusData((prev) => ({
       ...prev,
+      classId: targetClassId,
+      examName: examTitle,
       assessmentId: saved._id,
       lessons: saved.lessons || prev.lessons,
       rubric: saved.rubric || prev.rubric,
@@ -469,6 +491,7 @@ export default function App() {
             onUpdateStudentProfile={setStudentProfile}
             onStartNewStudentAssessment={handleStartNewStudentAssessment}
             isDemoMode={isDemoMode}
+            onSaveAssessment={handleSaveAssessment}
             onAnswerSheetLoaded={(sheet) => {
               setActiveAnswerSheet(sheet);
               if (sheet?.answers && sheet.answers.length > 0) {

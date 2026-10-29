@@ -25,6 +25,7 @@ export default function UploadAnswerSheets({
   onUpdateStudentProfile,
   onStartNewStudentAssessment,
   isDemoMode = false,
+  onSaveAssessment,
   onAnswerSheetLoaded,
 }) {
   const fileInputRef = useRef(null);
@@ -140,15 +141,7 @@ export default function UploadAnswerSheets({
         return;
       }
 
-      // Check duplicate
-      const isDuplicate = uploadedFiles.some(
-        (existing) => existing.name === file.name && existing.size === file.size
-      );
-      if (isDuplicate) {
-        errors.push(`"${file.name}": Already added to staged files.`);
-        return;
-      }
-
+      // If file with same name and size was already staged, allow re-upload/replacement
       filesToUpload.push(file);
     });
 
@@ -156,7 +149,10 @@ export default function UploadAnswerSheets({
       setValidationError(errors.join(' '));
     }
 
-    if (filesToUpload.length === 0) return;
+    if (filesToUpload.length === 0) {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
 
     // In Demo Mode: stage files in browser memory
     if (isDemoMode) {
@@ -168,25 +164,43 @@ export default function UploadAnswerSheets({
         category: selectedCategory,
         status: 'Staged Locally',
         pages: file.type.includes('pdf') ? Math.floor(Math.random() * 3) + 1 : 1,
-        studentName: studentProfile?.name?.trim() || 'Student',
+        studentName: studentProfile?.name?.trim() || 'Student 1',
       }));
-      onUpdateFiles([...uploadedFiles, ...newValidFiles]);
+      onUpdateFiles([...uploadedFiles.filter(f => !filesToUpload.some(u => u.name === f.name)), ...newValidFiles]);
       setUploadNotice(`Staged ${newValidFiles.length} file(s) locally for demonstration preview.`);
+      if (fileInputRef.current) fileInputRef.current.value = '';
       setTimeout(() => setUploadNotice(null), 4000);
       return;
     }
 
-    // Real Authenticated Upload
-    if (!studentProfile?.name || !studentProfile.name.trim()) {
-      setStudentNameTouched(true);
-      setValidationError("Please enter the student's full name before uploading answer sheets.");
-      return;
+    // Real Authenticated Upload: Ensure student name exists
+    const activeStudentName = studentProfile?.name?.trim() || 'Student 1';
+    if (!studentProfile?.name?.trim() && onUpdateStudentProfile) {
+      onUpdateStudentProfile({
+        ...studentProfile,
+        name: activeStudentName,
+      });
     }
 
-    if (!syllabusData?.assessmentId) {
+    // Ensure Assessment is saved in MongoDB
+    let currentAssessmentId = syllabusData?.assessmentId;
+    if (!currentAssessmentId && typeof onSaveAssessment === 'function') {
+      try {
+        setUploadNotice('Initializing assessment session in database...');
+        const saved = await onSaveAssessment(syllabusData);
+        currentAssessmentId = saved?._id;
+      } catch (saveErr) {
+        setValidationError(`Assessment setup required: ${saveErr.message}`);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+      }
+    }
+
+    if (!currentAssessmentId) {
       setValidationError(
         'Please save the assessment in Step 1 before uploading real answer sheets.'
       );
+      if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
@@ -195,14 +209,14 @@ export default function UploadAnswerSheets({
 
     try {
       const formData = new FormData();
-      formData.append('studentName', studentProfile.name.trim());
+      formData.append('studentName', activeStudentName);
       formData.append('rollNumber', studentProfile.rollNumber ? studentProfile.rollNumber.trim() : '');
 
       filesToUpload.forEach((file) => {
         formData.append('files', file);
       });
 
-      const result = await uploadAnswerSheets(syllabusData.assessmentId, formData);
+      const result = await uploadAnswerSheets(currentAssessmentId, formData);
 
       if (Array.isArray(result) && result.length > 0) {
         const newlyMapped = result.map((sheet) => ({
@@ -226,8 +240,11 @@ export default function UploadAnswerSheets({
           rawSheet: sheet,
         }));
 
-        // Merge with existing
-        const updated = [...uploadedFiles, ...newlyMapped];
+        // Merge with existing, replacing any duplicates
+        const filteredOld = uploadedFiles.filter(
+          (old) => !newlyMapped.some((n) => n.name === old.name)
+        );
+        const updated = [...filteredOld, ...newlyMapped];
         onUpdateFiles(updated);
 
         // Notify parent of active sheet for extraction preview
@@ -246,6 +263,7 @@ export default function UploadAnswerSheets({
       setValidationError(err.message || 'Failed to upload answer sheets to backend.');
     } finally {
       setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
       setTimeout(() => setUploadNotice(null), 5000);
     }
   };

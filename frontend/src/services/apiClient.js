@@ -18,8 +18,13 @@ export function getAuthorizationHeaders(extraHeaders = {}, isFormData = false) {
     ...extraHeaders,
   };
 
-  // Only set application/json if not transmitting multipart FormData
-  if (!isFormData && !headers['Content-Type']) {
+  // Only set application/json if not transmitting multipart FormData.
+  // When transmitting FormData, delete Content-Type so the browser automatically
+  // generates multipart/form-data with the correct boundary parameter.
+  if (isFormData) {
+    delete headers['Content-Type'];
+    delete headers['content-type'];
+  } else if (!headers['Content-Type']) {
     headers['Content-Type'] = 'application/json';
   }
 
