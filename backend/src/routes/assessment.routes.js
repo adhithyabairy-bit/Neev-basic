@@ -7,6 +7,11 @@ import {
   updateAssessment,
   deleteAssessment,
 } from '../controllers/assessmentController.js';
+import {
+  uploadAnswerSheetsMiddleware,
+  uploadAnswerSheets,
+  getAnswerSheetsByAssessment,
+} from '../controllers/answerSheetController.js';
 
 const router = express.Router();
 
@@ -21,5 +26,10 @@ router.route('/:id')
   .get(getAssessmentById)
   .put(updateAssessment)
   .delete(deleteAssessment);
+
+// Sub-resource routes for answer sheets under an assessment
+router.route('/:id/answer-sheets')
+  .get(getAnswerSheetsByAssessment)
+  .post(uploadAnswerSheetsMiddleware, uploadAnswerSheets);
 
 export default router;

@@ -9,15 +9,21 @@ import { getCurrentTeacherSession, refreshIdToken, API_BASE_URL } from './authSe
 /**
  * Builds standard request headers with current Firebase ID token.
  */
-export function getAuthorizationHeaders(extraHeaders = {}) {
+export function getAuthorizationHeaders(extraHeaders = {}, isFormData = false) {
   const session = getCurrentTeacherSession();
   const token = session?.idToken || session?.token || '';
 
-  return {
-    'Content-Type': 'application/json',
+  const headers = {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...extraHeaders,
   };
+
+  // Only set application/json if not transmitting multipart FormData
+  if (!isFormData && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  return headers;
 }
 
 /**
@@ -25,7 +31,8 @@ export function getAuthorizationHeaders(extraHeaders = {}) {
  */
 export async function apiRequest(endpoint, options = {}) {
   const url = `${API_BASE_URL}${endpoint}`;
-  const headers = getAuthorizationHeaders(options.headers);
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+  const headers = getAuthorizationHeaders(options.headers, isFormData);
 
   try {
     const response = await fetch(url, {
@@ -72,10 +79,18 @@ export async function apiRequest(endpoint, options = {}) {
 export const apiClient = {
   get: (endpoint, options) => apiRequest(endpoint, { ...options, method: 'GET' }),
   post: (endpoint, body, options) =>
-    apiRequest(endpoint, { ...options, method: 'POST', body: JSON.stringify(body) }),
+    apiRequest(endpoint, {
+      ...options,
+      method: 'POST',
+      body: typeof FormData !== 'undefined' && body instanceof FormData ? body : JSON.stringify(body),
+    }),
   put: (endpoint, body, options) =>
     apiRequest(endpoint, { ...options, method: 'PUT', body: JSON.stringify(body) }),
+  patch: (endpoint, body, options) =>
+    apiRequest(endpoint, { ...options, method: 'PATCH', body: JSON.stringify(body) }),
   delete: (endpoint, options) => apiRequest(endpoint, { ...options, method: 'DELETE' }),
+  upload: (endpoint, formData, options) =>
+    apiRequest(endpoint, { ...options, method: 'POST', body: formData }),
 };
 
 export default apiClient;

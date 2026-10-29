@@ -6,6 +6,7 @@ import healthRoutes from './routes/health.routes.js';
 import authRoutes from './routes/authRoutes.js';
 import classRoutes from './routes/class.routes.js';
 import assessmentRoutes from './routes/assessment.routes.js';
+import answerSheetRoutes from './routes/answerSheet.routes.js';
 
 // Middlewares
 import errorHandler from './middleware/errorHandler.js';
@@ -17,7 +18,7 @@ const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
 app.use(
   cors({
     origin: [frontendUrl, 'http://localhost:5173', 'http://127.0.0.1:5173'],
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
   })
@@ -36,6 +37,7 @@ app.use('/api/auth', authRoutes);
 // Teacher Resource Routes (Protected)
 app.use('/api/classes', classRoutes);
 app.use('/api/assessments', assessmentRoutes);
+app.use('/api/answer-sheets', answerSheetRoutes);
 
 // 404 Route Handler
 app.use((req, res) => {

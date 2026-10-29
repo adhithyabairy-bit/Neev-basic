@@ -82,10 +82,11 @@ export default function App() {
     isDemoMode ? { name: 'Aarav Sharma', rollNumber: '2025-08-42', section: 'Section A' } : EMPTY_STUDENT_PROFILE
   );
 
-  // Section 2 State: Uploaded Documents
+  // Section 2 State: Uploaded Documents & Active Backend AnswerSheet Record
   const [uploadedFiles, setUploadedFiles] = useState(() =>
     isDemoMode ? INITIAL_UPLOADED_FILES : []
   );
+  const [activeAnswerSheet, setActiveAnswerSheet] = useState(null);
 
   // Section 3 & 4 State: Extracted OCR & Corrections
   const [extractionData, setExtractionData] = useState(() =>
@@ -118,6 +119,7 @@ export default function App() {
   // Helper to load full demonstration dataset
   const loadDemoData = () => {
     setIsDemoMode(true);
+    setActiveAnswerSheet(null);
     setSyllabusData(INITIAL_SYLLABUS);
     setStudentProfile({
       name: 'Aarav Sharma',
@@ -136,6 +138,7 @@ export default function App() {
   // Helper to reset workflow states to empty for real authenticated teacher
   const resetToEmptyWorkflow = () => {
     setIsDemoMode(false);
+    setActiveAnswerSheet(null);
     setSyllabusData(EMPTY_SYLLABUS);
     setStudentProfile(EMPTY_STUDENT_PROFILE);
     setUploadedFiles([]);
@@ -188,6 +191,7 @@ export default function App() {
     );
     if (confirmed) {
       setStudentProfile(EMPTY_STUDENT_PROFILE);
+      setActiveAnswerSheet(null);
       setUploadedFiles(uploadedFiles.filter((f) => f.category !== 'answer-sheet'));
       setCurrentStep(2);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -222,9 +226,12 @@ export default function App() {
       case 3:
         return { canContinue: true, error: null };
       case 4: {
-        const hasInvalid = extractionData.some(
-          (q) => !q.extractedAnswer?.trim() || Number(q.detectedMarks) < 0 || Number(q.detectedMarks) > q.maxMarks
-        );
+        const hasInvalid = extractionData.some((q) => {
+          const text = q.correctedText !== undefined ? q.correctedText : q.extractedAnswer || q.rawExtractedText || '';
+          const marks = Number(q.awardedMarks !== undefined ? q.awardedMarks : q.detectedMarks);
+          const max = Number(q.maxMarks || 5);
+          return !text?.trim() || isNaN(marks) || marks < 0 || marks > max;
+        });
         if (hasInvalid) {
           return { canContinue: false, error: 'Please resolve errors in awarded marks before proceeding.' };
         }
@@ -444,6 +451,16 @@ export default function App() {
             studentProfile={studentProfile}
             onUpdateStudentProfile={setStudentProfile}
             onStartNewStudentAssessment={handleStartNewStudentAssessment}
+            isDemoMode={isDemoMode}
+            onAnswerSheetLoaded={(sheet) => {
+              setActiveAnswerSheet(sheet);
+              if (sheet?.answers && sheet.answers.length > 0) {
+                setExtractionData(sheet.answers);
+                if (sheet.status === 'verified' || sheet.verificationStatus?.isVerified) {
+                  setIsTeacherConfirmed(true);
+                }
+              }
+            }}
           />
         );
       case 3:
@@ -453,6 +470,14 @@ export default function App() {
             onUpdateExtraction={setExtractionData}
             uploadedFiles={uploadedFiles}
             studentProfile={studentProfile}
+            activeAnswerSheet={activeAnswerSheet}
+            isDemoMode={isDemoMode}
+            onAnswerSheetUpdated={(updated) => {
+              setActiveAnswerSheet(updated);
+              if (updated?.answers) {
+                setExtractionData(updated.answers);
+              }
+            }}
           />
         );
       case 4:
@@ -462,6 +487,14 @@ export default function App() {
             onUpdateCorrections={setExtractionData}
             isConfirmed={isTeacherConfirmed}
             onConfirmChange={setIsTeacherConfirmed}
+            activeAnswerSheet={activeAnswerSheet}
+            isDemoMode={isDemoMode}
+            onAnswerSheetUpdated={(updated) => {
+              setActiveAnswerSheet(updated);
+              if (updated?.answers) {
+                setExtractionData(updated.answers);
+              }
+            }}
           />
         );
       case 5:

@@ -9,29 +9,70 @@ import {
   IconChevronRight,
   IconInfo,
 } from '../components/Icons';
+import { processAnswerSheet, getAnswerSheetFileUrl } from '../services/answerSheetService';
 
 export default function ExtractPreview({
   extractionData = [],
   onUpdateExtraction,
   uploadedFiles = [],
   studentProfile = { name: '' },
+  activeAnswerSheet = null,
+  isDemoMode = false,
+  onAnswerSheetUpdated,
 }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [filterMode, setFilterMode] = useState('all'); // 'all' | 'needs-review'
-  const [isSimulatingOCR, setIsSimulatingOCR] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processNotice, setProcessNotice] = useState(null);
+  const [processError, setProcessError] = useState(null);
 
-  const totalPages = 3;
+  // Derive active sheet from prop or first uploaded file with a backend _id
+  const targetSheet = activeAnswerSheet || uploadedFiles.find((f) => f.rawSheet)?.rawSheet || (uploadedFiles[0]?._id ? uploadedFiles[0] : null);
 
-  const handleSimulateRefresh = () => {
-    setIsSimulatingOCR(true);
-    setTimeout(() => {
-      setIsSimulatingOCR(false);
-    }, 800);
+  // Compute total pages from extraction items or active sheet metadata
+  const totalPages = Math.max(
+    1,
+    targetSheet?.pageCount || 1,
+    ...extractionData.map((q) => q.pageNumber || q.page || 1)
+  );
+
+  const handleTriggerOcr = async () => {
+    if (isDemoMode || !targetSheet?._id) {
+      setIsProcessing(true);
+      setTimeout(() => {
+        setIsProcessing(false);
+        setProcessNotice('Simulated OCR re-scan completed.');
+        setTimeout(() => setProcessNotice(null), 3000);
+      }, 800);
+      return;
+    }
+
+    setIsProcessing(true);
+    setProcessNotice('Running real OCR extraction engine on answer sheet...');
+    setProcessError(null);
+
+    try {
+      const updatedSheet = await processAnswerSheet(targetSheet._id);
+      if (updatedSheet?.answers) {
+        onUpdateExtraction(updatedSheet.answers);
+        if (onAnswerSheetUpdated) {
+          onAnswerSheetUpdated(updatedSheet);
+        }
+        setProcessNotice('Real OCR extraction complete. Organized into reviewable entries.');
+      }
+    } catch (err) {
+      console.error('[ExtractPreview] Extraction error:', err);
+      setProcessError(err.message || 'Failed to extract text from answer sheet.');
+    } finally {
+      setIsProcessing(false);
+      setTimeout(() => setProcessNotice(null), 5000);
+    }
   };
 
   const handleToggleVerify = (questionId) => {
     const updated = extractionData.map((q) => {
-      if (q.id === questionId) {
+      const qId = q._id || q.id;
+      if (qId === questionId) {
         return {
           ...q,
           status: q.status === 'Verified' ? 'Needs Review' : 'Verified',
@@ -44,7 +85,8 @@ export default function ExtractPreview({
 
   // Filter questions for the current page and filterMode
   const pageQuestions = extractionData.filter((q) => {
-    const matchesPage = q.page === currentPage;
+    const qPage = q.pageNumber || q.page || 1;
+    const matchesPage = qPage === currentPage;
     if (filterMode === 'needs-review') {
       return matchesPage && q.status === 'Needs Review';
     }
@@ -66,25 +108,50 @@ export default function ExtractPreview({
         <div>
           <strong>AI OCR Pipeline: </strong>
           <span>
-            {extractionData.length > 0
-              ? 'Displaying high-fidelity demonstration extraction data. In production, Neev uses computer vision to parse bounding boxes and handwriting.'
-              : 'Handwritten OCR parsing runs in Phase 3. Staged student answer sheets are ready for automated handwriting extraction.'}
+            {isDemoMode
+              ? 'Displaying high-fidelity demonstration extraction data. In production, Neev uses computer vision and OCR to parse handwriting.'
+              : 'Real OCR pipeline running. Text-based PDFs use direct native extraction; image scans and handwriting use Tesseract OCR.'}
           </span>
         </div>
       </div>
+
+      {processNotice && (
+        <div className="alert alert-success" role="status">
+          <IconCheckCircle size={18} style={{ flexShrink: 0 }} />
+          <span>{processNotice}</span>
+        </div>
+      )}
+
+      {processError && (
+        <div className="alert alert-danger" role="alert">
+          <IconAlertTriangle size={18} style={{ flexShrink: 0 }} />
+          <span>{processError}</span>
+        </div>
+      )}
 
       {uploadedFiles.length === 0 ? (
         <EmptyState
           icon={<IconEye size={28} />}
           title="No uploaded documents to extract"
-          description="Go back to Step 2 and stage at least one student answer sheet to preview extracted questions and answers."
+          description="Go back to Step 2 and upload at least one student answer sheet to preview extracted questions and answers."
         />
       ) : extractionData.length === 0 ? (
-        <EmptyState
-          icon={<IconEye size={28} />}
-          title="No OCR extraction performed yet"
-          description="Student answer sheets have been staged. In Phase 3, computer vision and handwriting OCR will transcribe questions and bounding boxes."
-        />
+        <div className="card" style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
+          <EmptyState
+            icon={<IconEye size={28} />}
+            title="Extraction Ready to Process"
+            description="Answer sheet is stored and ready for text extraction. Click below to initiate OCR."
+          />
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{ marginTop: 'var(--space-4)' }}
+            onClick={handleTriggerOcr}
+            disabled={isProcessing}
+          >
+            {isProcessing ? 'Processing Document...' : 'Run OCR Extraction'}
+          </button>
+        </div>
       ) : (
         <>
           {/* Controls & Pagination Toolbar */}
@@ -117,7 +184,7 @@ export default function ExtractPreview({
                 Needs Review ({totalNeedsReview})
               </button>
               <span className="badge badge-orange" style={{ alignSelf: 'center' }}>
-                Student: {studentProfile?.name || 'Unassigned'}
+                Student: {studentProfile?.name || targetSheet?.studentName || 'Unassigned'}
               </span>
             </div>
 
@@ -152,28 +219,29 @@ export default function ExtractPreview({
               <button
                 type="button"
                 className="btn btn-outline btn-sm"
-                onClick={handleSimulateRefresh}
-                title="Re-run extraction demonstration"
+                onClick={handleTriggerOcr}
+                disabled={isProcessing}
+                title="Re-run extraction on this answer sheet"
               >
-                {isSimulatingOCR ? 'Extracting...' : 'Re-scan Page'}
+                {isProcessing ? 'Extracting...' : 'Re-process OCR'}
               </button>
             </div>
           </div>
 
           {/* Document & Question Preview Split Layout */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 'var(--space-4)' }}>
-            {/* Scanned Document Simulation Panel */}
+            {/* Scanned Document View Panel */}
             <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
               <div className="card-header">
                 <h2 className="card-title" style={{ fontSize: 'var(--font-size-md)' }}>
                   Scanned Document View &bull; Page {currentPage}
                 </h2>
                 <span className="badge badge-neutral">
-                  {studentProfile?.name ? `${studentProfile.name} - Student Copy` : 'Student Document View'}
+                  {targetSheet?.originalFileName || studentProfile?.name ? `${studentProfile.name || targetSheet.studentName} - Copy` : 'Document View'}
                 </span>
               </div>
 
-              {/* Styled Mock Scan Sheet */}
+              {/* Styled Document / Scan Sheet Preview */}
               <div
                 style={{
                   flex: 1,
@@ -191,65 +259,49 @@ export default function ExtractPreview({
                 }}
               >
                 <div style={{ borderBottom: '1px dashed #E2C7B5', paddingBottom: '8px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', color: '#6F6259' }}>
-                  <span>EXAMINATION ANSWER SHEET</span>
-                  <span>PAGE {currentPage}</span>
+                  <span>{targetSheet?.originalFileName || 'EXAMINATION ANSWER SHEET'}</span>
+                  <span>PAGE {currentPage} OF {totalPages}</span>
                 </div>
 
-                {currentPage === 1 && (
-                  <div>
-                    <div style={{ border: '2px dashed var(--primary-orange)', backgroundColor: 'rgba(242, 107, 29, 0.06)', padding: '10px', borderRadius: '6px', marginBottom: '18px' }}>
-                      <span className="badge badge-orange" style={{ marginBottom: '6px' }}>OCR Bounding Box: Q1</span>
-                      <p style={{ color: '#231B16', fontWeight: 'bold' }}>Q1. Solve for x: 3x - 7 = 14</p>
-                      <p style={{ color: '#8C5B14', marginTop: '4px' }}>
-                        3x = 14 - 7  <span style={{ backgroundColor: '#FDE8E8', color: '#D9383A', padding: '1px 4px', borderRadius: '3px' }}>&larr; Uncertain Sign Detected</span><br />
-                        3x = 7<br />
-                        x = 7/3
+                {/* Show Page Questions or Raw Text */}
+                {pageQuestions.length > 0 ? (
+                  pageQuestions.map((q, idx) => (
+                    <div
+                      key={q._id || q.id || idx}
+                      style={{
+                        border: '2px dashed var(--primary-orange)',
+                        backgroundColor: 'rgba(242, 107, 29, 0.06)',
+                        padding: '12px',
+                        borderRadius: '6px',
+                        marginBottom: '16px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <span className="badge badge-orange">
+                          OCR Box: {q.questionNumber || q.number || `Q${idx + 1}`}
+                        </span>
+                        <span style={{ fontSize: '11px', color: 'var(--secondary-text)' }}>
+                          Confidence: {q.confidence !== null && q.confidence !== undefined ? `${q.confidence}%` : 'Direct Text'}
+                        </span>
+                      </div>
+                      <p style={{ color: '#231B16', fontWeight: 'bold' }}>
+                        {q.prompt || `Question ${q.questionNumber || idx + 1}`}
                       </p>
-                    </div>
-
-                    <div style={{ border: '2px dashed #B7791F', backgroundColor: 'rgba(183, 121, 31, 0.06)', padding: '10px', borderRadius: '6px' }}>
-                      <span className="badge badge-warning" style={{ marginBottom: '6px' }}>OCR Bounding Box: Q2</span>
-                      <p style={{ color: '#231B16', fontWeight: 'bold' }}>Q2. Simplify: -5 - (-12) + 3</p>
-                      <p style={{ color: '#8C5B14', marginTop: '4px' }}>
-                        = -5 - 12 + 3<br />
-                        = -17 + 3<br />
-                        = -14
+                      <p style={{ color: '#8C5B14', marginTop: '6px', whiteSpace: 'pre-wrap' }}>
+                        {q.rawExtractedText || q.extractedAnswer || '(No text detected)'}
                       </p>
+                      {q.uncertainParts && q.uncertainParts.length > 0 && (
+                        <div style={{ marginTop: '8px' }}>
+                          <span style={{ backgroundColor: '#FDE8E8', color: '#D9383A', padding: '2px 6px', borderRadius: '3px', fontSize: '11px' }}>
+                            &larr; {q.uncertainParts.join('; ')}
+                          </span>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                )}
-
-                {currentPage === 2 && (
-                  <div>
-                    <div style={{ border: '2px dashed var(--primary-orange)', backgroundColor: 'rgba(242, 107, 29, 0.06)', padding: '10px', borderRadius: '6px', marginBottom: '18px' }}>
-                      <span className="badge badge-orange" style={{ marginBottom: '6px' }}>OCR Bounding Box: Q3</span>
-                      <p style={{ color: '#231B16', fontWeight: 'bold' }}>Q3. Solve: 5(y - 2) = 2y + 8</p>
-                      <p style={{ color: '#8C5B14', marginTop: '4px' }}>
-                        5y - 2 = 2y + 8  <span style={{ backgroundColor: '#FDE8E8', color: '#D9383A', padding: '1px 4px', borderRadius: '3px' }}>&larr; Bracket Error</span><br />
-                        3y = 10<br />
-                        y = 10/3
-                      </p>
-                    </div>
-
-                    <div style={{ border: '2px solid #B7E4C7', backgroundColor: 'rgba(30, 142, 90, 0.05)', padding: '10px', borderRadius: '6px' }}>
-                      <span className="badge badge-success" style={{ marginBottom: '6px' }}>Verified OCR Box: Q4</span>
-                      <p style={{ color: '#231B16', fontWeight: 'bold' }}>Q4. Perimeter word problem</p>
-                      <p style={{ color: '#156B43', marginTop: '4px' }}>
-                        2(2w + 4) = 48 &rarr; 4w = 40 &rarr; w = 10, l = 14
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {currentPage === 3 && (
-                  <div>
-                    <div style={{ border: '2px solid #B7E4C7', backgroundColor: 'rgba(30, 142, 90, 0.05)', padding: '10px', borderRadius: '6px' }}>
-                      <span className="badge badge-success" style={{ marginBottom: '6px' }}>Verified OCR Box: Q5</span>
-                      <p style={{ color: '#231B16', fontWeight: 'bold' }}>Q5. Evaluate: -4 * (6 - 9) / -2</p>
-                      <p style={{ color: '#156B43', marginTop: '4px' }}>
-                        -4 * (-3) / -2 = 12 / -2 = -6
-                      </p>
-                    </div>
+                  ))
+                ) : (
+                  <div style={{ color: 'var(--secondary-text)', textAlign: 'center', padding: 'var(--space-8)' }}>
+                    No extracted questions found on Page {currentPage}.
                   </div>
                 )}
               </div>
@@ -269,10 +321,11 @@ export default function ExtractPreview({
               ) : (
                 pageQuestions.map((q) => {
                   const isNeedsReview = q.status === 'Needs Review';
+                  const qId = q._id || q.id;
 
                   return (
                     <div
-                      key={q.id}
+                      key={qId}
                       className="card"
                       style={{
                         padding: 'var(--space-4)',
@@ -283,10 +336,10 @@ export default function ExtractPreview({
                       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--space-2)', marginBottom: '8px' }}>
                         <div>
                           <span style={{ fontWeight: 'var(--font-weight-bold)', color: 'var(--dark-orange)', marginRight: '6px' }}>
-                            {q.number}
+                            {q.questionNumber || q.number}
                           </span>
                           <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 'var(--font-weight-semibold)', color: 'var(--main-text)' }}>
-                            {q.prompt}
+                            {q.prompt || `Question ${q.questionNumber || ''}`}
                           </span>
                         </div>
                         <span
@@ -321,7 +374,7 @@ export default function ExtractPreview({
                           color: 'var(--main-text)',
                         }}
                       >
-                        {q.extractedAnswer}
+                        {q.rawExtractedText || q.extractedAnswer || '(No text)'}
                       </div>
 
                       {/* Uncertainties if any */}
@@ -344,14 +397,18 @@ export default function ExtractPreview({
 
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                          <span className="badge badge-neutral">OCR Confidence: {q.confidence}%</span>
-                          <span className="badge badge-neutral">Detected Marks: {q.detectedMarks}/{q.maxMarks}</span>
+                          <span className="badge badge-neutral">
+                            OCR Confidence: {q.confidence !== null && q.confidence !== undefined ? `${q.confidence}%` : 'Direct Text'}
+                          </span>
+                          <span className="badge badge-neutral">
+                            Marks: {q.awardedMarks !== undefined ? q.awardedMarks : q.detectedMarks || 0}/{q.maxMarks || 5}
+                          </span>
                         </div>
 
                         <button
                           type="button"
                           className={`btn btn-sm ${isNeedsReview ? 'btn-secondary' : 'btn-outline'}`}
-                          onClick={() => handleToggleVerify(q.id)}
+                          onClick={() => handleToggleVerify(qId)}
                         >
                           {isNeedsReview ? 'Mark as Verified' : 'Flag for Review'}
                         </button>

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import PageHeader from '../components/PageHeader';
 import FormField from '../components/FormField';
 import EmptyState from '../components/EmptyState';
@@ -11,6 +11,11 @@ import {
   IconInfo,
   IconUser,
 } from '../components/Icons';
+import {
+  uploadAnswerSheets,
+  fetchAnswerSheets,
+  deleteAnswerSheet,
+} from '../services/answerSheetService';
 
 export default function UploadAnswerSheets({
   syllabusData,
@@ -19,6 +24,8 @@ export default function UploadAnswerSheets({
   studentProfile = { name: '', rollNumber: '', section: 'Section A' },
   onUpdateStudentProfile,
   onStartNewStudentAssessment,
+  isDemoMode = false,
+  onAnswerSheetLoaded,
 }) {
   const fileInputRef = useRef(null);
   const [dragActive, setDragActive] = useState(false);
@@ -26,6 +33,8 @@ export default function UploadAnswerSheets({
   const [validationError, setValidationError] = useState(null);
   const [uploadNotice, setUploadNotice] = useState(null);
   const [studentNameTouched, setStudentNameTouched] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isLoadingExisting, setIsLoadingExisting] = useState(false);
 
   const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB
   const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
@@ -33,15 +42,69 @@ export default function UploadAnswerSheets({
 
   // Format file size nicely
   const formatSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes';
+    if (!bytes || bytes === 0) return '0 Bytes';
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
+  // Fetch real answer sheets from backend on load/refresh if not demo mode
+  useEffect(() => {
+    if (!isDemoMode && syllabusData?.assessmentId) {
+      setIsLoadingExisting(true);
+      fetchAnswerSheets(syllabusData.assessmentId)
+        .then((sheets) => {
+          if (Array.isArray(sheets) && sheets.length > 0) {
+            const mapped = sheets.map((sheet) => ({
+              id: sheet._id,
+              _id: sheet._id,
+              name: sheet.originalFileName,
+              type: sheet.mimeType,
+              size: sheet.fileSize,
+              category: 'answer-sheet',
+              status: sheet.status === 'verified'
+                ? 'Verified Ground Truth'
+                : sheet.status === 'review_required'
+                ? 'Ready for Review'
+                : sheet.status === 'processing'
+                ? 'Processing OCR'
+                : sheet.status === 'processing_failed'
+                ? 'Processing Failed'
+                : 'Uploaded',
+              pages: sheet.pageCount || 1,
+              studentName: sheet.studentName,
+              rawSheet: sheet,
+            }));
+            onUpdateFiles(mapped);
+
+            // Populate studentProfile and extractionData from latest sheet if student name empty
+            const latest = sheets[0];
+            if (latest) {
+              if (onUpdateStudentProfile && !studentProfile?.name) {
+                onUpdateStudentProfile({
+                  ...studentProfile,
+                  name: latest.studentName || '',
+                  rollNumber: latest.rollNumber || '',
+                });
+              }
+              if (onAnswerSheetLoaded) {
+                onAnswerSheetLoaded(latest);
+              }
+            }
+          }
+        })
+        .catch((err) => {
+          console.error('[UploadAnswerSheets] Failed to fetch existing answer sheets:', err);
+        })
+        .finally(() => {
+          setIsLoadingExisting(false);
+        });
+    }
+  }, [syllabusData?.assessmentId, isDemoMode]);
+
   // Process incoming files from input or drag-drop
-  const handleProcessFiles = (fileList) => {
+  const handleProcessFiles = async (fileList) => {
     setValidationError(null);
     setUploadNotice(null);
 
@@ -51,7 +114,8 @@ export default function UploadAnswerSheets({
       return;
     }
 
-    const newValidFiles = [];
+    // Client-side quick checks
+    const filesToUpload = [];
     const errors = [];
 
     filesArray.forEach((file) => {
@@ -85,26 +149,104 @@ export default function UploadAnswerSheets({
         return;
       }
 
-      newValidFiles.push({
-        id: `f-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-        name: file.name,
-        type: file.type || ext,
-        size: file.size,
-        category: selectedCategory,
-        status: 'Staged Locally',
-        pages: file.type.includes('pdf') ? Math.floor(Math.random() * 3) + 1 : 1,
-        studentName: studentProfile?.name?.trim() || 'Student',
-      });
+      filesToUpload.push(file);
     });
 
     if (errors.length > 0) {
       setValidationError(errors.join(' '));
     }
 
-    if (newValidFiles.length > 0) {
+    if (filesToUpload.length === 0) return;
+
+    // In Demo Mode: stage files in browser memory
+    if (isDemoMode) {
+      const newValidFiles = filesToUpload.map((file) => ({
+        id: `f-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+        name: file.name,
+        type: file.type || ('.' + file.name.split('.').pop().toLowerCase()),
+        size: file.size,
+        category: selectedCategory,
+        status: 'Staged Locally',
+        pages: file.type.includes('pdf') ? Math.floor(Math.random() * 3) + 1 : 1,
+        studentName: studentProfile?.name?.trim() || 'Student',
+      }));
       onUpdateFiles([...uploadedFiles, ...newValidFiles]);
-      setUploadNotice(`Staged ${newValidFiles.length} file(s) locally for analysis preview.`);
+      setUploadNotice(`Staged ${newValidFiles.length} file(s) locally for demonstration preview.`);
       setTimeout(() => setUploadNotice(null), 4000);
+      return;
+    }
+
+    // Real Authenticated Upload
+    if (!studentProfile?.name || !studentProfile.name.trim()) {
+      setStudentNameTouched(true);
+      setValidationError("Please enter the student's full name before uploading answer sheets.");
+      return;
+    }
+
+    if (!syllabusData?.assessmentId) {
+      setValidationError(
+        'Please save the assessment in Step 1 before uploading real answer sheets.'
+      );
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadNotice('Uploading and extracting answer sheet text...');
+
+    try {
+      const formData = new FormData();
+      formData.append('studentName', studentProfile.name.trim());
+      formData.append('rollNumber', studentProfile.rollNumber ? studentProfile.rollNumber.trim() : '');
+
+      filesToUpload.forEach((file) => {
+        formData.append('files', file);
+      });
+
+      const result = await uploadAnswerSheets(syllabusData.assessmentId, formData);
+
+      if (Array.isArray(result) && result.length > 0) {
+        const newlyMapped = result.map((sheet) => ({
+          id: sheet._id,
+          _id: sheet._id,
+          name: sheet.originalFileName,
+          type: sheet.mimeType,
+          size: sheet.fileSize,
+          category: 'answer-sheet',
+          status: sheet.status === 'verified'
+            ? 'Verified Ground Truth'
+            : sheet.status === 'review_required'
+            ? 'Ready for Review'
+            : sheet.status === 'processing'
+            ? 'Processing OCR'
+            : sheet.status === 'processing_failed'
+            ? 'Processing Failed'
+            : 'Uploaded',
+          pages: sheet.pageCount || 1,
+          studentName: sheet.studentName,
+          rawSheet: sheet,
+        }));
+
+        // Merge with existing
+        const updated = [...uploadedFiles, ...newlyMapped];
+        onUpdateFiles(updated);
+
+        // Notify parent of active sheet for extraction preview
+        if (onAnswerSheetLoaded && result[0]) {
+          onAnswerSheetLoaded(result[0]);
+        }
+
+        setUploadNotice(
+          `Successfully uploaded and processed ${result.length} answer sheet(s). Text extracted and ready for review.`
+        );
+      } else {
+        setUploadNotice('Files uploaded successfully.');
+      }
+    } catch (err) {
+      console.error('[UploadAnswerSheets] Upload failed:', err);
+      setValidationError(err.message || 'Failed to upload answer sheets to backend.');
+    } finally {
+      setIsUploading(false);
+      setTimeout(() => setUploadNotice(null), 5000);
     }
   };
 
@@ -127,10 +269,30 @@ export default function UploadAnswerSheets({
     }
   };
 
-  const handleRemoveFile = (fileId) => {
-    const updated = uploadedFiles.filter((f) => f.id !== fileId);
-    onUpdateFiles(updated);
-    setValidationError(null);
+  const handleRemoveFile = async (file) => {
+    const fileId = file._id || file.id;
+
+    if (!isDemoMode && file._id) {
+      const confirmed = window.confirm(
+        `Are you sure you want to delete "${file.name}"? This will permanently delete the file and its extracted data.`
+      );
+      if (!confirmed) return;
+
+      try {
+        await deleteAnswerSheet(file._id);
+        const updated = uploadedFiles.filter((f) => (f._id || f.id) !== fileId);
+        onUpdateFiles(updated);
+        setUploadNotice(`Deleted "${file.name}" successfully.`);
+        setTimeout(() => setUploadNotice(null), 3000);
+      } catch (err) {
+        console.error('[UploadAnswerSheets] Delete failed:', err);
+        setValidationError(err.message || 'Failed to delete file from backend.');
+      }
+    } else {
+      const updated = uploadedFiles.filter((f) => (f._id || f.id) !== fileId);
+      onUpdateFiles(updated);
+      setValidationError(null);
+    }
   };
 
   // Group counts
@@ -146,16 +308,28 @@ export default function UploadAnswerSheets({
         badgeText="Collection Phase"
       />
 
-      {/* Demonstration Notice */}
-      <div className="alert alert-notice" role="status">
-        <IconInfo size={18} style={{ flexShrink: 0 }} />
-        <div>
-          <strong>Frontend Demonstration Mode: </strong>
-          <span>
-            Selected files are stored in browser memory only. No data is transmitted to an external server or stored in a database.
-          </span>
+      {/* Mode Notice */}
+      {isDemoMode ? (
+        <div className="alert alert-notice" role="status">
+          <IconInfo size={18} style={{ flexShrink: 0 }} />
+          <div>
+            <strong>Frontend Demonstration Mode: </strong>
+            <span>
+              Selected files are stored in browser memory only. No data is transmitted to an external server or stored in a database.
+            </span>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="alert alert-notice" role="status">
+          <IconInfo size={18} style={{ flexShrink: 0 }} />
+          <div>
+            <strong>Secure Teacher Upload: </strong>
+            <span>
+              Files are verified, saved in private server storage, and processed with real OCR. Metadata and extracted answers persist in MongoDB.
+            </span>
+          </div>
+        </div>
+      )}
 
       {uploadNotice && (
         <div className="alert alert-success" role="status">
@@ -171,7 +345,7 @@ export default function UploadAnswerSheets({
         </div>
       )}
 
-      {/* Exam Summary Header Card: Neutral badge styling across all categories */}
+      {/* Exam Summary Header Card */}
       <div className="card" style={{ marginBottom: 'var(--space-6)', backgroundColor: 'var(--card-highlight-bg)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
           <div>
@@ -367,14 +541,17 @@ export default function UploadAnswerSheets({
             backgroundColor: dragActive ? 'var(--light-orange-subtle)' : 'var(--surface-bg)',
             padding: 'var(--space-8) var(--space-4)',
             textAlign: 'center',
-            cursor: 'pointer',
+            cursor: isUploading ? 'wait' : 'pointer',
             transition: 'all var(--transition-fast)',
+            opacity: isUploading ? 0.7 : 1,
           }}
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => {
+            if (!isUploading) fileInputRef.current?.click();
+          }}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
+            if ((e.key === 'Enter' || e.key === ' ') && !isUploading) {
               e.preventDefault();
               fileInputRef.current?.click();
             }
@@ -387,6 +564,7 @@ export default function UploadAnswerSheets({
             multiple
             accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
             style={{ display: 'none' }}
+            disabled={isUploading}
             onChange={(e) => {
               if (e.target.files) handleProcessFiles(e.target.files);
             }}
@@ -409,7 +587,13 @@ export default function UploadAnswerSheets({
           </div>
 
           <p style={{ fontSize: 'var(--font-size-md)', fontWeight: 'var(--font-weight-bold)', color: 'var(--main-text)' }}>
-            Drag & drop {selectedCategory.replace('-', ' ')} files here, or <span style={{ color: 'var(--primary-orange)' }}>Browse</span>
+            {isUploading ? (
+              <span>Uploading and Processing OCR...</span>
+            ) : (
+              <>
+                Drag & drop {selectedCategory.replace('-', ' ')} files here, or <span style={{ color: 'var(--primary-orange)' }}>Browse</span>
+              </>
+            )}
           </p>
           <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--secondary-text)', marginTop: '4px' }}>
             Supported formats: PDF, JPG, PNG &bull; Max 15 MB per file
@@ -420,8 +604,11 @@ export default function UploadAnswerSheets({
       {/* Selected Files List */}
       <div className="card">
         <div className="card-header">
-          <h2 className="card-title">Staged Files ({uploadedFiles.length})</h2>
-          {uploadedFiles.length > 0 && (
+          <h2 className="card-title">
+            Staged Files ({uploadedFiles.length})
+            {isLoadingExisting && <span style={{ fontSize: '12px', color: 'var(--secondary-text)', marginLeft: '8px' }}>Loading saved files...</span>}
+          </h2>
+          {uploadedFiles.length > 0 && isDemoMode && (
             <button
               type="button"
               className="btn btn-outline btn-sm"
@@ -448,9 +635,18 @@ export default function UploadAnswerSheets({
                   ? 'badge-neutral'
                   : 'badge-success';
 
+              const statusBadge =
+                file.status?.includes('Verified')
+                  ? 'badge-success'
+                  : file.status?.includes('Ready')
+                  ? 'badge-warning'
+                  : file.status?.includes('Failed')
+                  ? 'badge-danger'
+                  : 'badge-neutral';
+
               return (
                 <div
-                  key={file.id}
+                  key={file.id || file._id}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -498,18 +694,23 @@ export default function UploadAnswerSheets({
                         <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--secondary-text)' }}>
                           {formatSize(file.size)} &bull; {file.pages} {file.pages === 1 ? 'page' : 'pages'}
                         </span>
+                        {file.studentName && (
+                          <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--secondary-text)' }}>
+                            &bull; Student: {file.studentName}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexShrink: 0 }}>
-                    <span className="badge badge-success" style={{ fontSize: '11px' }}>
+                    <span className={`badge ${statusBadge}`} style={{ fontSize: '11px' }}>
                       {file.status}
                     </span>
                     <button
                       type="button"
                       className="btn-icon-only danger"
-                      onClick={() => handleRemoveFile(file.id)}
+                      onClick={() => handleRemoveFile(file)}
                       aria-label={`Remove file ${file.name}`}
                       title="Remove file"
                     >

@@ -25,6 +25,12 @@ credentials.json
 frontend/dist/
 frontend/dist-ssr/
 
+# Uploads & Temp Storage
+uploads/
+backend/uploads/
+temp-test-storage/
+backend/temp-test-storage/
+
 # OS and Editors
 .DS_Store
 Thumbs.db
