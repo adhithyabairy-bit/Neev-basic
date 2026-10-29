@@ -30,6 +30,8 @@ uploads/
 backend/uploads/
 temp-test-storage/
 backend/temp-test-storage/
+data/
+*.zip
 
 # OS and Editors
 .DS_Store

@@ -115,6 +115,7 @@ async function main() {
   const doc = await SyllabusDocument.create({
     teacherId: teacher._id,
     title,
+    fileName: path.basename(resolvedPath),
     originalFileName: path.basename(resolvedPath),
     storageKey: saveResult.storageKey,
     storageProvider: saveResult.storageProvider,
@@ -134,6 +135,8 @@ async function main() {
     jobId,
     documentId: doc._id,
     teacherId: teacher._id,
+    storageKey: saveResult.storageKey,
+    storageProvider: saveResult.storageProvider,
     status: 'queued',
     attempts: 0,
     maxAttempts: 3,

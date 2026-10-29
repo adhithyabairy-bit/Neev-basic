@@ -12,7 +12,8 @@
     "test:storage": "node src/scripts/testStorageConnection.js",
     "worker:ingest": "node src/workers/ingestionWorker.js",
     "ingest:syllabus": "node src/scripts/ingestSyllabusDirectory.js",
-    "upload:syllabus": "node src/scripts/uploadLargeSyllabusPdf.js"
+    "upload:syllabus": "node src/scripts/uploadLargeSyllabusPdf.js",
+    "upload:zip": "node src/scripts/ingestCurriculumZip.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1159.0",
