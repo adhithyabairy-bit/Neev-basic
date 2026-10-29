@@ -199,7 +199,7 @@ export class EmbeddingService {
    * Google Gemini Batch Embedding API Integration
    */
   async _generateGeminiEmbeddings(texts) {
-    const executeBatch = async (modelName) => {
+    const executeBatch = async (modelName, retryCount = 0) => {
       const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:batchEmbedContents?key=${this.apiKey}`;
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
@@ -224,6 +224,16 @@ export class EmbeddingService {
           const errorData = await response.json().catch(() => ({}));
           const status = response.status;
           const msg = errorData.error?.message || response.statusText;
+
+          // Automatic Rate Limit Backoff for Gemini Free Tier (100 RPM)
+          if (status === 429 && retryCount < 3) {
+            const waitMatch = msg.match(/retry in ([\d\.]+)s/i);
+            const waitSeconds = waitMatch ? Math.ceil(parseFloat(waitMatch[1])) + 2 : 15;
+            console.warn(`[EmbeddingService] Rate limit reached (HTTP 429). Pausing for ${waitSeconds}s before retry ${retryCount + 1}/3...`);
+            await new Promise((r) => setTimeout(r, waitSeconds * 1000));
+            return executeBatch(modelName, retryCount + 1);
+          }
+
           const err = new Error(`Gemini Embedding API returned HTTP ${status}: ${msg}`);
           err.status = status;
           throw err;

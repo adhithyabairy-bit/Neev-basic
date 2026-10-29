@@ -288,6 +288,8 @@ export async function processJob(job, workerId = WORKER_ID) {
       });
 
       const embeddings = await embeddingService.generateBatchEmbeddings(texts);
+      // Gentle pacing to respect cloud embedding rate limits (100 RPM on Free Tier)
+      await new Promise((r) => setTimeout(r, 250));
 
       batch.forEach((c, idx) => {
         const chunkHash = crypto.createHash('sha256').update(c.chunkText).digest('hex');
@@ -350,7 +352,15 @@ export async function processJob(job, workerId = WORKER_ID) {
   } catch (err) {
     console.error(`[Worker ${workerId}] Ingestion failed for Job ${job.jobId}:`, err.message);
 
-    const isPermanent = job.attempts >= job.maxAttempts;
+    const isRateLimit = err.message.includes('429') || err.message.includes('quota');
+    const isPermanent = !isRateLimit && job.attempts >= job.maxAttempts;
+
+    if (isRateLimit) {
+      // Rate limits are transient; reset attempt counter so job is retried after backoff
+      job.attempts = Math.max(0, job.attempts - 1);
+      console.log(`[Worker ${workerId}] Rate limit hit. Job ${job.jobId} returned to queue with attempt counter preserved.`);
+      await new Promise((r) => setTimeout(r, 10000));
+    }
 
     job.errorDetails = `Ingestion error: ${err.message}`;
     job.status = isPermanent ? 'failed' : 'queued';
