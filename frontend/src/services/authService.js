@@ -25,7 +25,12 @@ export const FIREBASE_CONFIG = {
   measurementId: (import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || '').trim(),
 };
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+export const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL !== undefined
+    ? import.meta.env.VITE_API_BASE_URL
+    : import.meta.env.PROD
+    ? ''
+    : 'http://localhost:5000';
 
 /**
  * Checks whether the necessary Firebase environment variables are defined.

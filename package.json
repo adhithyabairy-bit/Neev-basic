@@ -2,6 +2,10 @@
   "name": "neev-workspace",
   "version": "1.0.0",
   "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
   "description": "Neev — AI-Powered Learning Gap Analysis Platform for Teachers",
   "scripts": {
     "dev": "npm --prefix frontend run dev",
