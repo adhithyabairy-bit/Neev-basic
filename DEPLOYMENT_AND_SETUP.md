@@ -240,38 +240,55 @@ npm --prefix backend run upload:syllabus -- --file="path/to/math-class-8.pdf" --
 
 ## 7. Production Deployment to Vercel
 
-The repository is configured as a zero-configuration monorepo for Vercel.
+The repository is configured for **Vercel Services** monorepo deployment via root `vercel.json`:
 
 ### 7.1 Architecture on Vercel
-- **Frontend**: Built via `vite build` into `frontend/dist/`.
-- **API**: Serverless entry point at `api/index.js` routing `/api/*` to the Express backend.
-- **Routing**: `vercel.json` routes all `/api/*` requests to the serverless function and static assets to Vite.
+- **Frontend Service**: Rooted at `frontend/`, built automatically using Vite.
+- **Backend Service**: Rooted at `backend/`, running the Express API with MongoDB Atlas and Firebase Admin.
+- **Routing**: Root `vercel.json` coordinates both services:
+  - `/api/(.*)` requests are routed internally to the `backend` service.
+  - All other requests are routed to the `frontend` service.
+
+```json
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "backend": {
+      "root": "backend"
+    },
+    "frontend": {
+      "root": "frontend"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": {
+        "service": "backend"
+      }
+    },
+    {
+      "source": "/api",
+      "destination": {
+        "service": "backend"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "frontend"
+      }
+    }
+  ]
+}
+```
 
 ### 7.2 Deploy Steps
 1. Push your repository to GitHub.
 2. In Vercel, click **Add New Project** and select your GitHub repository.
-3. Configure the Project Settings:
-   - **Framework Preset**: Vite
-   - **Root Directory**: `./` (Root)
-   - **Build Command**: `npm run build` (runs `npm --prefix frontend run build`)
-   - **Output Directory**: `frontend/dist`
-4. In **Settings > Environment Variables**, add:
-   - `NODE_ENV=production`
-   - `MONGODB_URI=mongodb+srv://...`
-   - `STORAGE_PROVIDER=filebase`
-   - `FILEBASE_ACCESS_KEY_ID=YOUR_FILEBASE_ACCESS_KEY`
-   - `FILEBASE_SECRET_ACCESS_KEY=YOUR_FILEBASE_SECRET_KEY`
-   - `FILEBASE_BUCKET_NAME=YOUR_FILEBASE_BUCKET_NAME`
-   - `FILEBASE_ENDPOINT=https://s3.filebase.io`
-   - `EMBEDDING_PROVIDER=gemini`
-   - `GEMINI_API_KEY=YOUR_GEMINI_API_KEY`
-   - `GROK_API_KEY=YOUR_GROK_API_KEY`
-   - `FIREBASE_PROJECT_ID=your-project-id`
-   - `VITE_FIREBASE_API_KEY=...`
-   - `VITE_FIREBASE_AUTH_DOMAIN=...`
-   - `VITE_FIREBASE_PROJECT_ID=...`
-   - `VITE_FIREBASE_STORAGE_BUCKET=...`
-   - `VITE_FIREBASE_APP_ID=...`
+3. Vercel detects **Application Preset: Services** with Root Directory `./`.
+4. In **Settings > Environment Variables**, add the unified environment variables (see Section 3).
+5. Click **Deploy**. Both services will build and deploy atomically under your single Vercel project domain.
 
 ---
 
