@@ -11,11 +11,15 @@ import {
   getIngestionJobStatus,
   retryIngestionJob,
   uploadSyllabusMiddleware,
+  streamCurriculumPdf,
 } from '../controllers/syllabusController.js';
 
 const router = express.Router();
 
-// Enforce authentication on all syllabus endpoints
+// Public curriculum study material reader
+router.get('/curriculum-pdf/:fileName', streamCurriculumPdf);
+
+// Enforce authentication on all protected syllabus endpoints
 router.use(authenticate);
 
 // Phase 6 Direct-to-Cloud Upload & Job Queue Endpoints

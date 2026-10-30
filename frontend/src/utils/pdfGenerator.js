@@ -160,6 +160,35 @@ export function generateGapReportPdfBlob({
         });
         y -= 14;
       }
+
+      if (gap.prerequisiteLesson) {
+        textItems.push({
+          text: `   Prerequisite Study: ${gap.prerequisiteLesson.grade} — ${gap.prerequisiteLesson.chapterName}`,
+          x: 60,
+          y,
+          size: 9,
+          font: 'F2',
+        });
+        y -= 12;
+        textItems.push({
+          text: `   Study Resource: ${gap.prerequisiteLesson.fileName}`,
+          x: 60,
+          y,
+          size: 8,
+          font: 'F1',
+        });
+        y -= 12;
+      }
+
+      if (gap.futureLessonsAffected && gap.futureLessonsAffected.length > 0) {
+        const futList = gap.futureLessonsAffected.map((f) => `${f.grade}: ${f.lessonName}`).join('; ');
+        const futLines = wrapText(`Future Lessons at Risk: ${futList}`, 75);
+        futLines.forEach((fline) => {
+          textItems.push({ text: `   ${fline}`, x: 60, y, size: 8, font: 'F1' });
+          y -= 11;
+        });
+        y -= 3;
+      }
     });
   }
 

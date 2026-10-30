@@ -213,6 +213,85 @@ export default function ExportFollowUp({
           ))}
         </div>
       </section>
+
+      {/* Foundational Textbook Chapters to Study Section */}
+      {gapsData.some((g) => g.prerequisiteLesson) && (
+        <section className="card" style={{ marginTop: 'var(--space-6)' }} aria-labelledby="prereq-chapters-heading">
+          <div className="card-header">
+            <div>
+              <h2 id="prereq-chapters-heading" className="card-title">Foundational Curriculum Chapters (Previous Grades)</h2>
+              <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--secondary-text)' }}>
+                Targeted previous class chapters retrieved from database knowledge base to remediate identified gaps.
+              </p>
+            </div>
+            <span className="badge badge-orange">NCERT Textbook Chapters</span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+            {gapsData
+              .filter((gap) => gap.prerequisiteLesson)
+              .map((gap, idx) => {
+                const prereq = gap.prerequisiteLesson;
+                const futureLessons = gap.futureLessonsAffected || [];
+                return (
+                  <div
+                    key={idx}
+                    style={{
+                      border: '1px solid var(--border-color)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '16px',
+                      backgroundColor: '#FFFFFF',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '10px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                          <span className="badge badge-orange">{prereq.grade}</span>
+                          <span style={{ fontSize: '11px', color: 'var(--muted-text)' }}>Grounded in database retrieval</span>
+                        </div>
+                        <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 'bold', color: 'var(--main-text)' }}>
+                          {prereq.chapterName}
+                        </h3>
+                        <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--secondary-text)', marginTop: '2px' }}>
+                          <strong>Core Concept:</strong> {prereq.concept}
+                        </p>
+                      </div>
+
+                      <a
+                        href={prereq.pdfUrl || `/curriculum/${encodeURIComponent(prereq.fileName)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-outline btn-sm"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
+                      >
+                        <IconDownload size={14} />
+                        <span>Download Chapter PDF</span>
+                      </a>
+                    </div>
+
+                    {futureLessons.length > 0 && (
+                      <div style={{ backgroundColor: '#FFF7ED', border: '1px solid #FFEDD5', borderRadius: 'var(--radius-sm)', padding: '8px 12px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#9A3412' }}>
+                          Downstream Future Grade Lessons Protected:
+                        </span>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
+                          {futureLessons.map((fut, fIdx) => (
+                            <span key={fIdx} className="badge badge-warning" style={{ fontSize: '10px' }}>
+                              {fut.grade}: {fut.lessonName}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

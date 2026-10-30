@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import crypto from 'crypto';
 import mongoose from 'mongoose';
 import multer from 'multer';
@@ -562,6 +564,55 @@ export async function retryIngestionJob(req, res, next) {
   }
 }
 
+export async function streamCurriculumPdf(req, res, next) {
+  try {
+    const { fileName } = req.params;
+    const safeName = path.basename(fileName || '');
+    if (!safeName) {
+      return res.status(400).json({ success: false, error: 'File name is required.' });
+    }
+
+    const possibleDirs = [
+      path.resolve(process.cwd(), '../frontend/public/curriculum'),
+      path.resolve(process.cwd(), 'frontend/public/curriculum'),
+      path.resolve(process.cwd(), 'public/curriculum'),
+      path.resolve(process.cwd(), '../data/syllabus_extracted/Study Materials'),
+      path.resolve(process.cwd(), 'data/syllabus_extracted/Study Materials'),
+    ];
+
+    let foundPath = null;
+    for (const dir of possibleDirs) {
+      if (fs.existsSync(dir)) {
+        const direct = path.join(dir, safeName);
+        if (fs.existsSync(direct)) {
+          foundPath = direct;
+          break;
+        }
+        // Check subdirectories
+        const subdirs = ['Class 6/Mathematics', 'Class 7/Maths', 'Class 8/Mathematics', 'Class 9/Mathematics', 'Class 10/Mathematics'];
+        for (const sub of subdirs) {
+          const subP = path.join(dir, sub, safeName);
+          if (fs.existsSync(subP)) {
+            foundPath = subP;
+            break;
+          }
+        }
+        if (foundPath) break;
+      }
+    }
+
+    if (!foundPath) {
+      return res.status(404).json({ success: false, error: `Curriculum PDF '${safeName}' not found.` });
+    }
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${safeName}"`);
+    fs.createReadStream(foundPath).pipe(res);
+  } catch (err) {
+    return next(err);
+  }
+}
+
 export default {
   ingestSyllabus,
   getSyllabusDocuments,
@@ -573,4 +624,5 @@ export default {
   getIngestionJobStatus,
   retryIngestionJob,
   uploadSyllabusMiddleware,
+  streamCurriculumPdf,
 };

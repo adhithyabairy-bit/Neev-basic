@@ -5,6 +5,8 @@ import {
   IconCompass,
   IconCheckCircle,
   IconBookOpen,
+  IconDownload,
+  IconAlertTriangle,
   IconInfo,
 } from '../components/Icons';
 
@@ -26,8 +28,8 @@ export default function LearningRoadmap({
     <div className="section-container" aria-label="Learning Roadmap Section">
       <PageHeader
         title="Personalized Remediation Learning Roadmap"
-        subtitle="Ordered study sequence starting from foundational gaps before advancing to dependent syllabus skills."
-        badgeText="Study Pathway"
+        subtitle="Ordered study sequence starting from foundational gaps with textbook chapters before advancing to dependent syllabus skills."
+        badgeText="Study Pathway & Lesson PDFs"
       />
 
       {/* Summary Metrics Bar */}
@@ -63,6 +65,8 @@ export default function LearningRoadmap({
           {roadmapData.map((step, idx) => {
             const isMastered = step.status === 'Mastered';
             const isInProgress = step.status === 'In Progress';
+            const prereq = step.prerequisiteLesson;
+            const futureLessons = step.futureLessonsAffected || [];
 
             return (
               <div
@@ -77,7 +81,7 @@ export default function LearningRoadmap({
                 {/* Step Header */}
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: '4px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: '4px', flexWrap: 'wrap' }}>
                       <span className="badge badge-orange">
                         Step {step.rank || idx + 1}
                       </span>
@@ -118,6 +122,55 @@ export default function LearningRoadmap({
                   </div>
                 </div>
 
+                {/* Prerequisite Chapter Study Link Box */}
+                {prereq && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '12px',
+                      backgroundColor: '#F8FAFC',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: 'var(--radius-sm)',
+                      padding: '10px 14px',
+                      marginTop: 'var(--space-2)',
+                      marginBottom: 'var(--space-3)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <IconBookOpen size={16} color="var(--primary-orange)" />
+                      <div>
+                        <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--muted-text)', textTransform: 'uppercase' }}>
+                          Foundational Study Resource ({prereq.grade}):
+                        </span>
+                        <p style={{ fontSize: 'var(--font-size-xs)', fontWeight: 'bold', color: 'var(--main-text)' }}>
+                          {prereq.chapterName}
+                        </p>
+                      </div>
+                    </div>
+
+                    <a
+                      href={prereq.pdfUrl || `/curriculum/${encodeURIComponent(prereq.fileName)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-outline"
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '11px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        textDecoration: 'none',
+                      }}
+                    >
+                      <IconDownload size={13} />
+                      <span>Study Chapter PDF</span>
+                    </a>
+                  </div>
+                )}
+
                 {/* Pedagogical Activities & Worked Examples */}
                 <div
                   style={{
@@ -128,7 +181,7 @@ export default function LearningRoadmap({
                     border: '1px solid var(--border-color)',
                     borderRadius: 'var(--radius-md)',
                     padding: 'var(--space-4)',
-                    marginTop: 'var(--space-3)',
+                    marginTop: 'var(--space-2)',
                   }}
                 >
                   <div>
@@ -150,7 +203,7 @@ export default function LearningRoadmap({
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                    <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                    <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
                       <span className="badge badge-neutral" style={{ fontSize: '11px' }}>
                         {step.practiceQuestions} Guided Problems
                       </span>
@@ -160,6 +213,18 @@ export default function LearningRoadmap({
                     </div>
                   </div>
                 </div>
+
+                {/* Future Downstream Lessons Protected */}
+                {futureLessons && futureLessons.length > 0 && (
+                  <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', fontSize: '11px' }}>
+                    <span style={{ color: '#9A3412', fontWeight: 'bold' }}>Unlocks Future Topics:</span>
+                    {futureLessons.map((fut, fIdx) => (
+                      <span key={fIdx} className="badge badge-warning" style={{ fontSize: '10px' }}>
+                        {fut.grade}: {fut.lessonName}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}

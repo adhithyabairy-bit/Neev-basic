@@ -236,9 +236,11 @@ export default function AIAnswerAnalysis({
     setApprovingId(evalId);
     try {
       const updated = await approveEvaluation(evalId, marksToApprove);
-      setEvaluations((prev) =>
-        prev.map((e) => (e._id === evalId ? updated : e))
-      );
+      setEvaluations((prev) => {
+        const nextList = prev.map((e) => (e._id === evalId ? updated : e));
+        if (onEvaluationsUpdated) onEvaluationsUpdated(nextList);
+        return nextList;
+      });
       setSuccessBanner('Teacher score approved successfully.');
       setEditingScoreId(null);
       setTimeout(() => setSuccessBanner(null), 3000);
