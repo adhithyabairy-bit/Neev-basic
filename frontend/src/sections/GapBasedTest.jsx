@@ -212,7 +212,7 @@ export default function GapBasedTest({
                     <span className="badge badge-success">{q.marks} Marks</span>
                   </div>
 
-                  <h2 style={{ fontSize: 'var(--font-size-md)', fontWeight: 'var(--font-weight-semibold)', color: 'var(--main-text)', lineHeight: 1.4 }}>
+                  <h2 style={{ fontSize: 'var(--font-size-md)', fontWeight: 'var(--font-weight-semibold)', color: 'var(--main-text)', lineHeight: 1.5, whiteSpace: 'pre-line' }}>
                     {q.prompt}
                   </h2>
                 </div>
@@ -264,6 +264,30 @@ export default function GapBasedTest({
                   <span className="badge badge-neutral" style={{ fontSize: '11px' }}>{q.syllabusTopic}</span>
                 </div>
               </div>
+
+              {q.prerequisiteChapter && (
+                <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--primary-orange)', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                  <strong>Prerequisite Chapter Reference:</strong>
+                  <span style={{ color: 'var(--main-text)' }}>{q.prerequisiteChapter} {q.pdfFileName ? `(${q.pdfFileName})` : ''}</span>
+                </div>
+              )}
+
+              {q.expectedAnswer && (
+                <div
+                  style={{
+                    backgroundColor: 'rgba(30, 142, 90, 0.05)',
+                    border: '1px solid var(--success-border)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '8px 12px',
+                    marginTop: '8px',
+                    fontSize: 'var(--font-size-xs)',
+                    whiteSpace: 'pre-line',
+                  }}
+                >
+                  <strong style={{ color: 'var(--success-dark)' }}>Expected Solution / Rubric: </strong>
+                  <span style={{ color: 'var(--main-text)' }}>{q.expectedAnswer}</span>
+                </div>
+              )}
             </div>
           ))}
         </div>

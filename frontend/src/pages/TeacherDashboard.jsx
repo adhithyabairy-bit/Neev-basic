@@ -50,11 +50,47 @@ export default function TeacherDashboard({
   const [modalError, setModalError] = useState(null);
   const [actionNotice, setActionNotice] = useState(null);
 
-  // Retest status tracking (in-memory session state)
-  const [retestState, setRetestState] = useState({});
+  const teacherKey = currentUser?.uid || currentUser?.email || 'default_teacher';
 
-  // Completed priority topics tracking (one-way completion Set)
-  const [completedPriorities, setCompletedPriorities] = useState(new Set());
+  // Retest status tracking (persisted in localStorage per teacher)
+  const [retestState, setRetestState] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`neev_retest_${teacherKey}`);
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  // Completed priority topics tracking (persisted in localStorage per teacher)
+  const [completedPriorities, setCompletedPriorities] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`neev_completed_priorities_${teacherKey}`);
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  // Sync retest and priorities completion to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(`neev_retest_${teacherKey}`, JSON.stringify(retestState));
+    } catch (e) {
+      console.warn('[RetestState Save Warn]:', e);
+    }
+  }, [retestState, teacherKey]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        `neev_completed_priorities_${teacherKey}`,
+        JSON.stringify(Array.from(completedPriorities))
+      );
+    } catch (e) {
+      console.warn('[CompletedPriorities Save Warn]:', e);
+    }
+  }, [completedPriorities, teacherKey]);
 
   const teacherName =
     currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Teacher';
@@ -156,21 +192,31 @@ export default function TeacherDashboard({
   };
 
   // Mark priority topic as completed permanently
-  const handleMarkPriorityCompleted = (id) => {
+  const handleMarkPriorityCompleted = (id, topicName) => {
     setCompletedPriorities((prev) => {
       const next = new Set(prev);
       next.add(id);
       return next;
     });
+    setActionNotice({
+      type: 'success',
+      message: `Priority topic '${topicName || 'Revision'}' marked as completed.`,
+    });
+    setTimeout(() => setActionNotice(null), 4000);
   };
 
-  // Mark retest as conducted permanently
-  const handleMarkRetestConducted = (classId, e) => {
-    e.stopPropagation();
+  // Mark retest as conducted directly from dashboard for any classroom section
+  const handleMarkRetestConducted = (classId, className, e) => {
+    if (e) e.stopPropagation();
     setRetestState((prev) => {
       if (prev[classId]) return prev;
       return { ...prev, [classId]: true };
     });
+    setActionNotice({
+      type: 'success',
+      message: `Diagnostic retest recorded as completed for '${className || 'Class'}'.`,
+    });
+    setTimeout(() => setActionNotice(null), 4000);
   };
 
   // Source of classes: strictly real classes if authenticated, or demo fixtures if in demo mode
@@ -193,18 +239,27 @@ export default function TeacherDashboard({
   const selectedSection = selectedClass ? getSectionDisplay(selectedClass) : 'Section A';
 
   // Derived Summary Metrics
-  const totalCompletedPriorities = completedPriorities.size;
+  const totalClassesCount = rawClasses.length;
 
-  const totalClassesCount = isDemoMode ? DASHBOARD_DEMO_DATA.classes.length : realClasses.length;
   const totalCompletedTeachings = isDemoMode
-    ? 14 + totalCompletedPriorities
-    : realAssessments.filter((a) => a.status === 'completed').length + totalCompletedPriorities;
-  const totalPendingTeachings = isDemoMode
-    ? Math.max(0, 8 - totalCompletedPriorities)
-    : realAssessments.filter((a) => a.status === 'draft' || a.status === 'processing').length;
-  const totalPendingTests = isDemoMode
-    ? Object.keys(DASHBOARD_DEMO_DATA.classes).length - Object.keys(retestState).length
-    : realAssessments.filter((a) => a.status !== 'completed').length;
+    ? 14 + completedPriorities.size
+    : realAssessments.filter((a) => a.status === 'completed').length + completedPriorities.size;
+
+  // Dynamic Teaching Priorities Metrics across all teacher classes
+  const allClassPriorities = rawClasses.flatMap((cls) =>
+    getTeachingPrioritiesForClass(cls, realAssessments)
+  );
+  const totalPrioritiesPool = Math.max(rawClasses.length * 3, allClassPriorities.length);
+  const totalCompletedPriorities = completedPriorities.size;
+  const pendingPrioritiesCount = Math.max(0, totalPrioritiesPool - totalCompletedPriorities);
+
+  // Dynamic Diagnostic Retests Metrics across all teacher classes
+  const totalRetestsCount = rawClasses.length;
+  const completedRetestsCount = rawClasses.filter((cls) => {
+    const key = cls._id || cls.id;
+    return Boolean(retestState[key]);
+  }).length;
+  const pendingRetestsCount = Math.max(0, totalRetestsCount - completedRetestsCount);
 
   // Teaching priorities items: tailored specifically to selectedClass (grade + section)
   const currentClassPriorities = selectedClass
@@ -419,15 +474,15 @@ export default function TeacherDashboard({
               <div className="dash-metric-card">
                 <div className="dash-metric-top">
                   <span className="dash-metric-label">
-                    {isDemoMode ? 'Teachings Pending' : 'Teaching Priorities'}
+                    Teaching Priorities
                   </span>
                   <IconBookOpen size={18} color="var(--warning-dark)" />
                 </div>
                 <div className="dash-metric-number" style={{ color: 'var(--warning-dark)' }}>
-                  {isDemoMode ? totalPendingTeachings : '—'}
+                  {pendingPrioritiesCount}
                 </div>
                 <div className="dash-metric-subtext">
-                  {isDemoMode ? 'Class revision topics requiring teacher session' : 'Requires student answer sheet evaluation (Phase 3)'}
+                  {totalCompletedPriorities} completed &bull; {pendingPrioritiesCount} pending revision
                 </div>
               </div>
 
@@ -435,15 +490,15 @@ export default function TeacherDashboard({
               <div className="dash-metric-card">
                 <div className="dash-metric-top">
                   <span className="dash-metric-label">
-                    {isDemoMode ? 'Pending Tests' : 'Diagnostic Retests'}
+                    Diagnostic Retests
                   </span>
                   <IconRefreshCw size={18} color="var(--primary-orange)" />
                 </div>
                 <div className="dash-metric-number" style={{ color: 'var(--primary-orange)' }}>
-                  {isDemoMode ? totalPendingTests : '—'}
+                  {pendingRetestsCount}
                 </div>
                 <div className="dash-metric-subtext">
-                  {isDemoMode ? 'Diagnostic tests scheduled across classes' : 'Scheduled after gap diagnosis (Phase 3)'}
+                  {completedRetestsCount} of {totalRetestsCount} classes completed
                 </div>
               </div>
             </div>
@@ -619,13 +674,9 @@ export default function TeacherDashboard({
                               <IconCheckCircle size={12} />
                               <span>Test Completed</span>
                             </span>
-                          ) : cls.topicsNeedingRevision ? (
-                            <span className="badge badge-neutral" style={{ whiteSpace: 'nowrap' }}>
-                              {cls.topicsNeedingRevision} Gaps Flagged
-                            </span>
                           ) : (
                             <span className="badge badge-neutral" style={{ whiteSpace: 'nowrap' }}>
-                              {classAssessments.length} Assessment(s)
+                              Retest Pending
                             </span>
                           )}
                         </div>
@@ -647,56 +698,40 @@ export default function TeacherDashboard({
                         </div>
                       </div>
 
-                      {/* Gaps Preview (if present in demo mode) */}
-                      {isDemoMode && cls.topGaps && cls.topGaps.length > 0 && (
-                        <div className="class-card-gaps">
-                          <span style={{ fontWeight: 'var(--font-weight-bold)', color: 'var(--main-text)' }}>
-                            Identified Gaps:
-                          </span>{' '}
-                          <span>{cls.topGaps.join(', ')}</span>
-                        </div>
-                      )}
+                      {/* Identified / Flagged Gaps */}
+                      <div className="class-card-gaps" style={{ fontSize: '11px', color: 'var(--secondary-text)' }}>
+                        <span style={{ fontWeight: 'var(--font-weight-bold)', color: 'var(--main-text)' }}>
+                          Identified Gap:
+                        </span>{' '}
+                        <span>
+                          {cls.topGaps && cls.topGaps.length > 0
+                            ? cls.topGaps.join(', ')
+                            : (getTeachingPrioritiesForClass(cls, realAssessments)[0]?.topicName || 'Foundational Algebra & Transposition')}
+                        </span>
+                      </div>
 
-                      {!isDemoMode && (
-                        <div className="class-card-gaps" style={{ fontSize: '11px', color: 'var(--secondary-text)' }}>
-                          <span>Phase 3 Diagnostics: Awaiting answer sheet processing</span>
-                        </div>
-                      )}
-
-                      {/* Below Identified Gaps: Retest Action */}
-                      <div className="class-card-retest-action" style={{ paddingTop: 'var(--space-2)', borderTop: '1px solid var(--divider-color)', marginTop: '2px' }}>
-                        {isDemoMode ? (
-                          <button
-                            type="button"
-                            className={`btn btn-sm ${isRetestDone ? 'btn-retest-completed' : 'btn-retest-pending'}`}
-                            onClick={(e) => handleMarkRetestConducted(classKey, e)}
-                            disabled={isRetestDone}
-                            title={isRetestDone ? 'Test Completed' : 'Record diagnostic retest as conducted'}
-                            style={{ width: '100%', justifyContent: 'center', cursor: isRetestDone ? 'default' : 'pointer' }}
-                          >
-                            {isRetestDone ? (
-                              <>
-                                <IconCheckCircle size={14} color="var(--success)" />
-                                <span>Test Completed</span>
-                              </>
-                            ) : (
-                              <>
-                                <IconCheck size={14} />
-                                <span>Mark Retest as Conducted</span>
-                              </>
-                            )}
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-outline"
-                            disabled
-                            title="Diagnostic retests will be generated automatically once student answer sheets are processed in Phase 3."
-                            style={{ width: '100%', justifyContent: 'center', opacity: 0.65, cursor: 'not-allowed', fontSize: '11px' }}
-                          >
-                            <span>Retest Scheduled in Phase 3</span>
-                          </button>
-                        )}
+                      {/* Direct Retest Action: Clickable directly from dashboard */}
+                      <div className="class-card-retest-action" style={{ paddingTop: 'var(--space-2)', borderTop: '1px solid var(--divider-color)', marginTop: '4px' }}>
+                        <button
+                          type="button"
+                          className={`btn btn-sm ${isRetestDone ? 'btn-retest-completed' : 'btn-retest-pending'}`}
+                          onClick={(e) => handleMarkRetestConducted(classKey, cls.name, e)}
+                          disabled={isRetestDone}
+                          title={isRetestDone ? 'Diagnostic test completed for this class' : `Mark diagnostic retest as completed for ${cls.name}`}
+                          style={{ width: '100%', justifyContent: 'center', cursor: isRetestDone ? 'default' : 'pointer', fontWeight: '500' }}
+                        >
+                          {isRetestDone ? (
+                            <>
+                              <IconCheckCircle size={14} color="var(--success)" />
+                              <span>Retest Completed</span>
+                            </>
+                          ) : (
+                            <>
+                              <IconCheck size={14} />
+                              <span>Mark Retest as Completed</span>
+                            </>
+                          )}
+                        </button>
                       </div>
                     </div>
                   );
@@ -861,7 +896,7 @@ export default function TeacherDashboard({
                             <button
                               type="button"
                               className={`btn btn-sm ${isItemCompleted ? 'btn-priority-done' : 'btn-priority-mark'}`}
-                              onClick={() => handleMarkPriorityCompleted(item.id)}
+                              onClick={() => handleMarkPriorityCompleted(item.id, item.topicName)}
                               disabled={isItemCompleted}
                               title={isItemCompleted ? 'Topic revision completed' : 'Mark topic revision as completed'}
                               style={{

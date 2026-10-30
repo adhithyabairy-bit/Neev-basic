@@ -95,6 +95,13 @@ const CURRICULUM_KNOWLEDGE_BASE = [
         risk: 'Breakdown in solving simultaneous equations using substitution, elimination, or cross-multiplication methods.',
       },
     ],
+    diagnosticQuestion: {
+      prompt: 'Solve the linear equation for x and verify your answer with complete step-by-step substitution:\n4x − 5 = 2x + 9',
+      type: 'Problem Solving',
+      marks: 3,
+      targetConcept: 'Transposition of Variables & Substitution Verification (Class 7 Prerequisite)',
+      expectedAnswer: 'Step 1 (Solving): 4x - 2x = 9 + 5 => 2x = 14 => x = 7. Step 2 (Verification): LHS = 4(7) - 5 = 28 - 5 = 23; RHS = 2(7) + 9 = 14 + 9 = 23. Since LHS = RHS = 23, verified.',
+    },
   },
   {
     category: 'arithmetic_order_of_operations',
@@ -120,6 +127,13 @@ const CURRICULUM_KNOWLEDGE_BASE = [
         risk: 'Loss of examination marks in prime factorisation algorithms and decimal expansion proofs.',
       },
     ],
+    diagnosticQuestion: {
+      prompt: 'Evaluate the arithmetic expression with complete intermediate steps:\n18 + 7 − 4 × (6 − 3)',
+      type: 'Short Answer',
+      marks: 2,
+      targetConcept: 'BODMAS Precedence & Addition with Regrouping (Class 6 Prerequisite)',
+      expectedAnswer: 'Step 1: Parentheses: 6 - 3 = 3. Step 2: Multiplication: 4 * 3 = 12. Step 3: Addition & Subtraction: 18 + 7 - 12 = 25 - 12 = 13.',
+    },
   },
   {
     category: 'exponents_powers',
@@ -145,6 +159,13 @@ const CURRICULUM_KNOWLEDGE_BASE = [
         risk: 'Severe block in solving exponential equations, logarithmic identities, and base change calculations.',
       },
     ],
+    diagnosticQuestion: {
+      prompt: 'Solve the exponential problems using standard index laws:\n(a) Find the value of m if: 5ᵐ ÷ 5⁻³ = 5⁵.\n(b) Simplify and express with positive exponents: (3⁻⁷ ÷ 3⁻¹⁰) × 3⁻⁵.',
+      type: 'Problem Solving',
+      marks: 4,
+      targetConcept: 'Laws of Integral Exponents & Equating Indices (Class 8 Core)',
+      expectedAnswer: '(a) Using aᵐ ÷ aⁿ = aᵐ⁻ⁿ: 5^(m - (-3)) = 5^(m + 3) = 5^5. Equating exponents: m + 3 = 5 => m = 2.\n(b) 3^(-7 - (-10)) * 3^(-5) = 3^3 * 3^(-5) = 3^(3 - 5) = 3^(-2) = 1/3² = 1/9.',
+    },
   },
   {
     category: 'commercial_math_interest',
@@ -170,6 +191,13 @@ const CURRICULUM_KNOWLEDGE_BASE = [
         risk: 'Failure to compute monthly installment interest yields and maturity payments.',
       },
     ],
+    diagnosticQuestion: {
+      prompt: 'A sum of ₹ 8,000 is borrowed at an interest rate of 5% per annum for 2 years. Calculate the compound interest compounded annually.',
+      type: 'Multi-Step Problem',
+      marks: 4,
+      targetConcept: 'Compound Interest Formula & Annual Compounding Multipliers (Class 7 Prerequisite)',
+      expectedAnswer: 'Amount A = P(1 + R/100)ⁿ = 8000(1 + 5/100)² = 8000(21/20)² = 8000 * 441 / 400 = ₹ 8,820. Compound Interest CI = A - P = 8820 - 8000 = ₹ 820.',
+    },
   },
   {
     category: 'geometry_mensuration',
@@ -195,6 +223,13 @@ const CURRICULUM_KNOWLEDGE_BASE = [
         risk: 'Breakdown in calculating slant heights of cones, diagonals of cuboids, and composite 3D solid mensuration.',
       },
     ],
+    diagnosticQuestion: {
+      prompt: 'A rectangular field has length 24 m and diagonal 25 m.\n(a) Using the Pythagoras theorem, calculate the width of the field.\n(b) Find the perimeter and area of the field.',
+      type: 'Problem Solving',
+      marks: 4,
+      targetConcept: 'Pythagoras Theorem in Rectangles & Perimeter/Area (Class 6 Prerequisite)',
+      expectedAnswer: '(a) In right triangle: width² + length² = diagonal² => width² = 25² - 24² = 625 - 576 = 49 => width = 7 m.\n(b) Perimeter = 2(24 + 7) = 62 m; Area = 24 * 7 = 168 sq m.',
+    },
   },
   {
     category: 'factorisation_polynomials',
@@ -220,6 +255,13 @@ const CURRICULUM_KNOWLEDGE_BASE = [
         risk: 'Inability to compute polynomial zeros, roots of quadratic equations, or verify sum/product of roots.',
       },
     ],
+    diagnosticQuestion: {
+      prompt: 'Factorise the following algebraic expressions completely:\n(a) 16b² − 49c²\n(b) 2x² + 7x + 3 (by splitting the middle term)',
+      type: 'Problem Solving',
+      marks: 4,
+      targetConcept: 'Difference of Squares (a² - b²) and Quadratic Factorisation (Class 7 Prerequisite)',
+      expectedAnswer: '(a) Using a² - b² = (a - b)(a + b): (4b - 7c)(4b + 7c).\n(b) 2x² + 6x + x + 3 = 2x(x + 3) + 1(x + 3) = (2x + 1)(x + 3).',
+    },
   },
 ];
 
@@ -412,16 +454,40 @@ export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
       futureLessonsAffected: knowledge.futureLessonsAffected,
     });
 
+    // Formulate a proper, authentic diagnostic test question for this identified gap
+    let questionPrompt = '';
+    let questionType = 'Problem Solving';
+    let questionMarks = 3;
+    let conceptLabel = gapTopic;
+    let expectedSolution = item.expectedAnswer;
+
+    if (knowledge && knowledge.diagnosticQuestion) {
+      questionPrompt = knowledge.diagnosticQuestion.prompt;
+      questionType = knowledge.diagnosticQuestion.type || 'Problem Solving';
+      questionMarks = knowledge.diagnosticQuestion.marks || (max > 0 ? max : 3);
+      conceptLabel = knowledge.diagnosticQuestion.targetConcept || gapTopic;
+      expectedSolution = knowledge.diagnosticQuestion.expectedAnswer || item.expectedAnswer;
+    } else {
+      // Clean fallback if original prompt is available
+      const cleanPrompt = prompt
+        .replace(/^Diagnostic check for.*?:/i, '')
+        .replace(/\s*\[Subtotal.*?\]/i, '')
+        .trim();
+      questionPrompt = `Solve the following problem and show complete step-by-step working:\n${cleanPrompt}`;
+      conceptLabel = gapTopic.length > 60 ? `${gapTopic.slice(0, 57)}...` : gapTopic;
+    }
+
     testQuestions.push({
       id: `test-${qNum.toLowerCase().replace(/[^a-z0-9]/g, '') || index + 1}`,
       number: `${testQuestions.length + 1}`,
-      prompt: `Diagnostic check for ${qNum}: Verify and solve ${prompt.slice(0, 80)}`,
-      type: 'Short Answer',
-      marks: 2,
-      targetConcept: gapTopic,
+      prompt: questionPrompt,
+      type: questionType,
+      marks: questionMarks,
+      targetConcept: conceptLabel,
       syllabusTopic: lessonName,
-      expectedAnswer: item.expectedAnswer || 'Clear logical steps with correct final verification.',
-      prerequisiteChapter: knowledge.prerequisiteLesson.chapterName,
+      expectedAnswer: expectedSolution || 'Clear logical steps with correct final verification.',
+      prerequisiteChapter: knowledge.prerequisiteLesson?.chapterName,
+      pdfFileName: knowledge.prerequisiteLesson?.pdfFileName,
     });
   });
 
