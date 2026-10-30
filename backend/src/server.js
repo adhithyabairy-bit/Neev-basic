@@ -20,6 +20,7 @@ for (const envPath of envPaths) {
   }
 }
 
+import './utils/domPolyfill.js';
 import app from './app.js';
 import { isFirebaseAdminConfigured, getFirebaseAdminStatus } from './config/firebaseAdmin.js';
 import { connectDB, getDBStatus, disconnectDB } from './config/db.js';

@@ -1,3 +1,6 @@
+// Ensure standard web geometry APIs (DOMMatrix, DOMPoint, DOMRect) exist on globalThis in serverless environments
+import '../../utils/domPolyfill.js';
+
 // Lazy dynamic imports for serverless cold start performance and AWS Lambda compatibility
 let PDFParseClass = null;
 async function getPDFParse() {
