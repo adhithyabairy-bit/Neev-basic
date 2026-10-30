@@ -4,7 +4,7 @@
  * and diagnostic re-test items from evaluated answer sheet results.
  *
  * Grounded in curriculum knowledge base with textbook chapter retrieval
- * and future grade impact mapping.
+ * and future grade impact mapping up to Class 10 (with dedicated Class 10 rules).
  */
 
 /**
@@ -40,19 +40,28 @@ export function isNonErrorText(text) {
     return true;
   }
 
+  // Detect phrases like "In Q2, None", "In Q3, None observed", "In Q1, No error"
+  if (/^in\s+q\d+[\s,:]*(none|nil|n\/a|no error|no misconception)/i.test(clean)) {
+    return true;
+  }
+
   if (
-    clean.startsWith('none observed') ||
-    clean.startsWith('none identified') ||
-    clean.startsWith('no evident misconception') ||
-    clean.startsWith('no apparent misconception') ||
-    clean.startsWith('no conceptual misconception') ||
-    clean.startsWith('no misconception') ||
-    clean.startsWith('no error') ||
-    clean.startsWith('no critical foundational') ||
+    clean.includes('none observed') ||
+    clean.includes('none identified') ||
+    clean.includes('no evident misconception') ||
+    clean.includes('no apparent misconception') ||
+    clean.includes('no conceptual misconception') ||
+    clean.includes('no misconception') ||
+    clean.includes('no error observed') ||
+    clean.includes('no errors observed') ||
+    clean.includes('no evident error') ||
+    clean.includes('no critical foundational') ||
     clean.includes('demonstrates correct understanding') ||
     clean.includes('work demonstrates correct understanding') ||
     clean.includes('demonstrates accurate understanding') ||
     clean.includes('demonstrates working knowledge') ||
+    clean.includes('correct understanding') ||
+    clean.includes('accurate understanding') ||
     clean.includes('consistent with rubric') ||
     clean.includes('consistent with criteria') ||
     clean.includes('mastery confirmed') ||
@@ -68,7 +77,8 @@ export function isNonErrorText(text) {
 /**
  * Knowledge Base linking exam concepts and misconceptions to:
  * 1. Prerequisite Foundational Lesson & Chapter Name in Previous Class (with downloadable/viewable PDF)
- * 2. Downstream Future Lessons Affected if not mastered now (with Grade and Lesson Name)
+ * 2. Downstream Future Lessons Affected up to Class 10
+ * 3. 2-Mark Diagnostic Test Questions pool formatted strictly in clean ASCII
  */
 const CURRICULUM_KNOWLEDGE_BASE = [
   {
@@ -80,28 +90,40 @@ const CURRICULUM_KNOWLEDGE_BASE = [
       chapterName: 'Chapter 2: Simple Expressions and Equations',
       pdfFileName: 'Class 7 Maths Chapter 2.pdf',
       pdfUrl: '/curriculum/Class 7 Maths Chapter 2.pdf',
-      concept: 'Formulating arithmetic expressions, balancing equations across equals sign (=), and transposition of variables/constants.',
+      concept: 'Equation balancing across equals sign (=), inverse operations, and transposition of variables/constants.',
       studyTip: 'Review Section 2.1 (Simple Expressions) and practice the balance-scale method of moving terms across the equals sign with sign reversal.',
     },
     futureLessonsAffected: [
       {
         grade: 'Class 9',
+        chapterNumber: 2,
         lessonName: 'Chapter 2: Introduction to Linear Polynomials & Linear Equations',
         risk: 'Student will struggle to formulate algebraic equations in two variables or perform algebraic substitutions.',
       },
       {
         grade: 'Class 10',
+        chapterNumber: 3,
         lessonName: 'Chapter 3: Pair of Linear Equations in Two Variables',
         risk: 'Breakdown in solving simultaneous equations using substitution, elimination, or cross-multiplication methods.',
       },
     ],
-    diagnosticQuestion: {
-      prompt: 'Solve the linear equation for x and verify your answer with complete step-by-step substitution:\n4x − 5 = 2x + 9',
-      type: 'Problem Solving',
-      marks: 3,
-      targetConcept: 'Transposition of Variables & Substitution Verification (Class 7 Prerequisite)',
-      expectedAnswer: 'Step 1 (Solving): 4x - 2x = 9 + 5 => 2x = 14 => x = 7. Step 2 (Verification): LHS = 4(7) - 5 = 28 - 5 = 23; RHS = 2(7) + 9 = 14 + 9 = 23. Since LHS = RHS = 23, verified.',
-    },
+    questions2Marks: [
+      {
+        prompt: 'Solve the linear equation for x: 4x - 7 = 2x + 9',
+        targetConcept: 'Transposition of Variables & Linear Equations (Class 7 Prerequisite)',
+        expectedAnswer: '4x - 2x = 9 + 7 => 2x = 16 => x = 8',
+      },
+      {
+        prompt: 'Verify if x = 5 satisfies the equation 5x - 3 = 3x + 7 by calculating both LHS and RHS.',
+        targetConcept: 'Substitution & Equation Verification (Class 7 Prerequisite)',
+        expectedAnswer: 'LHS = 5(5) - 3 = 22. RHS = 3(5) + 7 = 22. Since LHS = RHS = 22, x = 5 is verified.',
+      },
+      {
+        prompt: 'Solve for y: 3(y - 2) = 15',
+        targetConcept: 'Distributive Property & Linear Equations (Class 7 Prerequisite)',
+        expectedAnswer: '3y - 6 = 15 => 3y = 21 => y = 7',
+      },
+    ],
   },
   {
     category: 'arithmetic_order_of_operations',
@@ -112,28 +134,40 @@ const CURRICULUM_KNOWLEDGE_BASE = [
       chapterName: 'Chapter 3: Number Play & Arithmetic Operations',
       pdfFileName: 'Class 6 Maths Chapter 3.pdf',
       pdfUrl: '/curriculum/Class 6 Maths Chapter 3.pdf',
-      concept: 'Basic operations, operational precedence (BODMAS/PEMDAS), place value carrying, and number line addition models.',
+      concept: 'Basic operations, operational precedence (BODMAS), place value carrying, and mental addition with regrouping.',
       studyTip: 'Reinforce mental addition facts (e.g. 15 + 7 = 22) and always write an intermediate check step before concluding a verification.',
     },
     futureLessonsAffected: [
       {
         grade: 'Class 9',
+        chapterNumber: 3,
         lessonName: 'Chapter 3: The World of Numbers & Real Number Systems',
         risk: 'Cascading computational slips in evaluating radical surds, irrational expansions, and polynomial values.',
       },
       {
         grade: 'Class 10',
+        chapterNumber: 1,
         lessonName: 'Chapter 1: Real Numbers & Fundamental Theorem of Arithmetic',
         risk: 'Loss of examination marks in prime factorisation algorithms and decimal expansion proofs.',
       },
     ],
-    diagnosticQuestion: {
-      prompt: 'Evaluate the arithmetic expression with complete intermediate steps:\n18 + 7 − 4 × (6 − 3)',
-      type: 'Short Answer',
-      marks: 2,
-      targetConcept: 'BODMAS Precedence & Addition with Regrouping (Class 6 Prerequisite)',
-      expectedAnswer: 'Step 1: Parentheses: 6 - 3 = 3. Step 2: Multiplication: 4 * 3 = 12. Step 3: Addition & Subtraction: 18 + 7 - 12 = 25 - 12 = 13.',
-    },
+    questions2Marks: [
+      {
+        prompt: 'Evaluate showing intermediate steps: 18 + 7 - 4 * (6 - 3)',
+        targetConcept: 'BODMAS Precedence & Parentheses (Class 6 Prerequisite)',
+        expectedAnswer: '18 + 7 - 4(3) = 18 + 7 - 12 = 25 - 12 = 13',
+      },
+      {
+        prompt: 'Simplify the signed integer expression: (-15) + (-7) - (-12)',
+        targetConcept: 'Operations with Signed Integers (Class 6 Prerequisite)',
+        expectedAnswer: '-15 - 7 + 12 = -22 + 12 = -10',
+      },
+      {
+        prompt: 'Calculate 3(5) + 7 and check whether the result equals 22.',
+        targetConcept: 'Arithmetic Verification in Substituted Expressions (Class 6 Prerequisite)',
+        expectedAnswer: '3 * 5 = 15. 15 + 7 = 22. Result verified as 22.',
+      },
+    ],
   },
   {
     category: 'exponents_powers',
@@ -144,92 +178,40 @@ const CURRICULUM_KNOWLEDGE_BASE = [
       chapterName: 'Chapter 2: Power Play (Exponents & Powers)',
       pdfFileName: 'Class 8 Maths Chapter 2.pdf',
       pdfUrl: '/curriculum/Class 8 Maths Chapter 2.pdf',
-      concept: 'Laws of integral exponents: a^m × a^n = a^(m+n), a^m ÷ a^n = a^(m-n), a^(-n) = 1/a^n, and equating exponents for common bases.',
+      concept: 'Laws of integral exponents: a^m * a^n = a^(m+n), a^m / a^n = a^(m-n), a^(-n) = 1/a^n, and equating exponents for common bases.',
       studyTip: 'Focus on the distinction between negative exponents and negative numbers; practice converting a^(-n) to unit fractions.',
     },
     futureLessonsAffected: [
       {
         grade: 'Class 9',
+        chapterNumber: 3,
         lessonName: 'Chapter 3: Laws of Exponents for Real Numbers & Radical Notation',
         risk: 'Inability to simplify expressions with rational fractional exponents or rationalise monomial denominators.',
       },
       {
-        grade: 'Class 11',
-        lessonName: 'Exponential & Logarithmic Functions',
-        risk: 'Severe block in solving exponential equations, logarithmic identities, and base change calculations.',
-      },
-    ],
-    diagnosticQuestion: {
-      prompt: 'Solve the exponential problems using standard index laws:\n(a) Find the value of m if: 5ᵐ ÷ 5⁻³ = 5⁵.\n(b) Simplify and express with positive exponents: (3⁻⁷ ÷ 3⁻¹⁰) × 3⁻⁵.',
-      type: 'Problem Solving',
-      marks: 4,
-      targetConcept: 'Laws of Integral Exponents & Equating Indices (Class 8 Core)',
-      expectedAnswer: '(a) Using aᵐ ÷ aⁿ = aᵐ⁻ⁿ: 5^(m - (-3)) = 5^(m + 3) = 5^5. Equating exponents: m + 3 = 5 => m = 2.\n(b) 3^(-7 - (-10)) * 3^(-5) = 3^3 * 3^(-5) = 3^(3 - 5) = 3^(-2) = 1/3² = 1/9.',
-    },
-  },
-  {
-    category: 'commercial_math_interest',
-    triggers: ['compound interest', 'simple interest', '8000', 'rate', 'compounding', 'commercial', 'principal', 'annual interest', 'percentage'],
-    prerequisiteLesson: {
-      grade: 'Class 7',
-      chapterNumber: 1,
-      chapterName: 'Chapter 1: Large Numbers & Comparing Quantities (Simple Interest & Percentages)',
-      pdfFileName: 'Class 7 Maths Chapter 1.pdf',
-      pdfUrl: '/curriculum/Class 7 Maths Chapter 1.pdf',
-      concept: 'Simple interest formula I = (P×R×T)/100, year-on-year interest accumulation, and compounding multiplier A = P(1 + R/100)^n.',
-      studyTip: 'Calculate year-1 and year-2 interest sequentially to build intuition before relying entirely on the exponential compounding formula.',
-    },
-    futureLessonsAffected: [
-      {
-        grade: 'Class 9',
-        lessonName: 'Commercial Mathematics & Progressive Depreciation',
-        risk: 'Inability to calculate half-yearly compounding schedules, population growth models, or asset depreciation.',
-      },
-      {
         grade: 'Class 10',
-        lessonName: 'Banking (Recurring Deposit Accounts) & Financial Mathematics',
-        risk: 'Failure to compute monthly installment interest yields and maturity payments.',
+        chapterNumber: 1,
+        lessonName: 'Chapter 1: Real Numbers & Exponential Prime Factorisation',
+        risk: 'Breakdown in proving fundamental arithmetic theorem properties and index laws.',
       },
     ],
-    diagnosticQuestion: {
-      prompt: 'A sum of ₹ 8,000 is borrowed at an interest rate of 5% per annum for 2 years. Calculate the compound interest compounded annually.',
-      type: 'Multi-Step Problem',
-      marks: 4,
-      targetConcept: 'Compound Interest Formula & Annual Compounding Multipliers (Class 7 Prerequisite)',
-      expectedAnswer: 'Amount A = P(1 + R/100)ⁿ = 8000(1 + 5/100)² = 8000(21/20)² = 8000 * 441 / 400 = ₹ 8,820. Compound Interest CI = A - P = 8820 - 8000 = ₹ 820.',
-    },
-  },
-  {
-    category: 'geometry_mensuration',
-    triggers: ['mensuration', 'rectangle', 'diagonal', 'pythagor', 'area', 'perimeter', '25', '24', 'hypotenuse', 'width', 'geometry'],
-    prerequisiteLesson: {
-      grade: 'Class 6',
-      chapterNumber: 2,
-      chapterName: 'Chapter 2: Lines, Angles and Plane Shapes',
-      pdfFileName: 'Class 6 Maths Chapter 2.pdf',
-      pdfUrl: '/curriculum/Class 6 Maths Chapter 2.pdf',
-      concept: 'Properties of rectangles, perpendicular sides, right-angled triangles, and Pythagoras theorem (diagonal² = length² + width²).',
-      studyTip: 'Always sketch the geometric shape, label known diagonals/sides, and verify that the hypotenuse is the longest side.',
-    },
-    futureLessonsAffected: [
+    questions2Marks: [
       {
-        grade: 'Class 9',
-        lessonName: 'Chapter 1: Orienting Yourself & Coordinate Geometry',
-        risk: 'Inability to apply the coordinate distance formula derived directly from the Pythagoras theorem.',
+        prompt: 'Using exponent laws, find the value of m: 5^m / 5^(-3) = 5^5',
+        targetConcept: 'Laws of Exponents & Equating Indices (Class 8 Core)',
+        expectedAnswer: '5^(m - (-3)) = 5^5 => m + 3 = 5 => m = 2',
       },
       {
-        grade: 'Class 10',
-        lessonName: 'Chapter 2: Coordinate Geometry & Surface Areas / Volumes',
-        risk: 'Breakdown in calculating slant heights of cones, diagonals of cuboids, and composite 3D solid mensuration.',
+        prompt: 'Simplify and express with a positive exponent: (3^(-7) / 3^(-10)) * 3^(-5)',
+        targetConcept: 'Multiplication & Division of Powers (Class 8 Core)',
+        expectedAnswer: '3^(-7 - (-10)) * 3^(-5) = 3^3 * 3^(-5) = 3^(-2) = 1/(3^2) = 1/9',
+      },
+      {
+        prompt: 'Evaluate: (2^(-1) * 4^(-1)) / 2^(-3)',
+        targetConcept: 'Negative Exponents and Unit Fractions (Class 8 Core)',
+        expectedAnswer: '(1/2 * 1/4) / (1/8) = (1/8) / (1/8) = 1',
       },
     ],
-    diagnosticQuestion: {
-      prompt: 'A rectangular field has length 24 m and diagonal 25 m.\n(a) Using the Pythagoras theorem, calculate the width of the field.\n(b) Find the perimeter and area of the field.',
-      type: 'Problem Solving',
-      marks: 4,
-      targetConcept: 'Pythagoras Theorem in Rectangles & Perimeter/Area (Class 6 Prerequisite)',
-      expectedAnswer: '(a) In right triangle: width² + length² = diagonal² => width² = 25² - 24² = 625 - 576 = 49 => width = 7 m.\n(b) Perimeter = 2(24 + 7) = 62 m; Area = 24 * 7 = 168 sq m.',
-    },
   },
   {
     category: 'factorisation_polynomials',
@@ -240,97 +222,264 @@ const CURRICULUM_KNOWLEDGE_BASE = [
       chapterName: 'Chapter 2: Simple Expressions & Algebraic Identities',
       pdfFileName: 'Class 7 Maths Chapter 2.pdf',
       pdfUrl: '/curriculum/Class 7 Maths Chapter 2.pdf',
-      concept: 'Factoring out common monomial terms and applying standard algebraic identities: a² - b² = (a - b)(a + b) and (a + b)²',
-      studyTip: 'Practice recognising perfect squares (e.g. 16b² = (4b)²) and grouping terms with common binomial factors.',
+      concept: 'Factoring out common monomial terms and applying standard algebraic identities: a^2 - b^2 = (a - b)(a + b).',
+      studyTip: 'Practice recognising perfect squares (e.g. 16b^2 = (4b)^2) and grouping terms with common binomial factors.',
     },
     futureLessonsAffected: [
       {
         grade: 'Class 9',
+        chapterNumber: 2,
         lessonName: 'Chapter 2: Introduction to Linear Polynomials & Factor Theorem',
         risk: 'Failure to split the middle term in quadratic polynomials or apply the Factor Theorem.',
       },
       {
         grade: 'Class 10',
+        chapterNumber: 2,
         lessonName: 'Chapter 2: Polynomials & Quadratic Equations',
         risk: 'Inability to compute polynomial zeros, roots of quadratic equations, or verify sum/product of roots.',
       },
     ],
-    diagnosticQuestion: {
-      prompt: 'Factorise the following algebraic expressions completely:\n(a) 16b² − 49c²\n(b) 2x² + 7x + 3 (by splitting the middle term)',
-      type: 'Problem Solving',
-      marks: 4,
-      targetConcept: 'Difference of Squares (a² - b²) and Quadratic Factorisation (Class 7 Prerequisite)',
-      expectedAnswer: '(a) Using a² - b² = (a - b)(a + b): (4b - 7c)(4b + 7c).\n(b) 2x² + 6x + x + 3 = 2x(x + 3) + 1(x + 3) = (2x + 1)(x + 3).',
+    questions2Marks: [
+      {
+        prompt: 'Factorise completely using algebraic identity (a^2 - b^2): 16b^2 - 49',
+        targetConcept: 'Difference of Squares Identity (Class 7 Prerequisite)',
+        expectedAnswer: '(4b)^2 - 7^2 = (4b - 7)(4b + 7)',
+      },
+      {
+        prompt: 'Factorise by grouping common terms: 6xy - 4y + 6 - 9x',
+        targetConcept: 'Factoring by Grouping Terms (Class 7 Prerequisite)',
+        expectedAnswer: '2y(3x - 2) - 3(3x - 2) = (3x - 2)(2y - 3)',
+      },
+      {
+        prompt: 'Take out the common monomial factor: 12a^2b + 15ab^2',
+        targetConcept: 'Common Monomial Factoring (Class 7 Prerequisite)',
+        expectedAnswer: '3ab(4a + 5b)',
+      },
+    ],
+  },
+  {
+    category: 'geometry_mensuration',
+    triggers: ['mensuration', 'rectangle', 'diagonal', 'pythagor', 'area', 'perimeter', '25', '24', 'hypotenuse', 'width', 'geometry'],
+    prerequisiteLesson: {
+      grade: 'Class 6',
+      chapterNumber: 2,
+      chapterName: 'Chapter 2: Lines, Angles and Plane Shapes',
+      pdfFileName: 'Class 6 Maths Chapter 2.pdf',
+      pdfUrl: '/curriculum/Class 6 Maths Chapter 2.pdf',
+      concept: 'Properties of rectangles, perpendicular sides, right-angled triangles, and Pythagoras theorem (diagonal^2 = length^2 + width^2).',
+      studyTip: 'Always sketch the geometric shape, label known diagonals/sides, and verify that the hypotenuse is the longest side.',
     },
+    futureLessonsAffected: [
+      {
+        grade: 'Class 9',
+        chapterNumber: 1,
+        lessonName: 'Chapter 1: Orienting Yourself & Coordinate Geometry',
+        risk: 'Inability to apply the coordinate distance formula derived directly from the Pythagoras theorem.',
+      },
+      {
+        grade: 'Class 10',
+        chapterNumber: 2,
+        lessonName: 'Chapter 2: Coordinate Geometry & Surface Areas / Volumes',
+        risk: 'Breakdown in calculating slant heights of cones, diagonals of cuboids, and composite 3D solid mensuration.',
+      },
+    ],
+    questions2Marks: [
+      {
+        prompt: 'In a rectangle of length 24 m and diagonal 25 m, find its width using Pythagoras theorem.',
+        targetConcept: 'Pythagoras Theorem in Rectangles (Class 6 Prerequisite)',
+        expectedAnswer: 'width^2 = 25^2 - 24^2 = 625 - 576 = 49 => width = 7 m',
+      },
+      {
+        prompt: 'Find the perimeter of a rectangular garden with length 15 m and width 8 m.',
+        targetConcept: 'Perimeter of Rectangular Figures (Class 6 Prerequisite)',
+        expectedAnswer: 'Perimeter = 2 * (15 + 8) = 2 * 23 = 46 m',
+      },
+      {
+        prompt: 'Find the area of a right-angled triangle with base 12 cm and hypotenuse 13 cm.',
+        targetConcept: 'Right Triangle Area & Heights (Class 6 Prerequisite)',
+        expectedAnswer: 'height^2 = 13^2 - 12^2 = 169 - 144 = 25 => height = 5 cm. Area = 1/2 * 12 * 5 = 30 sq cm',
+      },
+    ],
+  },
+  {
+    category: 'commercial_math_interest',
+    triggers: ['compound interest', 'simple interest', '8000', 'rate', 'compounding', 'commercial', 'principal', 'annual interest', 'percentage'],
+    prerequisiteLesson: {
+      grade: 'Class 7',
+      chapterNumber: 1,
+      chapterName: 'Chapter 1: Large Numbers & Comparing Quantities',
+      pdfFileName: 'Class 7 Maths Chapter 1.pdf',
+      pdfUrl: '/curriculum/Class 7 Maths Chapter 1.pdf',
+      concept: 'Simple interest formula I = (P*R*T)/100, year-on-year interest accumulation, and percentage conversion.',
+      studyTip: 'Calculate year-1 and year-2 interest sequentially to build intuition before relying entirely on the exponential compounding formula.',
+    },
+    futureLessonsAffected: [
+      {
+        grade: 'Class 9',
+        chapterNumber: 4,
+        lessonName: 'Commercial Mathematics & Compound Multipliers',
+        risk: 'Inability to calculate compounding schedules, population growth models, or asset depreciation.',
+      },
+      {
+        grade: 'Class 10',
+        chapterNumber: 5,
+        lessonName: 'Banking & Financial Mathematics',
+        risk: 'Failure to compute recurring deposits, interest yields, and maturity payments.',
+      },
+    ],
+    questions2Marks: [
+      {
+        prompt: 'Find the simple interest on Rs. 8,000 for 2 years at 5% per annum.',
+        targetConcept: 'Simple Interest Formula (Class 7 Prerequisite)',
+        expectedAnswer: 'SI = (8000 * 5 * 2) / 100 = Rs. 800',
+      },
+      {
+        prompt: 'Convert the fraction 7/25 into a percentage.',
+        targetConcept: 'Percentage Conversions (Class 7 Prerequisite)',
+        expectedAnswer: '(7/25) * 100 = 28%',
+      },
+      {
+        prompt: 'A radio priced at Rs. 1,200 is sold with a 10% discount. Find the discount amount.',
+        targetConcept: 'Percentages & Commercial Discounts (Class 7 Prerequisite)',
+        expectedAnswer: 'Discount = 10% of 1200 = (10/100) * 1200 = Rs. 120',
+      },
+    ],
   },
 ];
 
 /**
  * Resolves curriculum knowledge mapping for an evaluation item.
+ * Strictly respects Class 10 rules:
+ * - If student is enrolled in Class 10: warns about Class 10 Board exam + Class 11/12 impact,
+ *   and explicitly omits future senior secondary syllabus chapters.
+ * - If enrolled in Class 6-9: provides future affected chapters strictly up to Class 10.
  */
-function resolveCurriculumKnowledge({ prompt = '', observed = '', hypothesis = '', topicName = '', subject = 'Mathematics', syllabusEvidence = [] }) {
+function resolveCurriculumKnowledge({
+  prompt = '',
+  observed = '',
+  hypothesis = '',
+  topicName = '',
+  subject = 'Mathematics',
+  targetGrade = 'Class 8',
+  syllabusEvidence = [],
+}) {
   const combined = `${prompt} ${observed} ${hypothesis} ${topicName}`.toLowerCase();
+  let baseKnowledge = null;
 
   // 1. Check if database retrieval evidence provided a specific textbook chapter file
   if (Array.isArray(syllabusEvidence) && syllabusEvidence.length > 0) {
     for (const chunk of syllabusEvidence) {
       const src = (chunk.sourceFileName || '').toLowerCase();
       if (src.includes('class 7 maths chapter 2')) {
-        return CURRICULUM_KNOWLEDGE_BASE.find((k) => k.category === 'linear_equations');
+        baseKnowledge = CURRICULUM_KNOWLEDGE_BASE.find((k) => k.category === 'linear_equations');
+        break;
       }
       if (src.includes('class 6 maths chapter 3')) {
-        return CURRICULUM_KNOWLEDGE_BASE.find((k) => k.category === 'arithmetic_order_of_operations');
+        baseKnowledge = CURRICULUM_KNOWLEDGE_BASE.find((k) => k.category === 'arithmetic_order_of_operations');
+        break;
       }
       if (src.includes('class 8 maths chapter 2')) {
-        return CURRICULUM_KNOWLEDGE_BASE.find((k) => k.category === 'exponents_powers');
+        baseKnowledge = CURRICULUM_KNOWLEDGE_BASE.find((k) => k.category === 'exponents_powers');
+        break;
       }
       if (src.includes('class 7 maths chapter 1')) {
-        return CURRICULUM_KNOWLEDGE_BASE.find((k) => k.category === 'commercial_math_interest');
+        baseKnowledge = CURRICULUM_KNOWLEDGE_BASE.find((k) => k.category === 'commercial_math_interest');
+        break;
       }
       if (src.includes('class 6 maths chapter 2')) {
-        return CURRICULUM_KNOWLEDGE_BASE.find((k) => k.category === 'geometry_mensuration');
+        baseKnowledge = CURRICULUM_KNOWLEDGE_BASE.find((k) => k.category === 'geometry_mensuration');
+        break;
       }
     }
   }
 
   // 2. Keyword trigger match
-  for (const entry of CURRICULUM_KNOWLEDGE_BASE) {
-    for (const trigger of entry.triggers) {
-      if (combined.includes(trigger.toLowerCase())) {
-        return entry;
+  if (!baseKnowledge) {
+    for (const entry of CURRICULUM_KNOWLEDGE_BASE) {
+      for (const trigger of entry.triggers) {
+        if (combined.includes(trigger.toLowerCase())) {
+          baseKnowledge = entry;
+          break;
+        }
       }
+      if (baseKnowledge) break;
     }
   }
 
   // 3. Fallback default for Mathematics
-  if (subject.toLowerCase().includes('math')) {
-    return CURRICULUM_KNOWLEDGE_BASE[0]; // Simple Expressions & Equations
+  if (!baseKnowledge) {
+    baseKnowledge = subject.toLowerCase().includes('math')
+      ? CURRICULUM_KNOWLEDGE_BASE[0]
+      : {
+          category: 'general_foundations',
+          prerequisiteLesson: {
+            grade: 'Class 7',
+            chapterNumber: 1,
+            chapterName: `Chapter 1: Foundational ${subject} Principles`,
+            pdfFileName: `Class 7 ${subject} Chapter 1.pdf`,
+            pdfUrl: `/curriculum/Class 7 Maths Chapter 1.pdf`,
+            concept: `Core conceptual definitions and foundational analytical skills in ${subject}.`,
+            studyTip: 'Review foundational concepts and complete guided review exercises before advancing.',
+          },
+          futureLessonsAffected: [
+            {
+              grade: 'Class 9',
+              chapterNumber: 1,
+              lessonName: `Advanced Application Units in ${subject}`,
+              risk: 'Gaps in core prerequisite principles will lead to compounding comprehension difficulties.',
+            },
+            {
+              grade: 'Class 10',
+              chapterNumber: 1,
+              lessonName: `Board Examination Preparatory Topics in ${subject}`,
+              risk: 'Loss of examination performance in multi-concept synthetic problems.',
+            },
+          ],
+          questions2Marks: [
+            {
+              prompt: `Review and define the primary foundational principle of ${subject} covered in previous grades.`,
+              targetConcept: `Foundational ${subject} Principles`,
+              expectedAnswer: 'Clear conceptual definition with one verified application example.',
+            },
+          ],
+        };
   }
 
-  // Fallback default for generic subjects
+  // Check if enrolled grade is Class 10
+  const isClass10 =
+    String(targetGrade).includes('10') ||
+    String(targetGrade).toLowerCase().includes('class 10') ||
+    String(targetGrade).toLowerCase().includes('grade 10');
+
+  if (isClass10) {
+    return {
+      ...baseKnowledge,
+      futureLessonsAffected: [
+        {
+          grade: 'Class 10',
+          chapterNumber: 'Board Exam',
+          lessonName: 'Class 10 Board Examination Assessment Units',
+          risk: 'Direct mark deduction in Board Examination question papers and internal cumulative assessments.',
+        },
+        {
+          grade: 'Class 11 & Class 12',
+          chapterNumber: 'Foundations',
+          lessonName: 'Higher Secondary Coursework (Class 11 and Class 12)',
+          risk: 'Underlying conceptual weakness in senior secondary core subjects. (Detailed 11/12 chapter syllabus not mapped).',
+        },
+      ],
+    };
+  }
+
+  // Below Class 10: strictly filter future lessons to Class 10 or below
+  const filteredFuture = (baseKnowledge.futureLessonsAffected || []).filter((f) => {
+    const g = String(f.grade || '').toLowerCase();
+    return !g.includes('11') && !g.includes('12');
+  });
+
   return {
-    category: 'general_foundations',
-    prerequisiteLesson: {
-      grade: 'Class 7',
-      chapterNumber: 1,
-      chapterName: `Chapter 1: Foundational ${subject} Principles`,
-      pdfFileName: `Class 7 ${subject} Chapter 1.pdf`,
-      pdfUrl: `/curriculum/Class 7 Maths Chapter 1.pdf`,
-      concept: `Core conceptual definitions and foundational analytical skills in ${subject}.`,
-      studyTip: `Review foundational concepts and complete guided review exercises before advancing.`,
-    },
-    futureLessonsAffected: [
-      {
-        grade: 'Class 9',
-        lessonName: `Advanced Application Units in ${subject}`,
-        risk: `Gaps in core prerequisite principles will lead to compounding comprehension difficulties.`,
-      },
-      {
-        grade: 'Class 10',
-        lessonName: `Board Examination Preparatory Topics in ${subject}`,
-        risk: `Loss of examination performance in multi-concept synthetic problems.`,
-      },
-    ],
+    ...baseKnowledge,
+    futureLessonsAffected: filteredFuture,
   };
 }
 
@@ -338,16 +487,20 @@ function resolveCurriculumKnowledge({ prompt = '', observed = '', hypothesis = '
  * Derives foundational prerequisite gaps, ordered learning roadmaps,
  * and diagnostic re-test items from evaluated answer sheet results.
  *
- * Strictly filters out questions with no errors or where full marks were awarded,
- * completely excluding statements like "None observed" or "No evident misconception".
+ * Enforces:
+ * 1. Filtering out questions where no error occurred or full marks were awarded.
+ * 2. Generating 2-mark diagnostic questions with a count strictly between 5 and 10 questions.
+ * 3. Exact Class & Chapter numbers for previous class delayed topics.
+ * 4. Future affected chapters strictly up to Class 10 (with Class 10 Board exam & Class 11/12 rule).
  */
 export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
   const gaps = [];
   const roadmap = [];
-  const testQuestions = [];
 
   const subject = syllabusData.selectedSubject || 'Mathematics';
   const targetGrade = syllabusData.selectedClass || 'Class 8';
+
+  const diagnosedCategories = [];
 
   evaluations.forEach((item, index) => {
     const qNum = item.questionNumber || `Q${index + 1}`;
@@ -372,8 +525,6 @@ export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
     // CRITICAL REQUIREMENT: A question is ONLY a learning gap if:
     // 1. An actual error was observed in student working steps, OR
     // 2. Marks were lost AND a genuine misconception hypothesis was diagnosed.
-    // If no error was observed and full marks were awarded, or the text says
-    // "None observed" / "No evident misconception", EXCLUDE IT!
     if (!hasObservedError && !hasScoreLoss) {
       return; // Skip: Student answered correctly with full marks
     }
@@ -414,8 +565,13 @@ export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
       hypothesis,
       topicName,
       subject,
+      targetGrade,
       syllabusEvidence: item.syllabusEvidence,
     });
+
+    if (!diagnosedCategories.some((c) => c.category === knowledge.category)) {
+      diagnosedCategories.push(knowledge);
+    }
 
     gaps.push({
       id: gapId,
@@ -453,42 +609,6 @@ export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
       prerequisiteLesson: knowledge.prerequisiteLesson,
       futureLessonsAffected: knowledge.futureLessonsAffected,
     });
-
-    // Formulate a proper, authentic diagnostic test question for this identified gap
-    let questionPrompt = '';
-    let questionType = 'Problem Solving';
-    let questionMarks = 3;
-    let conceptLabel = gapTopic;
-    let expectedSolution = item.expectedAnswer;
-
-    if (knowledge && knowledge.diagnosticQuestion) {
-      questionPrompt = knowledge.diagnosticQuestion.prompt;
-      questionType = knowledge.diagnosticQuestion.type || 'Problem Solving';
-      questionMarks = knowledge.diagnosticQuestion.marks || (max > 0 ? max : 3);
-      conceptLabel = knowledge.diagnosticQuestion.targetConcept || gapTopic;
-      expectedSolution = knowledge.diagnosticQuestion.expectedAnswer || item.expectedAnswer;
-    } else {
-      // Clean fallback if original prompt is available
-      const cleanPrompt = prompt
-        .replace(/^Diagnostic check for.*?:/i, '')
-        .replace(/\s*\[Subtotal.*?\]/i, '')
-        .trim();
-      questionPrompt = `Solve the following problem and show complete step-by-step working:\n${cleanPrompt}`;
-      conceptLabel = gapTopic.length > 60 ? `${gapTopic.slice(0, 57)}...` : gapTopic;
-    }
-
-    testQuestions.push({
-      id: `test-${qNum.toLowerCase().replace(/[^a-z0-9]/g, '') || index + 1}`,
-      number: `${testQuestions.length + 1}`,
-      prompt: questionPrompt,
-      type: questionType,
-      marks: questionMarks,
-      targetConcept: conceptLabel,
-      syllabusTopic: lessonName,
-      expectedAnswer: expectedSolution || 'Clear logical steps with correct final verification.',
-      prerequisiteChapter: knowledge.prerequisiteLesson?.chapterName,
-      pdfFileName: knowledge.prerequisiteLesson?.pdfFileName,
-    });
   });
 
   // If student answered all questions without errors, celebrate mastery
@@ -516,47 +636,98 @@ export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
       futureLessonsAffected: [
         {
           grade: 'Next Grade Level',
+          chapterNumber: 'Advanced',
           lessonName: 'Accelerated Curriculum Pathway',
           risk: 'No negative impact detected. Student is prepared for advanced honors topics.',
         },
       ],
+      scoreInfo: { awarded: 25, max: 25, lost: 0 },
     });
 
     roadmap.push({
-      id: 'rm-enrichment',
+      id: 'rm-mastery',
       rank: 1,
-      topic: 'Advanced Problem Solving & Extension Tasks',
-      grade: targetGrade,
+      topic: 'Syllabus Enrichment & Advanced Problem Formulation',
+      grade: `${targetGrade} Core`,
       lessonId: 'les-enrichment',
-      prereqChain: 'Core Syllabus Competencies',
-      recommendedActivity: 'Challenging multi-step applications and cross-concept Olympiad problems.',
-      workedExamples: 'Extension problems with alternative solution pathways.',
+      prereqChain: 'None (Prerequisites Mastered)',
+      recommendedActivity: 'Solve advanced non-routine multi-step modeling problems.',
+      workedExamples: 'Olympiad and competitive assessment review problems.',
       practiceQuestions: 5,
       estimatedMinutes: 30,
       status: 'Not Started',
       prerequisiteLesson: {
         grade: targetGrade,
         chapterNumber: 1,
-        chapterName: `${targetGrade} Mathematics Enrichment`,
+        chapterName: `${targetGrade} Advanced Extension Topics`,
         pdfFileName: 'Class 8 Maths Chapter 1.pdf',
         pdfUrl: '/curriculum/Class 8 Maths Chapter 1.pdf',
-        concept: 'Synthesis and mathematical modeling.',
+        concept: 'Synthesis of multiple mathematical domains and non-routine problem formulation.',
         studyTip: 'Explore alternative geometric and algebraic representations.',
       },
       futureLessonsAffected: [],
     });
-
-    testQuestions.push({
-      id: 'test-enrichment',
-      number: '1',
-      prompt: 'Enrichment: Formulate and solve an algebraic application model based on syllabus concepts.',
-      type: 'Problem Solving',
-      marks: 5,
-      targetConcept: 'Advanced Conceptual Application',
-      syllabusTopic: subject,
-      expectedAnswer: 'Complete mathematical model with justification.',
-    });
   }
+
+  // =========================================================================
+  // Assemble 2-Mark Diagnostic Test Questions (strictly between 5 and 10 questions)
+  // Constraint: "do not exceed 10 and degrade 5"
+  // =========================================================================
+  const questionPool = [];
+
+  // If no diagnosed category (e.g. initial load or perfect score), use primary subject categories
+  const activeCategories = diagnosedCategories.length > 0 ? diagnosedCategories : CURRICULUM_KNOWLEDGE_BASE;
+
+  // 1. Gather 2-mark questions from diagnosed categories
+  activeCategories.forEach((cat) => {
+    const list = cat.questions2Marks || [];
+    list.forEach((q) => {
+      questionPool.push({
+        prompt: q.prompt,
+        type: 'Short Answer',
+        marks: 2,
+        targetConcept: q.targetConcept,
+        syllabusTopic: cat.prerequisiteLesson.chapterName || subject,
+        expectedAnswer: q.expectedAnswer,
+        prerequisiteChapter: cat.prerequisiteLesson.chapterName,
+        pdfFileName: cat.prerequisiteLesson.pdfFileName,
+      });
+    });
+  });
+
+  // 2. If questionPool has less than 5 questions, supplement from remaining curriculum categories
+  for (const cat of CURRICULUM_KNOWLEDGE_BASE) {
+    if (questionPool.length >= 7) break; // Healthy target of 6-7 questions
+    if (!activeCategories.some((c) => c.category === cat.category)) {
+      const list = cat.questions2Marks || [];
+      for (const q of list) {
+        if (questionPool.length < 10) {
+          questionPool.push({
+            prompt: q.prompt,
+            type: 'Short Answer',
+            marks: 2,
+            targetConcept: q.targetConcept,
+            syllabusTopic: cat.prerequisiteLesson.chapterName || subject,
+            expectedAnswer: q.expectedAnswer,
+            prerequisiteChapter: cat.prerequisiteLesson.chapterName,
+            pdfFileName: cat.prerequisiteLesson.pdfFileName,
+          });
+        }
+      }
+    }
+  }
+
+  // 3. Bound question count strictly: minimum 5, maximum 10
+  const targetCount = Math.min(10, Math.max(5, questionPool.length));
+  const boundedQuestions = questionPool.slice(0, targetCount);
+
+  // 4. Renumber sequentially and enforce 2 marks
+  const testQuestions = boundedQuestions.map((q, idx) => ({
+    ...q,
+    id: `test-q-${idx + 1}`,
+    number: `${idx + 1}`,
+    marks: 2, // Every question carries strictly 2 marks
+  }));
 
   return { gaps, roadmap, testQuestions };
 }

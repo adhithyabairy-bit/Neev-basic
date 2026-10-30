@@ -25,8 +25,8 @@ export default function GapBasedTest({
 
   // Form state for edit/add question
   const [editPrompt, setEditPrompt] = useState('');
-  const [editMarks, setEditMarks] = useState(3);
-  const [editType, setEditType] = useState('Problem Solving');
+  const [editMarks, setEditMarks] = useState(2);
+  const [editType, setEditType] = useState('Short Answer');
   const [editTargetConcept, setEditTargetConcept] = useState('');
   const [editSyllabusTopic, setEditSyllabusTopic] = useState('');
   const [editModalError, setEditModalError] = useState(null);
@@ -40,8 +40,8 @@ export default function GapBasedTest({
   const handleStartEdit = (q) => {
     setEditingQuestion(q);
     setEditPrompt(q.prompt);
-    setEditMarks(q.marks);
-    setEditType(q.type || 'Problem Solving');
+    setEditMarks(q.marks || 2);
+    setEditType(q.type || 'Short Answer');
     setEditTargetConcept(q.targetConcept || '');
     setEditSyllabusTopic(q.syllabusTopic || (lessons[0]?.name || 'General'));
     setEditModalError(null);
@@ -52,8 +52,8 @@ export default function GapBasedTest({
   const handleStartAdd = () => {
     setEditingQuestion(null);
     setEditPrompt('');
-    setEditMarks(3);
-    setEditType('Problem Solving');
+    setEditMarks(2);
+    setEditType('Short Answer');
     setEditTargetConcept('Operations with Negative Integers');
     setEditSyllabusTopic(lessons[0]?.name || 'Mathematics');
     setEditModalError(null);
@@ -146,9 +146,9 @@ export default function GapBasedTest({
       <div className="alert alert-notice" role="status">
         <IconInfo size={18} style={{ flexShrink: 0 }} />
         <div>
-          <strong>Demonstration Test Generator: </strong>
+          <strong>Diagnostic Test Paper: </strong>
           <span>
-            These questions are tailored to target the identified foundational gaps in Grade 7 arithmetic and transposition.
+            Targeted 2-mark diagnostic questions (5 to 10 questions) tailored specifically to verify resolution of foundational prerequisite gaps.
           </span>
         </div>
       </div>
@@ -172,10 +172,10 @@ export default function GapBasedTest({
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
           <div>
             <span style={{ fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', color: 'var(--muted-text)', fontWeight: 'bold' }}>
-              Diagnostic Test Blueprint
+              Diagnostic Test Blueprint (2 Marks Each)
             </span>
             <p style={{ fontSize: 'var(--font-size-base)', fontWeight: 'var(--font-weight-bold)', color: 'var(--main-text)', marginTop: '2px' }}>
-              {testQuestions.length} Targeted Questions &bull; Total Marks: {totalTestMarks} &bull; Time: ~{testQuestions.length * 8} mins
+              {testQuestions.length} Targeted Questions &bull; Total Marks: {totalTestMarks} ({testQuestions.length} &times; 2 Marks) &bull; Time: ~{testQuestions.length * 4} mins
             </p>
           </div>
           <span className="badge badge-orange">{syllabusData?.selectedSubject || 'Mathematics'} &bull; Retest Paper</span>

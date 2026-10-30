@@ -7,7 +7,11 @@ import {
   IconUser,
 } from '../components/Icons';
 import { generatePdfFilename, sanitizeStudentName } from '../utils/filename';
-import { generateGapReportPdfBlob, generateQuestionsPdfBlob } from '../utils/pdfGenerator';
+import {
+  generateGapReportPdfBlob,
+  generateQuestionsPdfBlob,
+  generateSyllabusContinuityPdfBlob,
+} from '../utils/pdfGenerator';
 
 export default function ExportFollowUp({
   syllabusData,
@@ -95,10 +99,34 @@ export default function ExportFollowUp({
     triggerDownload(filename, pdfBlob);
   };
 
+  // Download Syllabus Continuity & Prerequisite Impact Report PDF
+  const handleDownloadContinuityReport = () => {
+    const slug = sanitizeStudentName(activeStudentName, 'student');
+    const filename = `${slug}_syllabus_continuity.pdf`;
+    const pdfBlob = generateSyllabusContinuityPdfBlob({
+      studentName: activeStudentName,
+      className: syllabusData.selectedClass || 'Grade 8',
+      subject: syllabusData.selectedSubject || 'Mathematics',
+      examName: syllabusData.examName || 'Assessment',
+      gapsData,
+      roadmapData,
+    });
+    triggerDownload(filename, pdfBlob);
+  };
+
   const gapReportFilename = generatePdfFilename(activeStudentName, 'gap');
   const questionsFilename = generatePdfFilename(activeStudentName, 'questions');
+  const continuityFilename = `${sanitizeStudentName(activeStudentName)}_syllabus_continuity.pdf`;
 
   const materialCards = [
+    {
+      id: 'mat-continuity',
+      title: 'Syllabus Continuity & Delayed Chapters Report',
+      description: 'NCERT report with previous class delayed chapters (Class & Chapter #) and future affected chapters up to Class 10.',
+      format: 'PDF Document',
+      filenameHint: continuityFilename,
+      action: handleDownloadContinuityReport,
+    },
     {
       id: 'mat-1',
       title: 'Student Gap Analysis Report',
@@ -117,8 +145,8 @@ export default function ExportFollowUp({
     },
     {
       id: 'mat-3',
-      title: 'Diagnostic Practice Questions',
-      description: 'Targeted assessment questions built specifically to test resolution of prerequisite gaps.',
+      title: 'Diagnostic Practice Questions (2 Marks)',
+      description: 'Targeted 2-mark diagnostic questions (5 to 10 questions) built specifically to test resolution of prerequisite gaps.',
       format: 'PDF Document',
       filenameHint: questionsFilename,
       action: handleDownloadPracticeTest,
@@ -221,10 +249,10 @@ export default function ExportFollowUp({
             <div>
               <h2 id="prereq-chapters-heading" className="card-title">Foundational Curriculum Chapters (Previous Grades)</h2>
               <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--secondary-text)' }}>
-                Targeted previous class chapters retrieved from database knowledge base to remediate identified gaps.
+                Targeted previous class chapters retrieved from curriculum database with Class &amp; Chapter numbers, plus future downstream impact up to Class 10.
               </p>
             </div>
-            <span className="badge badge-orange">NCERT Textbook Chapters</span>
+            <span className="badge badge-orange">NCERT Curriculum Grounding</span>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
@@ -233,6 +261,8 @@ export default function ExportFollowUp({
               .map((gap, idx) => {
                 const prereq = gap.prerequisiteLesson;
                 const futureLessons = gap.futureLessonsAffected || [];
+                const pdfDownloadPath = prereq.pdfUrl || (prereq.pdfFileName ? `/curriculum/${encodeURIComponent(prereq.pdfFileName)}` : null);
+
                 return (
                   <div
                     key={idx}
@@ -243,45 +273,85 @@ export default function ExportFollowUp({
                       backgroundColor: '#FFFFFF',
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: '10px',
+                      gap: '12px',
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                          <span className="badge badge-orange">{prereq.grade}</span>
-                          <span style={{ fontSize: '11px', color: 'var(--muted-text)' }}>Grounded in database retrieval</span>
+                      <div style={{ flex: 1, minWidth: '240px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                          <span className="badge badge-orange" style={{ fontWeight: 'bold' }}>
+                            {prereq.grade || 'Previous Class'}
+                          </span>
+                          {prereq.chapterNumber && (
+                            <span className="badge badge-neutral" style={{ fontWeight: '600' }}>
+                              Chapter {prereq.chapterNumber}
+                            </span>
+                          )}
+                          <span style={{ fontSize: '11px', color: 'var(--muted-text)' }}>
+                            Delayed prerequisite from earlier curriculum
+                          </span>
                         </div>
-                        <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 'bold', color: 'var(--main-text)' }}>
+
+                        <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 'bold', color: 'var(--main-text)', margin: '4px 0' }}>
                           {prereq.chapterName}
                         </h3>
-                        <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--secondary-text)', marginTop: '2px' }}>
-                          <strong>Core Concept:</strong> {prereq.concept}
+
+                        <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--secondary-text)', marginTop: '4px', lineHeight: 1.45 }}>
+                          <strong style={{ color: 'var(--main-text)' }}>Core Delayed Concept:</strong> {prereq.concept}
                         </p>
+
+                        {prereq.studyTip && (
+                          <p style={{ fontSize: '11.5px', color: 'var(--dark-orange)', marginTop: '4px', fontStyle: 'italic' }}>
+                            <strong>Remediation Tip:</strong> {prereq.studyTip}
+                          </p>
+                        )}
                       </div>
 
-                      <a
-                        href={prereq.pdfUrl || `/curriculum/${encodeURIComponent(prereq.fileName)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn btn-outline btn-sm"
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
-                      >
-                        <IconDownload size={14} />
-                        <span>Download Chapter PDF</span>
-                      </a>
+                      {pdfDownloadPath && (
+                        <a
+                          href={pdfDownloadPath}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn btn-outline btn-sm"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
+                          title={`Open ${prereq.pdfFileName || 'chapter textbook'}`}
+                        >
+                          <IconDownload size={14} />
+                          <span>Download Chapter PDF</span>
+                        </a>
+                      )}
                     </div>
 
+                    {/* Downstream Future Lessons or Class 10 Advisory */}
                     {futureLessons.length > 0 && (
-                      <div style={{ backgroundColor: '#FFF7ED', border: '1px solid #FFEDD5', borderRadius: 'var(--radius-sm)', padding: '8px 12px' }}>
-                        <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#9A3412' }}>
-                          Downstream Future Grade Lessons Protected:
-                        </span>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
+                      <div style={{ backgroundColor: '#FFF7ED', border: '1px solid #FFEDD5', borderRadius: 'var(--radius-sm)', padding: '10px 14px' }}>
+                        <div style={{ fontSize: '11.5px', fontWeight: 'bold', color: '#9A3412', marginBottom: '6px' }}>
+                          Future Academic Continuity (Up to Class 10):
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                           {futureLessons.map((fut, fIdx) => (
-                            <span key={fIdx} className="badge badge-warning" style={{ fontSize: '10px' }}>
-                              {fut.grade}: {fut.lessonName}
-                            </span>
+                            <div
+                              key={fIdx}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                gap: '8px',
+                                fontSize: '11.5px',
+                                color: '#7C2D12',
+                                lineHeight: 1.4,
+                              }}
+                            >
+                              <span
+                                className={`badge ${fut.isBoardAdvisory ? 'badge-error' : 'badge-warning'}`}
+                                style={{ fontSize: '10px', flexShrink: 0 }}
+                              >
+                                {fut.grade}
+                              </span>
+                              <div>
+                                <strong>{fut.lessonName}</strong>
+                                {fut.impact && <span> &mdash; {fut.impact}</span>}
+                              </div>
+                            </div>
                           ))}
                         </div>
                       </div>

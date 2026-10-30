@@ -10,12 +10,28 @@ import {
   IconSparkles,
   IconCheckCircle,
 } from '../components/Icons';
+import { isNonErrorText } from '../utils/gapSynthesizer';
 
 export default function PrerequisiteGaps({
   gapsData = [],
   syllabusData,
 }) {
   const lessons = syllabusData?.lessons || [];
+
+  // Filter out any non-error / benign diagnostic items
+  const activeGaps = (gapsData || []).filter((gap) => {
+    if (!gap) return false;
+    if (isNonErrorText(gap.topicName)) return false;
+    const cleanTopic = String(gap.topicName || '').toLowerCase();
+    if (
+      cleanTopic.includes('none observed') ||
+      cleanTopic.includes('no evident misconception') ||
+      cleanTopic.includes('correct understanding')
+    ) {
+      return false;
+    }
+    return true;
+  });
 
   return (
     <div className="section-container" aria-label="Trace Prerequisite Gaps Section">
@@ -59,7 +75,7 @@ export default function PrerequisiteGaps({
       </div>
 
       {/* Gaps List */}
-      {gapsData.length === 0 ? (
+      {activeGaps.length === 0 ? (
         <EmptyState
           icon={<IconTarget size={28} />}
           title="No prerequisite gaps identified"
@@ -67,7 +83,7 @@ export default function PrerequisiteGaps({
         />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
-          {gapsData.map((gap, index) => {
+          {activeGaps.map((gap, index) => {
             // Find syllabus lesson metadata safely
             const linkedLesson = lessons.find((l) => l.id === gap.lessonId || l.name === gap.lessonName);
             const gradeDisplay = linkedLesson ? linkedLesson.grade : gap.grade || 'Foundational';

@@ -9,6 +9,7 @@ import {
   IconAlertTriangle,
   IconInfo,
 } from '../components/Icons';
+import { isNonErrorText } from '../utils/gapSynthesizer';
 
 export default function LearningRoadmap({
   roadmapData = [],
@@ -21,8 +22,23 @@ export default function LearningRoadmap({
     onUpdateRoadmap(updated);
   };
 
-  const totalMinutes = roadmapData.reduce((sum, item) => sum + (item.estimatedMinutes || 0), 0);
-  const totalPractice = roadmapData.reduce((sum, item) => sum + (item.practiceQuestions || 0), 0);
+  // Filter out any non-error / benign diagnostic items
+  const activeRoadmap = (roadmapData || []).filter((step) => {
+    if (!step) return false;
+    if (isNonErrorText(step.topic)) return false;
+    const cleanTopic = String(step.topic || '').toLowerCase();
+    if (
+      cleanTopic.includes('none observed') ||
+      cleanTopic.includes('no evident misconception') ||
+      cleanTopic.includes('correct understanding')
+    ) {
+      return false;
+    }
+    return true;
+  });
+
+  const totalMinutes = activeRoadmap.reduce((sum, item) => sum + (item.estimatedMinutes || 0), 0);
+  const totalPractice = activeRoadmap.reduce((sum, item) => sum + (item.practiceQuestions || 0), 0);
 
   return (
     <div className="section-container" aria-label="Learning Roadmap Section">
@@ -47,14 +63,14 @@ export default function LearningRoadmap({
               Curated Roadmap Overview
             </span>
             <p style={{ fontSize: 'var(--font-size-base)', fontWeight: 'var(--font-weight-bold)', color: 'var(--main-text)', marginTop: '2px' }}>
-              {roadmapData.length} Sequenced Milestones &bull; Estimated Time: ~{totalMinutes} mins &bull; {totalPractice} Practice Problems
+              {activeRoadmap.length} Sequenced Milestones &bull; Estimated Time: ~{totalMinutes} mins &bull; {totalPractice} Practice Problems
             </p>
           </div>
           <span className="badge badge-orange">Prerequisite-First Ordering</span>
         </div>
       </div>
 
-      {roadmapData.length === 0 ? (
+      {activeRoadmap.length === 0 ? (
         <EmptyState
           icon={<IconCompass size={28} />}
           title="No roadmap items generated"
@@ -62,7 +78,7 @@ export default function LearningRoadmap({
         />
       ) : (
         <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
-          {roadmapData.map((step, idx) => {
+          {activeRoadmap.map((step, idx) => {
             const isMastered = step.status === 'Mastered';
             const isInProgress = step.status === 'In Progress';
             const prereq = step.prerequisiteLesson;
