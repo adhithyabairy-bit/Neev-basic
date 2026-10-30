@@ -499,6 +499,40 @@ export async function verifyAnswerSheet(req, res, next) {
       });
     }
 
+    // Atomically persist teacher corrections / answers passed in the request body
+    if (Array.isArray(req.body?.answers)) {
+      req.body.answers.forEach((incoming) => {
+        let existing = null;
+        if (incoming._id) {
+          existing = answerSheet.answers.id(incoming._id);
+        }
+        if (!existing && incoming.questionNumber) {
+          existing = answerSheet.answers.find((a) => a.questionNumber === incoming.questionNumber);
+        }
+        if (existing) {
+          if (incoming.correctedText !== undefined) {
+            existing.correctedText = String(incoming.correctedText);
+          } else if (incoming.extractedAnswer !== undefined) {
+            existing.correctedText = String(incoming.extractedAnswer);
+          }
+          if (incoming.prompt !== undefined) {
+            existing.prompt = String(incoming.prompt).trim();
+          }
+          if (incoming.maxMarks !== undefined) {
+            const m = Number(incoming.maxMarks);
+            if (!isNaN(m) && m > 0) existing.maxMarks = m;
+          }
+          if (incoming.awardedMarks !== undefined) {
+            const a = Number(incoming.awardedMarks);
+            if (!isNaN(a) && a >= 0) existing.awardedMarks = Math.min(a, existing.maxMarks);
+          } else if (incoming.detectedMarks !== undefined) {
+            const a = Number(incoming.detectedMarks);
+            if (!isNaN(a) && a >= 0) existing.awardedMarks = Math.min(a, existing.maxMarks);
+          }
+        }
+      });
+    }
+
     // Validate that all questions have valid awarded marks
     for (const item of answerSheet.answers) {
       const marks = Number(item.awardedMarks);

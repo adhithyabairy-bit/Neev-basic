@@ -198,7 +198,7 @@ export default function ClassSyllabus({
 
       {/* Examination Configuration Card */}
       <section className="card" style={{ marginBottom: 'var(--space-6)' }} aria-labelledby="exam-details-heading">
-        <div className="card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+        <div className="card-header">
           <div>
             <h2 id="exam-details-heading" className="card-title">Examination Details</h2>
             <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--secondary-text)', marginTop: '2px' }}>

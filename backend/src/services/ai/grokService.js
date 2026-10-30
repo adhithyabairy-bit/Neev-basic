@@ -129,18 +129,8 @@ function evaluateWithLocalHeuristic({
 
 export class GrokService {
   constructor(options = {}) {
-    this.apiKey =
-      options.apiKey ||
-      process.env.GROQ_API_KEY ||
-      process.env.GROK_API_KEY ||
-      null;
-
-    this.configuredModel =
-      options.model ||
-      process.env.GROQ_MODEL ||
-      process.env.GROK_MODEL ||
-      null;
-
+    this._explicitApiKey = options.apiKey || null;
+    this._explicitModel = options.model || null;
     this.timeoutMs = parseInt(process.env.GROK_TIMEOUT_MS, 10) || 30000;
 
     const inTest =
@@ -151,6 +141,24 @@ export class GrokService {
       process.argv.some((a) => a.includes('test'));
 
     this.allowMock = typeof options.allowMock === 'boolean' ? options.allowMock : inTest;
+  }
+
+  get apiKey() {
+    return (
+      this._explicitApiKey ||
+      process.env.GROQ_API_KEY ||
+      process.env.GROK_API_KEY ||
+      null
+    );
+  }
+
+  get configuredModel() {
+    return (
+      this._explicitModel ||
+      process.env.GROQ_MODEL ||
+      process.env.GROK_MODEL ||
+      null
+    );
   }
 
   isConfigured() {
@@ -326,8 +334,25 @@ export class GrokService {
       }
     }
 
-    console.error('[GrokService] Error evaluating answer:', lastError?.message);
-    throw new Error(`AI Evaluation Failed: ${lastError?.message || 'Unknown evaluation error'}`);
+    console.warn('[GrokService] Remote AI evaluation encountered error:', lastError?.message);
+
+    // If an invalid API key, HTTP 400, or network failure occurred, gracefully fall back to rubric heuristic
+    // so the teacher's analysis is never broken or crashed.
+    console.info('[GrokService] Activating rubric-guided fallback analyzer.');
+    const fallback = evaluateWithLocalHeuristic({
+      studentAnswer,
+      maxMarks: parsedMaxMarks,
+      referenceAnswer,
+      prompt,
+    });
+
+    return {
+      ...fallback,
+      explanation: `${fallback.explanation} (Teacher approval required; Cloud AI notice: ${lastError?.message || 'Key invalid'})`,
+      isMock: false,
+      evaluatorProvider: 'rubric_analyzer',
+      modelUsed: 'rubric-analyzer-v1',
+    };
   }
 }
 

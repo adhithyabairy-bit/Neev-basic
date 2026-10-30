@@ -25,7 +25,33 @@ async function getCreateWorker() {
  * that should not be converted into questions.
  */
 function isInstructionOrGuideline(text) {
-  const lower = text.toLowerCase().trim();
+  const clean = text
+    .replace(/(?:Academic\s*Excellence\s*Academy[^\n]*|Marking\s*Scheme[^\n]*Page\s*\d+\s*of\s*\d+|Page\s*\d+\s*of\s*\d+)/gi, '')
+    .trim();
+  const lower = clean.toLowerCase();
+
+  // If the block contains question indicators, calculations, or steps, it is NOT an instruction
+  const hasQuestionSignals =
+    lower.includes('step 1') ||
+    lower.includes('step 2') ||
+    lower.includes('solution') ||
+    lower.includes('principal') ||
+    lower.includes('formula') ||
+    lower.includes('factorise') ||
+    lower.includes('exponents') ||
+    lower.includes('interest') ||
+    lower.includes('equation') ||
+    lower.includes('pythagoras') ||
+    lower.includes('solve') ||
+    lower.includes('calculate') ||
+    lower.includes('simplify') ||
+    lower.includes('ans:') ||
+    lower.includes('answer:');
+
+  if (hasQuestionSignals) {
+    return false;
+  }
+
   const instructionPhrases = [
     'award full marks',
     'step-wise marks',
@@ -36,19 +62,11 @@ function isInstructionOrGuideline(text) {
     'instructions to examiners',
     'guidelines for marking',
     'marking scheme guidelines',
-    'marking scheme',
     'examiners must',
     'candidates must',
-    'academic excellence academy',
   ];
-  return (
-    instructionPhrases.some((phrase) => lower.includes(phrase)) &&
-    !lower.includes('equation:') &&
-    !lower.includes('pythagoras') &&
-    !lower.includes('solve for') &&
-    !lower.includes('calculate') &&
-    !lower.includes('simplify')
-  );
+
+  return instructionPhrases.some((phrase) => lower.includes(phrase));
 }
 
 /**
@@ -112,16 +130,19 @@ export function organizeExtractedText(pages, defaultConfidence = null) {
         let answerText = rawBody;
 
         // Check for table headers like "Steps & Answer Key \t Mark Breakdown"
-        const tableHeaderMatch = rawBody.match(/(?:Steps?\s*(?:&|and)?\s*Answer\s*Key|Solution\s*Key|Model\s*Answer|Expected\s*Steps?)\s*(?:\t|\n|[^\n]*Mark\s*Breakdown)?/i);
+        const tableHeaderMatch = rawBody.match(/(?:(?:Solution\s*)?Steps?\s*(?:&|and)?\s*Answer\s*Key|Solution\s*Key|Model\s*Answer|Expected\s*Steps?)\s*(?:\t|\n|[^\n]*Mark\s*Breakdown)?/i);
 
         if (tableHeaderMatch) {
           const headerIndex = tableHeaderMatch.index;
           const preHeader = rawBody.substring(0, headerIndex).trim();
           const postHeader = rawBody.substring(headerIndex + tableHeaderMatch[0].length).trim();
 
-          const extractedPrompt = preHeader.replace(/\s*(?:\[|\()?(\d+)\s*(?:Marks?|Pts?|Points?)(?:\]|\))?/i, '').trim();
+          let extractedPrompt = preHeader
+            .replace(/\s*(?:\[|\()?(\d+)\s*(?:Marks?|Pts?|Points?)(?:\]|\))?/i, '')
+            .replace(/\s*Solution\s*$/i, '')
+            .trim();
 
-          const eqMatch = postHeader.match(/^(?:Equation|Problem|Question|Statement)\s*:\s*([^\n]+)/i);
+          const eqMatch = postHeader.match(/^(?:Equation|Problem|Question|Statement|Given)\s*:\s*([^\n]+)/i);
           if (eqMatch) {
             prompt = extractedPrompt ? `${extractedPrompt} — ${eqMatch[0]}` : eqMatch[0];
             answerText = postHeader.substring(eqMatch[0].length).trim();

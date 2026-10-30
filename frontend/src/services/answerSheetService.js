@@ -96,8 +96,9 @@ export async function addAnswerItem(id, item) {
  * @param {string} id - AnswerSheet MongoDB ID
  * @returns {Promise<Object>} Updated answer sheet with verificationStatus.isVerified = true
  */
-export async function verifyAnswerSheet(id) {
-  const response = await apiClient.patch(`/api/answer-sheets/${id}/verify`, {});
+export async function verifyAnswerSheet(id, answers = null) {
+  const payload = answers ? { answers } : {};
+  const response = await apiClient.patch(`/api/answer-sheets/${id}/verify`, payload);
   return response.data;
 }
 

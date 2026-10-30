@@ -31,7 +31,7 @@ export default function TeacherCorrection({
 
   // Helper to extract fields cleanly supporting both demo data and Mongoose AnswerSheet documents
   const getAnswerText = (q) => {
-    if (q?.correctedText !== undefined && q?.correctedText !== null && q.correctedText !== '') {
+    if (q?.correctedText !== undefined && q?.correctedText !== null) {
       return q.correctedText;
     }
     return q?.extractedAnswer || q?.rawExtractedText || '';
@@ -144,7 +144,7 @@ export default function TeacherCorrection({
     if (nextState && !isDemoMode && activeAnswerSheet?._id) {
       setIsSaving(true);
       try {
-        const updated = await verifyAnswerSheet(activeAnswerSheet._id);
+        const updated = await verifyAnswerSheet(activeAnswerSheet._id, correctionData);
         onConfirmChange(true);
         if (onAnswerSheetUpdated) {
           onAnswerSheetUpdated(updated);
