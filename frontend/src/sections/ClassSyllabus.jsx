@@ -19,7 +19,7 @@ export default function ClassSyllabus({
   onSaveAssessment,
 }) {
   const {
-    selectedClass = 'Grade 8',
+    selectedClass = 'Class 8',
     classId = '',
     selectedSubject = 'Mathematics',
     examName = '',
@@ -34,7 +34,7 @@ export default function ClassSyllabus({
   // Local form state for Add/Edit lesson
   const [editingLessonId, setEditingLessonId] = useState(null);
   const [lessonNameInput, setLessonNameInput] = useState('');
-  const [lessonGradeInput, setLessonGradeInput] = useState('Grade 8');
+  const [lessonGradeInput, setLessonGradeInput] = useState('Class 8');
 
   // Validation & alerts
   const [formError, setFormError] = useState(null);
@@ -238,40 +238,38 @@ export default function ClassSyllabus({
         <div className="form-grid" style={{ padding: 'var(--space-4)' }}>
           {/* Class Selection */}
           <FormField id="class-select" label="Class" required>
-            {!isDemoMode && classes.length > 0 ? (
-              <select
-                value={classId}
-                onChange={(e) => {
-                  const chosen = classes.find((c) => c._id === e.target.value);
-                  onUpdateSyllabus({
-                    ...syllabusData,
-                    classId: e.target.value,
-                    selectedClass: chosen?.grade || syllabusData.selectedClass,
-                    selectedSubject: chosen?.subject || syllabusData.selectedSubject,
-                  });
-                }}
-                className="form-select"
-              >
-                <option value="">— Select a Class —</option>
-                {classes.map((cls) => (
-                  <option key={cls._id} value={cls._id}>
-                    {cls.name || `${cls.grade} — ${cls.subject}`}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <select
-                value={selectedClass}
-                onChange={(e) => handleConfigChange('selectedClass', e.target.value)}
-                className="form-select"
-              >
-                <option value="Grade 6">Grade 6</option>
-                <option value="Grade 7">Grade 7</option>
-                <option value="Grade 8">Grade 8</option>
-                <option value="Grade 9">Grade 9</option>
-                <option value="Grade 10">Grade 10</option>
-              </select>
-            )}
+            <select
+              value={
+                selectedClass
+                  ? (selectedClass.startsWith('Grade')
+                      ? selectedClass.replace('Grade', 'Class')
+                      : selectedClass)
+                  : 'Class 8'
+              }
+              onChange={(e) => {
+                const val = e.target.value;
+                const matched = classes.find(
+                  (c) =>
+                    c.grade === val ||
+                    c.grade === val.replace('Class', 'Grade') ||
+                    c.name === val ||
+                    c.name.startsWith(val)
+                );
+                onUpdateSyllabus({
+                  ...syllabusData,
+                  selectedClass: val,
+                  classId: matched?._id || '',
+                });
+              }}
+              className="form-select"
+            >
+              <option value="">— Select a Class —</option>
+              <option value="Class 6">Class 6</option>
+              <option value="Class 7">Class 7</option>
+              <option value="Class 8">Class 8</option>
+              <option value="Class 9">Class 9</option>
+              <option value="Class 10">Class 10</option>
+            </select>
           </FormField>
 
           <FormField id="subject-select" label="Subject" required>
@@ -400,17 +398,21 @@ export default function ClassSyllabus({
               />
             </FormField>
 
-            <FormField id="lesson-grade-field" label="Grade / Level" required>
+            <FormField id="lesson-grade-field" label="Class / Level" required>
               <select
-                value={lessonGradeInput}
+                value={
+                  lessonGradeInput.startsWith('Grade')
+                    ? lessonGradeInput.replace('Grade', 'Class')
+                    : lessonGradeInput
+                }
                 onChange={(e) => setLessonGradeInput(e.target.value)}
                 className="form-select"
               >
-                <option value="Grade 6">Grade 6 (Foundational)</option>
-                <option value="Grade 7">Grade 7 (Foundational)</option>
-                <option value="Grade 8">Grade 8 (Target Syllabus)</option>
-                <option value="Grade 9">Grade 9</option>
-                <option value="Grade 10">Grade 10</option>
+                <option value="Class 8">Class 8 (Target Syllabus)</option>
+                <option value="Class 7">Class 7 (Foundational)</option>
+                <option value="Class 6">Class 6 (Foundational)</option>
+                <option value="Class 9">Class 9</option>
+                <option value="Class 10">Class 10</option>
               </select>
             </FormField>
           </div>

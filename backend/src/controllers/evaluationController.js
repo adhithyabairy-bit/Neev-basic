@@ -74,10 +74,8 @@ export async function evaluateAnswerSheet(req, res, next) {
       });
     }
 
-    const evaluations = [];
-
-    // 4. Evaluate each question sequentially
-    for (const item of answerSheet.answers) {
+    // 4. Evaluate each question concurrently using Promise.all for high speed and responsiveness
+    const evalPromises = answerSheet.answers.map(async (item) => {
       const qNumKey = (item.questionNumber || '').trim().toUpperCase();
       const rubricItem = rubricMap.get(qNumKey);
 
@@ -92,7 +90,7 @@ export async function evaluateAnswerSheet(req, res, next) {
       // Text to evaluate: student's teacher-corrected answer (falls back to raw OCR text)
       const studentAnswer = (item.correctedText || item.rawExtractedText || '').trim();
 
-      // Retrieve evidence from persistent syllabus knowledge base
+      // Retrieve evidence from persistent pre-indexed syllabus knowledge base (fast lookup, zero re-embedding)
       const retrievalQuery = `${prompt} ${referenceAnswer} ${studentAnswer}`.trim();
       const { chunks } = await retrieveRelevantSyllabusChunks({
         teacherId,
@@ -105,7 +103,7 @@ export async function evaluateAnswerSheet(req, res, next) {
 
       const evidenceText = formatChunksAsEvidence(chunks);
 
-      // Call Grok / AI evaluation pipeline
+      // Call AI evaluation pipeline (concurrent Groq Cloud LPU call)
       const aiResult = await grokService.evaluateAnswer({
         questionNumber: item.questionNumber,
         prompt,
@@ -149,7 +147,9 @@ export async function evaluateAnswerSheet(req, res, next) {
         isTeacherApproved: false,
         status: 'review_required',
         explanation: aiResult.explanation,
-        observedErrors: aiResult.observedErrors,
+        observedErrors: Array.isArray(aiResult.observedErrors)
+          ? aiResult.observedErrors.join('; ')
+          : String(aiResult.observedErrors || 'None'),
         misconceptionHypothesis: aiResult.misconceptionHypothesis,
         affectedLessonId: lessonId,
         affectedLessonName: lessonName,
@@ -158,7 +158,7 @@ export async function evaluateAnswerSheet(req, res, next) {
         syllabusEvidence,
         modelUsed: aiResult.modelUsed || grokService.getModelName(),
         isMock: Boolean(aiResult.isMock),
-        evaluatorProvider: aiResult.evaluatorProvider || 'grok_ai',
+        evaluatorProvider: aiResult.evaluatorProvider || 'groq_ai',
         evaluationVersion: nextVersion,
       };
 
@@ -168,8 +168,10 @@ export async function evaluateAnswerSheet(req, res, next) {
         { upsert: true, new: true, setDefaultsOnInsert: true }
       );
 
-      evaluations.push(savedEval);
-    }
+      return savedEval;
+    });
+
+    const evaluations = await Promise.all(evalPromises);
 
     return res.status(200).json({
       success: true,

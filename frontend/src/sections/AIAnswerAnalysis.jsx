@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import PageHeader from '../components/PageHeader';
 import EmptyState from '../components/EmptyState';
+import ErrorBoundary from '../components/ErrorBoundary';
 import {
   IconSparkles,
   IconAlertCircle,
@@ -186,23 +187,28 @@ export default function AIAnswerAnalysis({
 
   // Filter evaluation items
   const filteredItems = evaluations.filter((item) => {
+    const maxMarks = item.maxMarks ?? item.maximumMarks ?? 5;
+    const status = item.reviewStatus || item.status || 'review_required';
+    const isApproved = item.isTeacherApproved || status === 'approved';
+
     if (filterType === 'needs-review') {
-      return !item.isTeacherApproved || item.reviewStatus === 'review_required';
+      return !isApproved || status === 'review_required';
     }
     if (filterType === 'errors-only') {
-      const awarded = item.isTeacherApproved ? item.approvedMarks : item.suggestedMarks;
-      return awarded < item.maximumMarks;
+      const awarded = isApproved ? item.approvedMarks : item.suggestedMarks;
+      return (awarded ?? 0) < maxMarks;
     }
     return true;
   });
 
   const totalQuestions = evaluations.length;
-  const approvedCount = evaluations.filter((e) => e.isTeacherApproved).length;
+  const approvedCount = evaluations.filter((e) => e.isTeacherApproved || e.status === 'approved' || e.reviewStatus === 'approved').length;
   const totalSuggestedMarks = evaluations.reduce((sum, e) => sum + (e.suggestedMarks || 0), 0);
-  const totalMaxMarks = evaluations.reduce((sum, e) => sum + (e.maximumMarks || 0), 0);
+  const totalMaxMarks = evaluations.reduce((sum, e) => sum + (e.maxMarks ?? e.maximumMarks ?? 5), 0);
 
   return (
-    <div className="section-container" aria-label="AI Answer Analysis Section">
+    <ErrorBoundary onReset={() => window.location.reload()}>
+      <div className="section-container" aria-label="AI Answer Analysis Section">
       <PageHeader
         title="AI Answer Analysis & Misconception Detection"
         subtitle="Evaluates verified student answers against syllabus content, extracting conceptual hypotheses and requiring explicit teacher score approval."
@@ -375,9 +381,17 @@ export default function AIAnswerAnalysis({
           />
         ) : (
           filteredItems.map((item) => {
-            const hasError = (item.isTeacherApproved ? item.approvedMarks : item.suggestedMarks) < item.maximumMarks;
-            const isApproved = item.isTeacherApproved || item.reviewStatus === 'approved';
-            const isStale = item.reviewStatus === 'stale';
+            const maxMarks = item.maxMarks ?? item.maximumMarks ?? 5;
+            const suggestedMarks = Number(item.suggestedMarks ?? 0);
+            const approvedMarks =
+              item.approvedMarks !== null && item.approvedMarks !== undefined
+                ? Number(item.approvedMarks)
+                : suggestedMarks;
+
+            const status = item.reviewStatus || item.status || 'review_required';
+            const isApproved = item.isTeacherApproved || status === 'approved';
+            const isStale = status === 'stale';
+            const hasError = (isApproved ? approvedMarks : suggestedMarks) < maxMarks;
 
             return (
               <div
@@ -442,7 +456,7 @@ export default function AIAnswerAnalysis({
                         {isApproved ? 'Approved Score' : 'Suggested Score'}
                       </div>
                       <div style={{ fontSize: 'var(--font-size-lg)', fontWeight: 'var(--font-weight-bold)', color: hasError ? 'var(--danger-dark)' : 'var(--success-dark)' }}>
-                        {isApproved ? item.approvedMarks : item.suggestedMarks} / {item.maximumMarks} Marks
+                        {isApproved ? approvedMarks : suggestedMarks} / {maxMarks} Marks
                       </div>
                     </div>
 
@@ -574,15 +588,23 @@ export default function AIAnswerAnalysis({
                         Observed Errors & Criteria
                       </span>
                     </div>
-                    {item.observedErrors && item.observedErrors.length > 0 ? (
-                      <ul style={{ margin: 0, paddingLeft: '18px', fontSize: 'var(--font-size-sm)', color: 'var(--main-text)' }}>
-                        {item.observedErrors.map((err, idx) => (
-                          <li key={idx} style={{ marginBottom: '4px' }}>{err}</li>
-                        ))}
-                      </ul>
+                    {Array.isArray(item.observedErrors) ? (
+                      item.observedErrors.length > 0 ? (
+                        <ul style={{ margin: 0, paddingLeft: '18px', fontSize: 'var(--font-size-sm)', color: 'var(--main-text)' }}>
+                          {item.observedErrors.map((err, idx) => (
+                            <li key={idx} style={{ marginBottom: '4px' }}>{err}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--main-text)', lineHeight: 1.5, margin: 0 }}>
+                          {item.explanation || 'No errors observed. Answer adheres to expected rubric criteria.'}
+                        </p>
+                      )
                     ) : (
                       <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--main-text)', lineHeight: 1.5, margin: 0 }}>
-                        {item.explanation || 'No errors observed. Answer adheres to expected rubric criteria.'}
+                        {item.observedErrors && item.observedErrors !== 'None'
+                          ? item.observedErrors
+                          : item.explanation || 'No errors observed. Answer adheres to expected rubric criteria.'}
                       </p>
                     )}
                   </div>
@@ -625,7 +647,7 @@ export default function AIAnswerAnalysis({
                         Syllabus Evidence Grounding:
                       </strong>
                       <span className="badge badge-neutral" style={{ fontSize: '10px' }}>
-                        {item.syllabusEvidence[0].documentTitle} &bull; Page {item.syllabusEvidence[0].pageNumber}
+                        {item.syllabusEvidence[0].documentTitle || item.syllabusEvidence[0].sourceFileName || 'Syllabus'} &bull; Page {item.syllabusEvidence[0].pageNumber || 1}
                       </span>
                     </div>
                     <p style={{ margin: 0, color: 'var(--secondary-text)', fontStyle: 'italic', lineHeight: 1.4 }}>
@@ -651,6 +673,7 @@ export default function AIAnswerAnalysis({
           })
         )}
       </div>
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 }

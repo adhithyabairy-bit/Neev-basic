@@ -41,7 +41,7 @@ import { fetchClasses, createClass } from './services/classService';
 import { createAssessment, updateAssessment } from './services/assessmentService';
 
 const EMPTY_SYLLABUS = {
-  selectedClass: '',
+  selectedClass: 'Class 8',
   classId: '',
   selectedSubject: 'Mathematics',
   examName: '',
@@ -265,16 +265,24 @@ export default function App() {
     if (!targetClassId) {
       try {
         const existingClasses = await fetchClasses();
-        if (existingClasses && existingClasses.length > 0) {
-          targetClassId = existingClasses[0]._id;
+        const selClass = dataToSave.selectedClass || 'Class 8';
+        const matched = existingClasses.find(
+          (c) =>
+            c.grade === selClass ||
+            c.grade === selClass.replace('Class', 'Grade') ||
+            c.name === selClass ||
+            c.name.includes(selClass)
+        );
+        if (matched) {
+          targetClassId = matched._id;
         } else {
           const newClass = await createClass({
-            name: `${dataToSave.selectedClass || 'Grade 8'} ${dataToSave.selectedSubject || 'Mathematics'}`,
-            grade: dataToSave.selectedClass || 'Grade 8',
+            name: `${selClass} - ${dataToSave.selectedSubject || 'Mathematics'}`,
+            grade: selClass,
             subject: dataToSave.selectedSubject || 'Mathematics',
           });
           targetClassId = newClass._id;
-          setTeacherClasses([newClass]);
+          setTeacherClasses((prev) => [...prev, newClass]);
         }
       } catch (err) {
         console.warn('[App] Could not resolve or auto-create class:', err);
