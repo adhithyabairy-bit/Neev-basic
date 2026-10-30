@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Reusable Layout Components
 import Header from './components/Header';
@@ -654,7 +655,9 @@ export default function App() {
         <div className="workspace-main-column">
           <main id="main-content" className="main-content">
             <div className="content-inner">
-              {renderCurrentSection()}
+              <ErrorBoundary onReset={() => window.location.reload()}>
+                {renderCurrentSection()}
+              </ErrorBoundary>
             </div>
           </main>
 

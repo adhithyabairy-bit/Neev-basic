@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import PageHeader from '../components/PageHeader';
 import EmptyState from '../components/EmptyState';
+import ErrorBoundary from '../components/ErrorBoundary';
 import {
   IconEye,
   IconAlertTriangle,
@@ -119,6 +120,8 @@ export default function ExtractPreview({
     }
   };
 
+  const hasTriggeredRef = useRef(false);
+
   // Auto-trigger OCR extraction if document was uploaded and has not been extracted yet
   useEffect(() => {
     if (
@@ -126,11 +129,13 @@ export default function ExtractPreview({
       targetSheet?._id &&
       (!targetSheet.status || targetSheet.status === 'uploaded') &&
       (!extractionData || extractionData.length === 0) &&
-      !isProcessing
+      !isProcessing &&
+      !hasTriggeredRef.current
     ) {
+      hasTriggeredRef.current = true;
       handleTriggerOcr();
     }
-  }, [targetSheet?._id]);
+  }, [targetSheet?._id, isDemoMode]);
 
   const handleToggleVerify = async (questionId) => {
     const item = extractionData.find((q) => (q._id || q.id) === questionId);
@@ -277,7 +282,8 @@ export default function ExtractPreview({
   const totalNeedsReview = extractionData.filter((q) => q.status === 'Needs Review').length;
 
   return (
-    <div className="section-container" aria-label="Extract and Preview Section">
+    <ErrorBoundary onReset={() => window.location.reload()}>
+      <div className="section-container" aria-label="Extract and Preview Section">
       <PageHeader
         title="Extract & Preview OCR Answers"
         subtitle="Inspect automated handwritten answer transcription, confidence scores, and uncertain steps."
@@ -876,6 +882,7 @@ export default function ExtractPreview({
           </div>
         </>
       )}
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 }
