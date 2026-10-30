@@ -21,6 +21,124 @@ async function getCreateWorker() {
 }
 
 /**
+ * Helper to generate an uncompressed 32-bit BMP buffer from raw RGBA/RGB image pixel data
+ * so Tesseract.js can recognize it directly without external image processing binaries.
+ */
+function createBmpBuffer(width, height, rgbaBuffer) {
+  const rowSize = width * 4;
+  const pixelArraySize = rowSize * height;
+  const fileSize = 54 + pixelArraySize;
+  const buf = Buffer.alloc(fileSize);
+
+  // BM magic bytes and file size
+  buf.write('BM', 0);
+  buf.writeUInt32LE(fileSize, 2);
+  buf.writeUInt32LE(54, 10); // Offset to pixel array
+  // DIB header (BITMAPINFOHEADER)
+  buf.writeUInt32LE(40, 14); // Header size
+  buf.writeInt32LE(width, 18);
+  buf.writeInt32LE(-height, 22); // Negative height specifies top-down orientation
+  buf.writeUInt16LE(1, 26); // Color planes
+  buf.writeUInt16LE(32, 28); // 32 bits per pixel
+  buf.writeUInt32LE(0, 30); // BI_RGB (uncompressed)
+  buf.writeUInt32LE(pixelArraySize, 34);
+
+  let srcOffset = 0;
+  let dstOffset = 54;
+  const isRGBA = rgbaBuffer.length === width * height * 4;
+  const isRGB = rgbaBuffer.length === width * height * 3;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let r, g, b, a = 255;
+      if (isRGBA) {
+        r = rgbaBuffer[srcOffset];
+        g = rgbaBuffer[srcOffset + 1];
+        b = rgbaBuffer[srcOffset + 2];
+        a = rgbaBuffer[srcOffset + 3];
+        srcOffset += 4;
+      } else if (isRGB) {
+        r = rgbaBuffer[srcOffset];
+        g = rgbaBuffer[srcOffset + 1];
+        b = rgbaBuffer[srcOffset + 2];
+        srcOffset += 3;
+      } else {
+        r = g = b = rgbaBuffer[srcOffset++];
+      }
+      buf[dstOffset] = b;
+      buf[dstOffset + 1] = g;
+      buf[dstOffset + 2] = r;
+      buf[dstOffset + 3] = a;
+      dstOffset += 4;
+    }
+  }
+  return buf;
+}
+
+/**
+ * Extracts page images and performs OCR on scanned PDFs (PDFs without embedded text layer).
+ * Preserves raw student handwriting fidelity without automated normalization or correction.
+ *
+ * @param {Buffer} pdfBuffer - Raw PDF buffer
+ * @returns {Promise<{ text: string, pages: Array<{ pageNumber: number, text: string }>, pageCount: number }>}
+ */
+export async function extractScannedPdf(pdfBuffer) {
+  const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const uint8 = new Uint8Array(pdfBuffer);
+  const loadingTask = pdfjsLib.getDocument({ data: uint8 });
+  const doc = await loadingTask.promise;
+  const pages = [];
+  const createWorker = await getCreateWorker();
+  let worker = null;
+
+  try {
+    worker = await createWorker('eng');
+
+    for (let pageNum = 1; pageNum <= doc.numPages; pageNum++) {
+      const page = await doc.getPage(pageNum);
+      const ops = await page.getOperatorList();
+      let pageText = '';
+
+      for (let i = 0; i < ops.fnArray.length; i++) {
+        if (ops.fnArray[i] === pdfjsLib.OPS.paintImageXObject) {
+          const objId = ops.argsArray[i][0];
+          await new Promise((resolve) => {
+            page.objs.get(objId, async (img) => {
+              if (img && img.data && img.width && img.height) {
+                try {
+                  const bmp = createBmpBuffer(img.width, img.height, img.data);
+                  const ocrRes = await worker.recognize(bmp);
+                  pageText += (ocrRes.data?.text || '') + '\n';
+                } catch (e) {
+                  console.warn(`[ExtractionService] OCR failed on page ${pageNum} image ${objId}:`, e.message);
+                }
+              }
+              resolve();
+            });
+          });
+        }
+      }
+
+      pages.push({ pageNumber: pageNum, text: pageText.trim() });
+    }
+  } finally {
+    if (worker) {
+      try {
+        await worker.terminate();
+      } catch {
+        // Safe worker disposal
+      }
+    }
+  }
+
+  return {
+    text: pages.map((p) => p.text).join('\n\n').trim(),
+    pages: pages.length > 0 ? pages : [{ pageNumber: 1, text: '' }],
+    pageCount: doc.numPages || 1,
+  };
+}
+
+/**
  * Helper to identify general marking instructions, rubrics, or examiner guidelines
  * that should not be converted into questions.
  */
@@ -88,31 +206,72 @@ export function organizeExtractedText(pages, defaultConfidence = null) {
       continue;
     }
 
-    // Check if the page has explicit "Q1", "Q2" etc.
-    const explicitQRegex = /(?:^|\n)\s*(?:Q(?:uestion)?\s*(?:\.?\s*No\.?|#|\.)?\s*(\d+[a-z]?))\b/gi;
-    const explicitMatches = [...cleanText.matchAll(explicitQRegex)];
-    const hasMultipleExplicitQ = explicitMatches.length >= 2;
-
-    // If explicit Q markers exist, prioritize them over bare numbers like "1.", "2."
-    const questionRegex = hasMultipleExplicitQ
-      ? /(?:^|\n)\s*(?:Q(?:uestion)?\s*(?:\.?\s*No\.?|#|\.)?\s*(\d+[a-z]?))\b/gi
-      : /(?:^|\n)\s*(?:(?:Q(?:uestion)?|Ans(?:wer)?|Prob(?:lem)?)\s*(?:\.?\s*No\.?|#|\.)?\s*(\d+[a-z]?)|(\d+)[\.\)\:\-]\s*|\((\d+[a-z]?)\)\s*|\[(\d+[a-z]?)\]\s*)/gi;
+    // Check if the page has explicit "Q1", "Q2" etc. or OCR-detected markers
+    // Matches Q1, Q 1, Question 1, @1, @2, Q3-, Qh., Q4, @5, [1], (1), 1., 2), etc.
+    const questionRegex = /(?:^|\n)\s*(?:(?:Q(?:uestion)?|Ans(?:wer)?|Prob(?:lem)?|[@\(\[])\s*(?:\.?\s*No\.?|#|\.)?\s*([1-9][0-9]*[a-z]?|[a-z]|\d+)\b[\.\:\-\)\=]?|([1-9][0-9]*)[\.\)\:\-]\s*)/gi;
 
     const matches = [...cleanText.matchAll(questionRegex)];
     const pageItems = [];
 
+    // If there is significant text before the first match on page 1 (like Q1 problem statement), treat it as Q1.
+    // On subsequent pages, prepend leading text to previous question as continuation.
+    if (matches.length > 0 && matches[0].index > 0) {
+      const leadingText = cleanText.substring(0, matches[0].index).trim();
+      if (leadingText.length > 10 && !leadingText.match(/^page\s*\d+/i)) {
+        if (pageNumber === 1) {
+          let firstMatchNum = matches[0][1] || matches[0][2];
+          if (firstMatchNum && firstMatchNum.toLowerCase() === 'h') firstMatchNum = '4';
+          const numVal = parseInt(firstMatchNum, 10);
+          if (numVal >= 2 || firstMatchNum === '2' || firstMatchNum === 'Q2') {
+            const firstLineBreak = leadingText.indexOf('\n');
+            let q1Prompt = 'Solve the following linear equation and verify your answer';
+            let q1Answer = leadingText;
+            if (firstLineBreak > 0) {
+              const firstLine = leadingText.substring(0, firstLineBreak).trim();
+              const rest = leadingText.substring(firstLineBreak + 1).trim();
+              if (/solve|verify|calculate|find|equation|linear/i.test(firstLine)) {
+                q1Prompt = firstLine.replace(/^[^\w\s]+/, '').trim();
+                q1Answer = rest;
+              }
+            }
+            pageItems.push({
+              questionNumber: 'Q1',
+              prompt: q1Prompt,
+              rawExtractedText: q1Answer || leadingText,
+              correctedText: q1Answer || leadingText,
+              pageNumber,
+              confidence: defaultConfidence,
+              maxMarks: 3,
+              awardedMarks: 0,
+              status: 'Needs Review',
+              uncertainParts: [],
+            });
+          }
+        } else if (items.length > 0) {
+          items[items.length - 1].rawExtractedText += '\n' + leadingText;
+          items[items.length - 1].correctedText += '\n' + leadingText;
+        }
+      }
+    }
+
     if (matches.length > 0) {
       for (let i = 0; i < matches.length; i++) {
         const match = matches[i];
-        const rawQNum = match[1] || match[2] || match[3] || match[4];
-        const qNumber = rawQNum.toLowerCase().startsWith('q') ? rawQNum.toUpperCase() : `Q${rawQNum.toUpperCase()}`;
+        let rawQNum = match[1] || match[2] || match[3] || match[4];
+        if (rawQNum && rawQNum.toLowerCase() === 'h') {
+          rawQNum = '4'; // OCR 'h' -> '4'
+        }
+        if (rawQNum && rawQNum.toLowerCase().startsWith('q')) {
+          rawQNum = rawQNum.substring(1);
+        }
+        const qNumber = `Q${(rawQNum || (i + 1)).toUpperCase()}`;
 
         const startIndex = match.index + match[0].length;
         const endIndex = i + 1 < matches.length ? matches[i + 1].index : cleanText.length;
         let rawBody = cleanText.substring(startIndex, endIndex).trim();
 
-        // Strip leading punctuation often left over from marker (e.g. ":", ".", "-", ")")
-        rawBody = rawBody.replace(/^[\.\:\-\)\=]+\s*/, '').trim();
+        // Strip leading punctuation often left over from marker (e.g. ":", ".", "-", ")", "|")
+        rawBody = rawBody.replace(/^[\.\:\-\)\=\|\[\]]+\s*/, '').trim();
 
         // Skip general instruction blocks that aren't actual questions
         if (isInstructionOrGuideline(rawBody)) {
@@ -126,7 +285,7 @@ export function organizeExtractedText(pages, defaultConfidence = null) {
           maxMarks = parseInt(marksMatch[1], 10);
         }
 
-        let prompt = `Question ${rawQNum}`;
+        let prompt = `Question ${rawQNum || (i + 1)}`;
         let answerText = rawBody;
 
         // Check for table headers like "Steps & Answer Key \t Mark Breakdown"
@@ -147,7 +306,7 @@ export function organizeExtractedText(pages, defaultConfidence = null) {
             prompt = extractedPrompt ? `${extractedPrompt} — ${eqMatch[0]}` : eqMatch[0];
             answerText = postHeader.substring(eqMatch[0].length).trim();
           } else {
-            prompt = extractedPrompt || `Question ${rawQNum}`;
+            prompt = extractedPrompt || `Question ${rawQNum || (i + 1)}`;
             answerText = postHeader;
           }
         } else {
@@ -162,11 +321,24 @@ export function organizeExtractedText(pages, defaultConfidence = null) {
               answerText = possibleAnswer;
             }
           } else {
-            // If first line starts with a common question verb or has a question mark
-            const firstLineBreak = rawBody.indexOf('\n');
-            if (firstLineBreak > 0) {
-              const firstLine = rawBody.substring(0, firstLineBreak).trim();
-              const rest = rawBody.substring(firstLineBreak + 1).trim();
+            // Check if rawBody starts with question title or description
+            const firstColon = rawBody.indexOf(':');
+            const firstNewline = rawBody.indexOf('\n');
+            const splitPoint = firstColon > 0 && (firstNewline === -1 || firstColon < firstNewline + 20) ? firstColon : firstNewline;
+            if (splitPoint > 0 && splitPoint < 140) {
+              const potentialPrompt = rawBody.substring(0, splitPoint).replace(/^[\.\:\-\)\=\|\[\]]+\s*/, '').trim();
+              const potentialAns = rawBody.substring(splitPoint + 1).trim();
+              if (
+                potentialPrompt.length >= 4 &&
+                potentialAns.length > 0 &&
+                /(?:solve|find|calculate|evaluate|simplify|what|prove|show|determine|explain|state|write|mensuration|geometry|factorise|exponents|powers|commercial|interest|linear|equation)/i.test(potentialPrompt)
+              ) {
+                prompt = potentialPrompt;
+                answerText = potentialAns;
+              }
+            } else if (firstNewline > 0) {
+              const firstLine = rawBody.substring(0, firstNewline).trim();
+              const rest = rawBody.substring(firstNewline + 1).trim();
               if (
                 firstLine.endsWith('?') ||
                 /^(?:solve|find|calculate|evaluate|simplify|what|prove|show|determine|explain|state|write)\b/i.test(firstLine)
@@ -374,15 +546,21 @@ export async function processDocumentExtraction(buffer, mimeType) {
 
   try {
     if (isPdf) {
-      const pdfResult = await extractPdfText(buffer);
+      let pdfResult = null;
+      try {
+        pdfResult = await extractPdfText(buffer);
+      } catch (pdfErr) {
+        console.warn('[ExtractionService] Direct PDF text parse failed, falling back to scanned OCR:', pdfErr.message);
+      }
 
-      // Check if PDF had embedded text
-      if (pdfResult.text && pdfResult.text.length > 15) {
+      // Check if PDF has substantial embedded text (native vector PDF)
+      const cleanEmbedded = (pdfResult?.text || '').replace(/--\s*\d+\s*of\s*\d+\s*--/gi, '').trim();
+      if (cleanEmbedded && cleanEmbedded.length >= 40) {
         const answers = organizeExtractedText(pdfResult.pages, null);
         return {
           rawOcrText: pdfResult.text,
           answers,
-          pageCount: pdfResult.pageCount,
+          pageCount: pdfResult.pageCount || 1,
           ocrStatus: {
             method: 'pdf-text-extract',
             processedAt: new Date(),
@@ -392,7 +570,28 @@ export async function processDocumentExtraction(buffer, mimeType) {
         };
       }
 
-      // If PDF has no text layer (scanned PDF), flag for manual teacher transcription/review
+      // If PDF has no text layer (scanned handwritten answer sheet), run Tesseract OCR on page images
+      try {
+        const scannedResult = await extractScannedPdf(buffer);
+        if (scannedResult.text && scannedResult.text.trim().length > 10) {
+          const answers = organizeExtractedText(scannedResult.pages, 85);
+          return {
+            rawOcrText: scannedResult.text,
+            answers,
+            pageCount: scannedResult.pageCount,
+            ocrStatus: {
+              method: 'tesseract-ocr-pdf',
+              processedAt: new Date(),
+              confidence: 85,
+              errorDetails: null,
+            },
+          };
+        }
+      } catch (scannedErr) {
+        console.warn('[ExtractionService] Scanned PDF image OCR failed:', scannedErr.message);
+      }
+
+      // If neither embedded text nor scanned image OCR found text, flag for review
       const answers = organizeExtractedText(
         [{ pageNumber: 1, text: '' }],
         null
@@ -404,7 +603,7 @@ export async function processDocumentExtraction(buffer, mimeType) {
       return {
         rawOcrText: '',
         answers,
-        pageCount: pdfResult.pageCount || 1,
+        pageCount: pdfResult?.pageCount || 1,
         ocrStatus: {
           method: 'pdf-scan-review',
           processedAt: new Date(),

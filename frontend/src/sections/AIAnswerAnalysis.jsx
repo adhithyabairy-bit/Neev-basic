@@ -52,7 +52,7 @@ export default function AIAnswerAnalysis({
   onEvaluationsUpdated = null,
 }) {
   const [filterType, setFilterType] = useState('all'); // 'all' | 'needs-review' | 'errors-only'
-  const [evaluations, setEvaluations] = useState([]);
+  const [evaluations, setEvaluations] = useState(() => (Array.isArray(analysisData) && analysisData.length > 0 ? analysisData : []));
   const [isLoading, setIsLoading] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [approvingId, setApprovingId] = useState(null);
@@ -71,39 +71,52 @@ export default function AIAnswerAnalysis({
   // Initialize or fetch evaluations
   useEffect(() => {
     if (isDemoMode) {
-      // Map initial demo analysis data to standard evaluation structure
-      const demoMapped = (analysisData || []).map((item, idx) => ({
-        _id: item.questionId || `demo-eval-${idx}`,
-        questionNumber: item.questionNumber || `Q${idx + 1}`,
-        topic: 'Algebra & Arithmetic',
-        prompt: item.prompt || '',
-        studentAnswer: item.studentAnswer || '',
-        expectedAnswer: item.expectedAnswer || '',
-        suggestedMarks: item.marksAwarded ?? 0,
-        approvedMarks: item.marksAwarded ?? 0,
-        maximumMarks: item.maxMarks ?? 5,
-        isTeacherApproved: false,
-        reviewStatus: 'review_required',
-        explanation: item.observedEvidence || '',
-        observedErrors: item.observedEvidence ? [item.observedEvidence] : [],
-        misconceptionHypothesis: item.aiHypothesis || 'Concept misconception under review.',
-        syllabusEvidence: [
-          {
-            documentTitle: 'NCERT Class 8 Mathematics',
-            pageNumber: 24,
-            excerpt: 'When transposing terms across an equals sign, inverse operations must be maintained.',
-            relevanceScore: 0.91,
-          },
-        ],
-        isEvidenceSufficient: true,
-        confidence: item.confidence || '92%',
-      }));
-      setEvaluations(demoMapped);
+      if (Array.isArray(analysisData) && analysisData.length > 0) {
+        // Map initial demo analysis data to standard evaluation structure
+        const demoMapped = analysisData.map((item, idx) => ({
+          _id: item.questionId || `demo-eval-${idx}`,
+          questionNumber: item.questionNumber || `Q${idx + 1}`,
+          topic: 'Algebra & Arithmetic',
+          prompt: item.prompt || '',
+          studentAnswer: item.studentAnswer || '',
+          expectedAnswer: item.expectedAnswer || '',
+          suggestedMarks: item.marksAwarded ?? 0,
+          approvedMarks: item.marksAwarded ?? 0,
+          maximumMarks: item.maxMarks ?? 5,
+          isTeacherApproved: false,
+          reviewStatus: 'review_required',
+          explanation: item.observedEvidence || '',
+          observedErrors: item.observedEvidence ? [item.observedEvidence] : [],
+          misconceptionHypothesis: item.aiHypothesis || 'Concept misconception under review.',
+          syllabusEvidence: [
+            {
+              documentTitle: 'NCERT Class 8 Mathematics',
+              pageNumber: 24,
+              excerpt: 'When transposing terms across an equals sign, inverse operations must be maintained.',
+              relevanceScore: 0.91,
+            },
+          ],
+          isEvidenceSufficient: true,
+          confidence: item.confidence || '92%',
+        }));
+        setEvaluations(demoMapped);
+      }
       return;
     }
 
     if (!activeAnswerSheet?._id) {
       setEvaluations([]);
+      return;
+    }
+
+    // If parent already has analysisData for this sheet, sync state immediately without network roundtrip
+    if (
+      Array.isArray(analysisData) &&
+      analysisData.length > 0 &&
+      (analysisData[0].answerSheetId === activeAnswerSheet._id || !analysisData[0].answerSheetId)
+    ) {
+      setEvaluations(analysisData);
+      setIsLoading(false);
       return;
     }
 
@@ -114,9 +127,10 @@ export default function AIAnswerAnalysis({
       try {
         const data = await fetchEvaluationsBySheet(activeAnswerSheet._id);
         if (isMounted) {
-          setEvaluations(data || []);
-          if (data && data.length > 0 && onEvaluationsUpdated) {
-            onEvaluationsUpdated(data);
+          const list = Array.isArray(data) ? data : [];
+          setEvaluations(list);
+          if (list.length > 0 && onEvaluationsUpdated) {
+            onEvaluationsUpdated(list);
           }
         }
       } catch (err) {
@@ -132,7 +146,7 @@ export default function AIAnswerAnalysis({
     return () => {
       isMounted = false;
     };
-  }, [activeAnswerSheet?._id, isDemoMode, analysisData]);
+  }, [activeAnswerSheet?._id, isDemoMode]); // NOTE: analysisData intentionally omitted to prevent infinite re-render loop
 
   // Handler to trigger real AI evaluation
   const handleRunEvaluation = async () => {
@@ -392,7 +406,7 @@ export default function AIAnswerAnalysis({
 
       {/* Evaluation Items List */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-        {isLoading ? (
+        {isLoading && evaluations.length === 0 ? (
           <EmptyState
             icon={<IconRefreshCw size={28} className="spin" />}
             title="Loading AI Evaluations..."
