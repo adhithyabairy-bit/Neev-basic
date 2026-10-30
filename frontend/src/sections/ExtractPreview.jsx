@@ -119,6 +119,19 @@ export default function ExtractPreview({
     }
   };
 
+  // Auto-trigger OCR extraction if document was uploaded and has not been extracted yet
+  useEffect(() => {
+    if (
+      !isDemoMode &&
+      targetSheet?._id &&
+      (!targetSheet.status || targetSheet.status === 'uploaded') &&
+      (!extractionData || extractionData.length === 0) &&
+      !isProcessing
+    ) {
+      handleTriggerOcr();
+    }
+  }, [targetSheet?._id]);
+
   const handleToggleVerify = async (questionId) => {
     const item = extractionData.find((q) => (q._id || q.id) === questionId);
     if (!item) return;

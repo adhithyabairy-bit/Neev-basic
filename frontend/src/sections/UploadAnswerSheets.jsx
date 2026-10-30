@@ -13,6 +13,7 @@ import {
 } from '../components/Icons';
 import {
   uploadAnswerSheets,
+  processAnswerSheet,
   fetchAnswerSheets,
   deleteAnswerSheet,
 } from '../services/answerSheetService';
@@ -203,7 +204,7 @@ export default function UploadAnswerSheets({
     }
 
     setIsUploading(true);
-    setUploadNotice('Uploading and extracting answer sheet text...');
+    setUploadNotice('Phase 1/2: Uploading document to secure storage...');
 
     try {
       const formData = new FormData();
@@ -214,6 +215,7 @@ export default function UploadAnswerSheets({
         formData.append('files', file);
       });
 
+      // 1. Upload the PDF file first
       const result = await uploadAnswerSheets(currentAssessmentId, formData);
 
       if (Array.isArray(result) && result.length > 0) {
@@ -242,17 +244,45 @@ export default function UploadAnswerSheets({
         const filteredOld = uploadedFiles.filter(
           (old) => !newlyMapped.some((n) => n.name === old.name)
         );
-        const updated = [...filteredOld, ...newlyMapped];
+        let updated = [...filteredOld, ...newlyMapped];
         onUpdateFiles(updated);
 
-        // Notify parent of active sheet for extraction preview
-        if (onAnswerSheetLoaded && result[0]) {
-          onAnswerSheetLoaded(result[0]);
+        const uploadedSheet = result[0];
+        if (onAnswerSheetLoaded && uploadedSheet) {
+          onAnswerSheetLoaded(uploadedSheet);
         }
 
-        setUploadNotice(
-          `Successfully uploaded and processed ${result.length} answer sheet(s). Text extracted and ready for review.`
-        );
+        // 2. Extract answer sheet text after PDF has finished uploading
+        setUploadNotice('✓ PDF uploaded successfully! Phase 2/2: Extracting student answer text...');
+
+        try {
+          const processedSheet = await processAnswerSheet(uploadedSheet._id);
+          if (processedSheet) {
+            if (onAnswerSheetLoaded) {
+              onAnswerSheetLoaded(processedSheet);
+            }
+            const count = processedSheet.answers?.length || 0;
+            const updatedWithExtracted = updated.map((f) =>
+              f.id === processedSheet._id
+                ? {
+                    ...f,
+                    status: 'Ready for Review',
+                    pages: processedSheet.pageCount || f.pages,
+                    rawSheet: processedSheet,
+                  }
+                : f
+            );
+            onUpdateFiles(updatedWithExtracted);
+            setUploadNotice(
+              `✓ PDF uploaded & text extraction complete! ${count} question(s) identified. Ready for review.`
+            );
+          }
+        } catch (extractErr) {
+          console.warn('[UploadAnswerSheets] Extraction after upload notice:', extractErr.message);
+          setUploadNotice(
+            '✓ PDF uploaded successfully. You can review or run OCR extraction in Step 3.'
+          );
+        }
       } else {
         setUploadNotice('Files uploaded successfully.');
       }

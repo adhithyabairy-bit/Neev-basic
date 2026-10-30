@@ -116,26 +116,6 @@ export async function uploadAnswerSheets(req, res, next) {
         status: 'uploaded',
       });
 
-      // Run initial OCR / text extraction
-      try {
-        const extraction = await processDocumentExtraction(file.buffer, file.mimetype);
-        answerSheet.rawOcrText = extraction.rawOcrText;
-        answerSheet.answers = extraction.answers;
-        answerSheet.pageCount = extraction.pageCount;
-        answerSheet.ocrStatus = extraction.ocrStatus;
-        answerSheet.status = 'review_required';
-        await answerSheet.save();
-      } catch (ocrErr) {
-        console.warn('[AnswerSheet Upload] Initial OCR extraction failed:', ocrErr);
-        answerSheet.status = 'processing_failed';
-        answerSheet.ocrStatus = {
-          method: 'failed',
-          processedAt: new Date(),
-          errorDetails: ocrErr.message,
-        };
-        await answerSheet.save();
-      }
-
       createdRecords.push(answerSheet);
     }
 
@@ -150,7 +130,7 @@ export async function uploadAnswerSheets(req, res, next) {
 
     return res.status(201).json({
       success: true,
-      message: `Successfully uploaded and processed ${createdRecords.length} answer sheet(s).`,
+      message: `Successfully uploaded and registered ${createdRecords.length} answer sheet(s). Ready for extraction.`,
       data: createdRecords,
       warnings: validationErrors.length > 0 ? validationErrors : undefined,
     });
