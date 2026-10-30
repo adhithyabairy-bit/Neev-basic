@@ -25,6 +25,7 @@
     "mongoose": "^8.9.5",
     "multer": "^2.5.0",
     "pdf-parse": "^2.4.5",
+    "pdfjs-dist": "5.4.296",
     "tesseract.js": "^7.0.0"
   }
 }

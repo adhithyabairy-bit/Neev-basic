@@ -1,4 +1,6 @@
 import { createRequire } from 'module';
+import * as pdfjsWorker from 'pdfjs-dist/legacy/build/pdf.worker.mjs';
+
 const require = createRequire(import.meta.url);
 
 let geometry = null;
@@ -25,5 +27,11 @@ if (typeof globalThis.Path2D === 'undefined') {
   globalThis.Path2D = class Path2D {};
 }
 
-export { DOMMatrix, DOMPoint, DOMRect };
+// In-memory fake worker for serverless (AWS Lambda / Vercel)
+if (typeof globalThis.pdfjsWorker === 'undefined' && pdfjsWorker) {
+  globalThis.pdfjsWorker = pdfjsWorker;
+}
+
+export { DOMMatrix, DOMPoint, DOMRect, pdfjsWorker };
 export default DOMMatrix;
+
