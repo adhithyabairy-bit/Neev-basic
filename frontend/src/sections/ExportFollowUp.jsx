@@ -9,8 +9,10 @@ import {
 import { generatePdfFilename, sanitizeStudentName } from '../utils/filename';
 import {
   generateGapReportPdfBlob,
-  generateQuestionsPdfBlob,
+  generateRoadmapPdfBlob,
   generateSyllabusContinuityPdfBlob,
+  generateQuestionsPdfBlob,
+  generateAnswerKeyPdfBlob,
 } from '../utils/pdfGenerator';
 
 export default function ExportFollowUp({
@@ -75,12 +77,11 @@ export default function ExportFollowUp({
   const handleDownloadRoadmap = () => {
     const slug = sanitizeStudentName(activeStudentName, 'student');
     const filename = `${slug}_roadmap.pdf`;
-    const pdfBlob = generateGapReportPdfBlob({
+    const pdfBlob = generateRoadmapPdfBlob({
       studentName: activeStudentName,
       examName: syllabusData.examName || 'Assessment',
       className: syllabusData.selectedClass || 'Grade 8',
       subject: syllabusData.selectedSubject || 'Mathematics',
-      gapsData,
       roadmapData,
     });
     triggerDownload(filename, pdfBlob);
@@ -89,8 +90,8 @@ export default function ExportFollowUp({
   // Download teacher marking key PDF
   const handleDownloadAnswerKey = () => {
     const filename = 'teacher_marking_key.pdf';
-    const pdfBlob = generateQuestionsPdfBlob({
-      studentName: `Teacher Reference Key (${activeStudentName})`,
+    const pdfBlob = generateAnswerKeyPdfBlob({
+      studentName: activeStudentName,
       examName: syllabusData.examName || 'Diagnostic Retest',
       className: syllabusData.selectedClass || 'Grade 8',
       subject: syllabusData.selectedSubject || 'Mathematics',
@@ -122,7 +123,7 @@ export default function ExportFollowUp({
     {
       id: 'mat-continuity',
       title: 'Syllabus Continuity & Delayed Chapters Report',
-      description: 'NCERT report with previous class delayed chapters (Class & Chapter #) and future affected chapters up to Class 10.',
+      description: 'NCERT curriculum mapping of previous class delayed chapters (Class & Chapter #) and downstream affected chapters up to Class 10.',
       format: 'PDF Document',
       filenameHint: continuityFilename,
       action: handleDownloadContinuityReport,
@@ -130,7 +131,7 @@ export default function ExportFollowUp({
     {
       id: 'mat-1',
       title: 'Student Gap Analysis Report',
-      description: 'Prerequisite gaps, rubric evidence, and pedagogical recommendations.',
+      description: 'Detailed prerequisite gaps, student answer evidence, diagnosed misconceptions, and teacher intervention priorities.',
       format: 'PDF Document',
       filenameHint: gapReportFilename,
       action: handleDownloadStudentReport,
@@ -138,7 +139,7 @@ export default function ExportFollowUp({
     {
       id: 'mat-2',
       title: 'Personalized Learning Roadmap',
-      description: 'Sequenced step-by-step remediation guide with worked examples.',
+      description: 'Ordered remediation study plan with milestone steps, prerequisite chains, practice allocations, and weekly timeline.',
       format: 'PDF Document',
       filenameHint: `${sanitizeStudentName(activeStudentName)}_roadmap.pdf`,
       action: handleDownloadRoadmap,
@@ -146,7 +147,7 @@ export default function ExportFollowUp({
     {
       id: 'mat-3',
       title: 'Diagnostic Practice Questions (2 Marks)',
-      description: 'Targeted 2-mark diagnostic questions (5 to 10 questions) built specifically to test resolution of prerequisite gaps.',
+      description: 'Targeted 2-mark diagnostic assessment questions (5 to 10 questions) with student workspaces for solving (NO solutions printed).',
       format: 'PDF Document',
       filenameHint: questionsFilename,
       action: handleDownloadPracticeTest,
@@ -154,7 +155,7 @@ export default function ExportFollowUp({
     {
       id: 'mat-4',
       title: 'Teacher Answer Key & Marking Guide',
-      description: 'Step-by-step solutions with mark allocations and common misconception warnings.',
+      description: 'Confidential teacher reference key with step-by-step model solutions, 2-mark rubric breakdown, and common misconception warnings.',
       format: 'PDF Document',
       filenameHint: 'teacher_marking_key.pdf',
       action: handleDownloadAnswerKey,
