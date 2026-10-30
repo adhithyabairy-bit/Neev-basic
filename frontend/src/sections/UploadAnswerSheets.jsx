@@ -51,6 +51,19 @@ export default function UploadAnswerSheets({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
+  // Helper to detect document category based on file name keywords or active tab
+  const detectCategory = (fileName, fallbackCategory = 'answer-sheet') => {
+    if (!fileName) return fallbackCategory;
+    const lower = String(fileName).toLowerCase();
+    if (lower.includes('marking') || lower.includes('rubric') || lower.includes('scheme')) {
+      return 'marking-scheme';
+    }
+    if (lower.includes('question') || lower.includes('qp') || (lower.includes('paper') && !lower.includes('answer'))) {
+      return 'question-paper';
+    }
+    return fallbackCategory || 'answer-sheet';
+  };
+
   // Fetch real answer sheets from backend on load/refresh if not demo mode
   useEffect(() => {
     if (!isDemoMode && syllabusData?.assessmentId) {
@@ -58,26 +71,30 @@ export default function UploadAnswerSheets({
       fetchAnswerSheets(syllabusData.assessmentId)
         .then((sheets) => {
           if (Array.isArray(sheets) && sheets.length > 0) {
-            const mapped = sheets.map((sheet) => ({
-              id: sheet._id,
-              _id: sheet._id,
-              name: sheet.originalFileName,
-              type: sheet.mimeType,
-              size: sheet.fileSize,
-              category: 'answer-sheet',
-              status: sheet.status === 'verified'
-                ? 'Verified Ground Truth'
-                : sheet.status === 'review_required'
-                  ? 'Ready for Review'
-                  : sheet.status === 'processing'
-                    ? 'Processing OCR'
-                    : sheet.status === 'processing_failed'
-                      ? 'Processing Failed'
-                      : 'Uploaded',
-              pages: sheet.pageCount || 1,
-              studentName: sheet.studentName,
-              rawSheet: sheet,
-            }));
+            const mapped = sheets.map((sheet) => {
+              const category = detectCategory(sheet.originalFileName, 'answer-sheet');
+              const hasAnswers = Array.isArray(sheet.answers) && sheet.answers.length > 0;
+              return {
+                id: sheet._id,
+                _id: sheet._id,
+                name: sheet.originalFileName,
+                type: sheet.mimeType,
+                size: sheet.fileSize,
+                category,
+                status: sheet.status === 'verified'
+                  ? 'Verified Ground Truth'
+                  : (sheet.status === 'review_required' || hasAnswers)
+                    ? 'Ready for Review'
+                    : sheet.status === 'processing'
+                      ? 'Processing OCR'
+                      : sheet.status === 'processing_failed'
+                        ? 'Processing Failed'
+                        : category === 'answer-sheet' ? 'Uploaded' : 'Ready for Review',
+                pages: sheet.pageCount || 1,
+                studentName: sheet.studentName,
+                rawSheet: sheet,
+              };
+            });
             onUpdateFiles(mapped);
 
             // Populate studentProfile and extractionData from latest sheet if student name empty
@@ -159,17 +176,20 @@ export default function UploadAnswerSheets({
 
     // In Demo Mode: stage files in browser memory
     if (isDemoMode) {
-      const newValidFiles = filesToUpload.map((file) => ({
-        id: `f-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-        name: file.name,
-        type: file.type || ('.' + file.name.split('.').pop().toLowerCase()),
-        size: file.size,
-        category: selectedCategory,
-        status: 'Staged Locally',
-        pages: file.type.includes('pdf') ? Math.floor(Math.random() * 3) + 1 : 1,
-        studentName: studentProfile?.name?.trim() || 'Student 1',
-      }));
-      onUpdateFiles([...uploadedFiles.filter(f => !filesToUpload.some(u => u.name === f.name)), ...newValidFiles]);
+      const newValidFiles = filesToUpload.map((file) => {
+        const cat = detectCategory(file.name, selectedCategory);
+        return {
+          id: `f-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+          name: file.name,
+          type: file.type || ('.' + file.name.split('.').pop().toLowerCase()),
+          size: file.size,
+          category: cat,
+          status: 'Ready for Review',
+          pages: file.type.includes('pdf') ? Math.floor(Math.random() * 3) + 1 : 1,
+          studentName: studentProfile?.name?.trim() || 'Student 1',
+        };
+      });
+      onUpdateFiles([...uploadedFiles.filter((f) => !filesToUpload.some((u) => u.name === f.name)), ...newValidFiles]);
       setUploadNotice(`Staged ${newValidFiles.length} file(s) locally for demonstration preview.`);
       if (fileInputRef.current) fileInputRef.current.value = '';
       setTimeout(() => setUploadNotice(null), 4000);
@@ -204,7 +224,7 @@ export default function UploadAnswerSheets({
     }
 
     setIsUploading(true);
-    setUploadNotice('Phase 1/2: Uploading document to secure storage...');
+    setUploadNotice(`Uploading ${filesToUpload.length} file(s) to secure storage...`);
 
     try {
       const formData = new FormData();
@@ -215,84 +235,112 @@ export default function UploadAnswerSheets({
         formData.append('files', file);
       });
 
-      // 1. Upload the PDF file first
+      // 1. Upload files swiftly to storage (~1-2 seconds)
       const result = await uploadAnswerSheets(currentAssessmentId, formData);
 
+      // Immediately unlock dropzone for the next upload
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+
       if (Array.isArray(result) && result.length > 0) {
-        const newlyMapped = result.map((sheet) => ({
-          id: sheet._id,
-          _id: sheet._id,
-          name: sheet.originalFileName,
-          type: sheet.mimeType,
-          size: sheet.fileSize,
-          category: 'answer-sheet',
-          status: sheet.status === 'verified'
-            ? 'Verified Ground Truth'
-            : sheet.status === 'review_required'
-              ? 'Ready for Review'
-              : sheet.status === 'processing'
-                ? 'Processing OCR'
-                : sheet.status === 'processing_failed'
-                  ? 'Processing Failed'
-                  : 'Uploaded',
-          pages: sheet.pageCount || 1,
-          studentName: sheet.studentName,
-          rawSheet: sheet,
-        }));
+        const newlyMapped = result.map((sheet) => {
+          const category = detectCategory(sheet.originalFileName, selectedCategory);
+          const isAnswerSheet = category === 'answer-sheet';
+          return {
+            id: sheet._id,
+            _id: sheet._id,
+            name: sheet.originalFileName,
+            type: sheet.mimeType,
+            size: sheet.fileSize,
+            category,
+            status: sheet.status === 'verified'
+              ? 'Verified Ground Truth'
+              : sheet.status === 'review_required' || (sheet.answers && sheet.answers.length > 0)
+                ? 'Ready for Review'
+                : isAnswerSheet
+                  ? 'Processing OCR'
+                  : 'Ready for Review',
+            pages: sheet.pageCount || 1,
+            studentName: sheet.studentName || activeStudentName,
+            rawSheet: sheet,
+          };
+        });
 
         // Merge with existing, replacing any duplicates by name
-        const filteredOld = uploadedFiles.filter(
-          (old) => !newlyMapped.some((n) => n.name === old.name)
-        );
-        let updated = [...filteredOld, ...newlyMapped];
-        onUpdateFiles(updated);
-
-        const uploadedSheet = result[0];
-        if (onAnswerSheetLoaded && uploadedSheet) {
-          onAnswerSheetLoaded(uploadedSheet);
-        }
-
-        // 2. Extract answer sheet text after PDF has finished uploading
-        setUploadNotice('✓ PDF uploaded successfully! Phase 2/2: Extracting student answer text...');
-
-        try {
-          const processedSheet = await processAnswerSheet(uploadedSheet._id);
-          if (processedSheet) {
-            if (onAnswerSheetLoaded) {
-              onAnswerSheetLoaded(processedSheet);
-            }
-            const count = processedSheet.answers?.length || 0;
-            const updatedWithExtracted = updated.map((f) =>
-              f.id === processedSheet._id
-                ? {
-                    ...f,
-                    status: 'Ready for Review',
-                    pages: processedSheet.pageCount || f.pages,
-                    rawSheet: processedSheet,
-                  }
-                : f
-            );
-            onUpdateFiles(updatedWithExtracted);
-            setUploadNotice(
-              `✓ PDF uploaded & text extraction complete! ${count} question(s) identified. Ready for review.`
-            );
-          }
-        } catch (extractErr) {
-          console.warn('[UploadAnswerSheets] Extraction after upload notice:', extractErr.message);
-          setUploadNotice(
-            '✓ PDF uploaded successfully. You can review or run OCR extraction in Step 3.'
+        onUpdateFiles((prev) => {
+          const prevList = Array.isArray(prev) ? prev : [];
+          const filteredOld = prevList.filter(
+            (old) => !newlyMapped.some((n) => n.name === old.name)
           );
+          return [...filteredOld, ...newlyMapped];
+        });
+
+        const firstAnswerSheet = newlyMapped.find((m) => m.category === 'answer-sheet') || newlyMapped[0];
+        if (onAnswerSheetLoaded && firstAnswerSheet?.rawSheet) {
+          onAnswerSheetLoaded(firstAnswerSheet.rawSheet);
         }
+
+        setUploadNotice(
+          `✓ ${result.length} file(s) uploaded successfully! Drop zone is ready for more files.`
+        );
+        setTimeout(() => setUploadNotice(null), 5000);
+
+        // 2. Launch background OCR text extraction asynchronously for answer sheets only
+        const answerSheetsToProcess = newlyMapped.filter(
+          (m) => m.category === 'answer-sheet' && (!m.rawSheet?.answers || m.rawSheet.answers.length === 0)
+        );
+
+        answerSheetsToProcess.forEach((sheetItem) => {
+          processAnswerSheet(sheetItem._id)
+            .then((processedSheet) => {
+              if (processedSheet) {
+                if (onAnswerSheetLoaded) {
+                  onAnswerSheetLoaded(processedSheet);
+                }
+                const count = processedSheet.answers?.length || 0;
+                onUpdateFiles((prev) => {
+                  const list = Array.isArray(prev) ? prev : [];
+                  return list.map((f) =>
+                    f._id === processedSheet._id || f.id === processedSheet._id
+                      ? {
+                          ...f,
+                          status: 'Ready for Review',
+                          pages: processedSheet.pageCount || f.pages,
+                          rawSheet: processedSheet,
+                        }
+                      : f
+                  );
+                });
+                setUploadNotice(
+                  `✓ OCR extraction complete for "${sheetItem.name}" (${count} question(s) identified)! Ready for review in Step 3.`
+                );
+                setTimeout(() => setUploadNotice(null), 5000);
+              }
+            })
+            .catch((extractErr) => {
+              console.warn('[UploadAnswerSheets] Background extraction notice:', extractErr.message);
+              onUpdateFiles((prev) => {
+                const list = Array.isArray(prev) ? prev : [];
+                return list.map((f) =>
+                  f._id === sheetItem._id || f.id === sheetItem._id
+                    ? {
+                        ...f,
+                        status: 'Ready for Review',
+                      }
+                    : f
+                );
+              });
+            });
+        });
       } else {
         setUploadNotice('Files uploaded successfully.');
+        setTimeout(() => setUploadNotice(null), 4000);
       }
     } catch (err) {
       console.error('[UploadAnswerSheets] Upload failed:', err);
       setValidationError(err.message || 'Upload failed. Please check your connection and try again.');
-    } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
-      setTimeout(() => setUploadNotice(null), 6000);
     }
   };
 
@@ -634,7 +682,7 @@ export default function UploadAnswerSheets({
 
           <p style={{ fontSize: 'var(--font-size-md)', fontWeight: 'var(--font-weight-bold)', color: 'var(--main-text)' }}>
             {isUploading ? (
-              <span>Uploading and Processing OCR...</span>
+              <span>Uploading document to secure storage...</span>
             ) : (
               <>
                 Drag & drop {selectedCategory.replace('-', ' ')} files here, or <span style={{ color: 'var(--primary-orange)' }}>Browse</span>

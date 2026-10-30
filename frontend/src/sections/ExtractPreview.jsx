@@ -127,7 +127,7 @@ export default function ExtractPreview({
     if (
       !isDemoMode &&
       targetSheet?._id &&
-      (!targetSheet.status || targetSheet.status === 'uploaded') &&
+      (!targetSheet.status || targetSheet.status === 'uploaded' || targetSheet.status === 'processing') &&
       (!extractionData || extractionData.length === 0) &&
       !isProcessing &&
       !hasTriggeredRef.current
