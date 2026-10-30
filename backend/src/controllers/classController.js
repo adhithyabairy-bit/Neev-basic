@@ -44,7 +44,7 @@ export async function getClasses(req, res, next) {
 export async function createClass(req, res, next) {
   try {
     const teacherId = req.teacher._id;
-    const { name, grade, subject, board } = req.body;
+    const { name, grade, subject, board, section } = req.body;
 
     if (!name || typeof name !== 'string' || !name.trim()) {
       return res.status(400).json({
@@ -76,6 +76,7 @@ export async function createClass(req, res, next) {
       grade: grade.trim(),
       subject: subject.trim(),
       board: board && typeof board === 'string' ? board.trim() : '',
+      section: section && typeof section === 'string' ? section.trim() : 'Section A',
     });
 
     return res.status(201).json({
@@ -151,7 +152,7 @@ export async function updateClass(req, res, next) {
       });
     }
 
-    const { name, grade, subject, board } = req.body;
+    const { name, grade, subject, board, section } = req.body;
 
     if (name !== undefined) {
       if (typeof name !== 'string' || !name.trim()) {

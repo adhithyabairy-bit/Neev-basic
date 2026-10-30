@@ -18,126 +18,7 @@ import {
 } from '../components/Icons';
 import { fetchClasses, createClass, deleteClass } from '../services/classService';
 import { fetchAssessments } from '../services/assessmentService';
-
-// Class-specific teaching priorities mapped to demo classes for exploratory review
-const CLASS_TEACHING_PRIORITIES = {
-  'cls-8a': [
-    {
-      id: 'tp-8a-1',
-      rank: 1,
-      topicName: 'Subtractions of Negative Integers: -(-a) = +a',
-      grade: 'Grade 7 Foundational',
-      reason: 'Root Foundation: Cascading errors across all transposition and algebraic isolation steps.',
-      suggestedActivity: '15-minute number line visual simulation paired with opposite-sign chip exercises.',
-      estimatedMinutes: 45,
-    },
-    {
-      id: 'tp-8a-2',
-      rank: 2,
-      topicName: 'Distributive Property across Parentheses: a(b - c)',
-      grade: 'Grade 7 Foundational',
-      reason: 'Algebra Foundation: Omitted distribution across second term in binomials.',
-      suggestedActivity: 'Area model rectangular grid diagrams with colored variable tiles.',
-      estimatedMinutes: 40,
-    },
-    {
-      id: 'tp-8a-3',
-      rank: 3,
-      topicName: 'Transposition & Inverse Operations across Equals Sign',
-      grade: 'Grade 7 Foundational',
-      reason: 'Equation Balancing: Viewing equals sign as divider rather than a balanced scale.',
-      suggestedActivity: 'Physical or interactive balance scale demonstration maintaining equality.',
-      estimatedMinutes: 45,
-    },
-  ],
-  'cls-8b': [
-    {
-      id: 'tp-8b-1',
-      rank: 1,
-      topicName: 'Fraction Addition & Common Denominators in Equations',
-      grade: 'Grade 7 Foundational',
-      reason: 'Rational Coefficients: Cross-multiplication errors and failure to multiply all terms by common denominators.',
-      suggestedActivity: 'Fraction bar manipulatives and clearing fractions step-by-step drills.',
-      estimatedMinutes: 40,
-    },
-    {
-      id: 'tp-8b-2',
-      rank: 2,
-      topicName: 'Variables on Both Sides: ax + b = cx + d',
-      grade: 'Grade 8 Core',
-      reason: 'Variable Grouping: Combining unlike terms and missing sign flips when grouping variable terms.',
-      suggestedActivity: 'Color-coded variable and constant sorting cards.',
-      estimatedMinutes: 45,
-    },
-    {
-      id: 'tp-8b-3',
-      rank: 3,
-      topicName: 'Algebraic Word Problems on Perimeter and Ages',
-      grade: 'Grade 8 Core',
-      reason: 'Mathematical Modeling: Misinterpreting verbal constraints into balanced equations.',
-      suggestedActivity: 'Sentence-to-equation graphic organizer with guided keywords.',
-      estimatedMinutes: 50,
-    },
-  ],
-  'cls-9a': [
-    {
-      id: 'tp-9a-1',
-      rank: 1,
-      topicName: 'Middle-Term Splitting for Quadratic Factorisation: x² + bx + c',
-      grade: 'Grade 8 Foundational',
-      reason: 'Factorisation Gap: Difficulty identifying factor pairs whose sum matches the middle linear coefficient.',
-      suggestedActivity: 'Product-Sum grid tables and geometric area factorization puzzles.',
-      estimatedMinutes: 50,
-    },
-    {
-      id: 'tp-9a-2',
-      rank: 2,
-      topicName: 'Laws of Exponents & Negative Powers: a^(-n) = 1/a^n',
-      grade: 'Grade 8 Foundational',
-      reason: 'Indices Foundation: Confusing negative exponent powers with negative value quantities.',
-      suggestedActivity: 'Pattern expansion table tracing powers from 2³ down to 2^(-3).',
-      estimatedMinutes: 35,
-    },
-    {
-      id: 'tp-9a-3',
-      rank: 3,
-      topicName: 'Algebraic Identities: Difference of Two Squares (a² - b²)',
-      grade: 'Grade 8 Foundational',
-      reason: 'Identity Confusion: Confusing (a - b)² with (a² - b²) in algebraic simplifications.',
-      suggestedActivity: 'Geometric cutting-and-rearranging area proof demonstration.',
-      estimatedMinutes: 40,
-    },
-  ],
-  'cls-7c': [
-    {
-      id: 'tp-7c-1',
-      rank: 1,
-      topicName: 'Number Line Representation & Negative Number Subtraction',
-      grade: 'Grade 6 Foundational',
-      reason: 'Directional Error: Walking in the wrong direction on the number line when subtracting negative integers.',
-      suggestedActivity: 'Interactive integer walking line mat with directional arrows.',
-      estimatedMinutes: 40,
-    },
-    {
-      id: 'tp-7c-2',
-      rank: 2,
-      topicName: 'Order of Operations with Parentheses & Brackets (BODMAS)',
-      grade: 'Grade 6 Foundational',
-      reason: 'Calculation Sequence: Performing left-to-right operations ignoring operator precedence.',
-      suggestedActivity: 'Tiered expression pyramids highlighting bracket resolution order.',
-      estimatedMinutes: 45,
-    },
-    {
-      id: 'tp-7c-3',
-      rank: 3,
-      topicName: 'One-Step Equations with Inverse Operations (x + a = b)',
-      grade: 'Grade 6 Foundational',
-      reason: 'Equation Balance: Adding to one side instead of maintaining balance across equals sign.',
-      suggestedActivity: 'Physical balance scale with weights and mystery cups.',
-      estimatedMinutes: 30,
-    },
-  ],
-};
+import { getSectionDisplay, getTeachingPrioritiesForClass } from '../utils/teachingPriorities';
 
 export default function TeacherDashboard({
   currentUser,
@@ -162,6 +43,7 @@ export default function TeacherDashboard({
   const [isAddClassModalOpen, setIsAddClassModalOpen] = useState(false);
   const [newClassName, setNewClassName] = useState('');
   const [newClassGrade, setNewClassGrade] = useState('Grade 8');
+  const [newClassSection, setNewClassSection] = useState('Section A');
   const [newClassSubject, setNewClassSubject] = useState('Mathematics');
   const [newClassBoard, setNewClassBoard] = useState('CBSE');
   const [isSubmittingClass, setIsSubmittingClass] = useState(false);
@@ -231,6 +113,7 @@ export default function TeacherDashboard({
       const created = await createClass({
         name: newClassName.trim(),
         grade: newClassGrade,
+        section: newClassSection,
         subject: newClassSubject.trim() || 'Mathematics',
         board: newClassBoard.trim() || 'CBSE',
       });
@@ -239,6 +122,7 @@ export default function TeacherDashboard({
       setSelectedClassId(created._id);
       setIsAddClassModalOpen(false);
       setNewClassName('');
+      setNewClassSection('Section A');
       setActionNotice({ type: 'success', message: `Class '${created.name}' created successfully in MongoDB.` });
       setTimeout(() => setActionNotice(null), 4000);
     } catch (err) {
@@ -295,7 +179,7 @@ export default function TeacherDashboard({
   // Filter classes according to selected controls
   const filteredClasses = rawClasses.filter((cls) => {
     if (gradeFilter !== 'all' && cls.grade !== gradeFilter) return false;
-    if (sectionFilter !== 'all' && (cls.section || cls.board) !== sectionFilter) return false;
+    if (sectionFilter !== 'all' && getSectionDisplay(cls) !== sectionFilter) return false;
     if (subjectFilter !== 'all' && cls.subject !== subjectFilter) return false;
     return true;
   });
@@ -305,6 +189,8 @@ export default function TeacherDashboard({
     filteredClasses.find((c) => (c._id || c.id) === selectedClassId) ||
     filteredClasses[0] ||
     null;
+
+  const selectedSection = selectedClass ? getSectionDisplay(selectedClass) : 'Section A';
 
   // Derived Summary Metrics
   const totalCompletedPriorities = completedPriorities.size;
@@ -320,14 +206,21 @@ export default function TeacherDashboard({
     ? Object.keys(DASHBOARD_DEMO_DATA.classes).length - Object.keys(retestState).length
     : realAssessments.filter((a) => a.status !== 'completed').length;
 
-  // Teaching priorities items: demo priorities if in demo mode, or dynamic class priorities
+  // Teaching priorities items: tailored specifically to selectedClass (grade + section)
   const currentClassPriorities = selectedClass
-    ? CLASS_TEACHING_PRIORITIES[selectedClass.id || selectedClass._id] || []
+    ? getTeachingPrioritiesForClass(selectedClass, realAssessments)
     : [];
 
   const classCompletedCount = currentClassPriorities.filter((p) =>
     completedPriorities.has(p.id)
   ).length;
+
+  // Recent activities: strictly limited to the top 10 most recent entries
+  const top10RealActivities = [...realAssessments]
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+    .slice(0, 10);
+
+  const top10DemoActivities = (DASHBOARD_DEMO_DATA.recentActivity || []).slice(0, 10);
 
   const resetFilters = () => {
     setGradeFilter('all');
@@ -580,9 +473,8 @@ export default function TeacherDashboard({
                 </p>
               </div>
 
-              {/* Filters Bar */}
-              <div className="classes-filter-bar">
-
+              {/* Filters Bar & Add Class Action */}
+              <div className="classes-filter-bar" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 <select
                   value={gradeFilter}
                   onChange={(e) => setGradeFilter(e.target.value)}
@@ -596,6 +488,20 @@ export default function TeacherDashboard({
                   <option value="Grade 8">Grade 8</option>
                   <option value="Grade 9">Grade 9</option>
                   <option value="Grade 10">Grade 10</option>
+                </select>
+
+                <select
+                  value={sectionFilter}
+                  onChange={(e) => setSectionFilter(e.target.value)}
+                  className="form-select"
+                  style={{ width: 'auto', padding: '6px 12px', fontSize: 'var(--font-size-xs)' }}
+                  aria-label="Filter by Section"
+                >
+                  <option value="all">All Sections</option>
+                  <option value="Section A">Section A</option>
+                  <option value="Section B">Section B</option>
+                  <option value="Section C">Section C</option>
+                  <option value="Section D">Section D</option>
                 </select>
 
                 <select
@@ -620,6 +526,18 @@ export default function TeacherDashboard({
                   >
                     <IconRefreshCw size={14} />
                     <span>Reset</span>
+                  </button>
+                )}
+
+                {!isDemoMode && (
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={() => setIsAddClassModalOpen(true)}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}
+                  >
+                    <IconPlus size={14} />
+                    <span>Add Class</span>
                   </button>
                 )}
               </div>
@@ -678,6 +596,9 @@ export default function TeacherDashboard({
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '2px' }}>
                             <h4 className="class-card-name" style={{ marginRight: '2px' }}>{cls.name}</h4>
+                            <span className="badge badge-primary" style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>
+                              {getSectionDisplay(cls)}
+                            </span>
                             <span className="badge badge-neutral" style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>
                               {cls.subject}
                             </span>
@@ -688,7 +609,7 @@ export default function TeacherDashboard({
                             )}
                           </div>
                           <p className="class-card-meta">
-                            {cls.grade} {cls.board ? `• ${cls.board}` : ''} {cls.academicYear ? `• ${cls.academicYear}` : ''}
+                            {cls.grade} &bull; {getSectionDisplay(cls)} {cls.board ? `• ${cls.board}` : ''} {cls.academicYear ? `• ${cls.academicYear}` : ''}
                           </p>
                         </div>
 
@@ -800,8 +721,11 @@ export default function TeacherDashboard({
                     </h3>
                     {selectedClass && (
                       <>
-                        <span className="badge badge-orange">
-                          {selectedClass.name} &bull; {selectedClass.grade}
+                        <span className="badge badge-orange" style={{ fontWeight: '600' }}>
+                          {selectedClass.name} &bull; {selectedSection}
+                        </span>
+                        <span className="badge badge-neutral">
+                          {selectedClass.grade}
                         </span>
                         <span className="badge badge-neutral">
                           {selectedClass.subject}
@@ -811,7 +735,7 @@ export default function TeacherDashboard({
                   </div>
                   <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--secondary-text)' }}>
                     {selectedClass
-                      ? `Top foundational concepts requiring teacher intervention for ${selectedClass.name} before advancing syllabus.`
+                      ? `Foundational learning gaps prioritized for ${selectedClass.name} (${selectedSection}) based on diagnostic evidence.`
                       : 'Select a class above to inspect foundational revision priorities.'}
                   </p>
                 </div>
@@ -889,6 +813,7 @@ export default function TeacherDashboard({
                                 fontWeight: 'bold',
                                 color: isItemCompleted ? 'var(--success-dark)' : 'var(--main-text)',
                                 textDecoration: isItemCompleted ? 'line-through' : 'none',
+                                overflowWrap: 'anywhere',
                               }}
                             >
                               {item.topicName}
@@ -904,13 +829,32 @@ export default function TeacherDashboard({
                               )}
                             </div>
                           </div>
-                          <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--secondary-text)', marginTop: '4px', lineHeight: 1.4 }}>
+
+                          {item.chapterName && (
+                            <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--primary-orange)' }}>
+                                Prerequisite Chapter:
+                              </span>
+                              <span style={{ fontSize: '11px', color: 'var(--main-text)' }}>
+                                {item.chapterName} {item.pdfFileName ? `(${item.pdfFileName})` : ''}
+                              </span>
+                            </div>
+                          )}
+
+                          <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--secondary-text)', marginTop: '4px', lineHeight: 1.4, overflowWrap: 'anywhere' }}>
                             {item.reason}
                           </p>
+
+                          {item.suggestedActivity && (
+                            <div style={{ marginTop: '6px', fontSize: '11px', color: 'var(--main-text)', background: 'rgba(235, 94, 40, 0.05)', borderLeft: '3px solid var(--primary-orange)', padding: '6px 10px', borderRadius: '4px', lineHeight: 1.35, overflowWrap: 'anywhere' }}>
+                              <strong>Suggested Activity:</strong> {item.suggestedActivity}
+                            </div>
+                          )}
+
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: '8px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
                               <span style={{ fontSize: '11px', color: 'var(--secondary-text)' }}>
-                                Est. Revision: {item.estimatedMinutes} mins
+                                Est. Revision: {item.estimatedMinutes || 30} mins
                               </span>
                             </div>
 
@@ -947,13 +891,20 @@ export default function TeacherDashboard({
               )}
             </section>
 
-            {/* Column 2: Recent Activity Feed */}
-            <section className="card" aria-labelledby="activity-heading">
-              <div className="card-header">
+            {/* Column 2: Recent Activity Feed (Strictly Top 10) */}
+            <section className="card" aria-labelledby="activity-heading" style={{ minWidth: 0 }}>
+              <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <h3 id="activity-heading" className="card-title">Recent Activity</h3>
-                  <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--secondary-text)' }}>
-                    {isDemoMode ? 'Sample timeline of answer sheet evaluations & reports.' : 'Live timeline of classroom evaluations.'}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h3 id="activity-heading" className="card-title">Recent Activity</h3>
+                    <span className="badge badge-neutral" style={{ fontSize: '10px' }}>
+                      Top 10 Recent
+                    </span>
+                  </div>
+                  <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--secondary-text)', marginTop: '2px' }}>
+                    {isDemoMode
+                      ? 'Displaying the 10 most recent evaluations and reports.'
+                      : 'Displaying the 10 most recent classroom evaluations from MongoDB.'}
                   </p>
                 </div>
                 <span className="badge badge-neutral" style={{ fontSize: '10px' }}>
@@ -961,10 +912,10 @@ export default function TeacherDashboard({
                 </span>
               </div>
 
-              <div className="activity-feed-list">
+              <div className="activity-feed-list" style={{ minWidth: 0 }}>
                 {isDemoMode ? (
-                  DASHBOARD_DEMO_DATA.recentActivity.map((act) => (
-                    <div key={act.id} className="activity-feed-item">
+                  top10DemoActivities.map((act) => (
+                    <div key={act.id} className="activity-feed-item" style={{ minWidth: 0 }}>
                       <div className="activity-icon-badge" aria-hidden="true">
                         {act.type === 'review' && <IconFileText size={16} />}
                         {act.type === 'assessment' && <IconCheckCircle size={16} />}
@@ -972,16 +923,16 @@ export default function TeacherDashboard({
                         {act.type === 'priority' && <IconSparkles size={16} />}
                       </div>
 
-                      <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
-                          <span style={{ fontWeight: 'var(--font-weight-semibold)', color: 'var(--main-text)' }}>
+                          <span style={{ fontWeight: 'var(--font-weight-semibold)', color: 'var(--main-text)', fontSize: '13px' }}>
                             {act.title}
                           </span>
                           <span style={{ fontSize: '11px', color: 'var(--muted-text)', whiteSpace: 'nowrap' }}>
                             {act.timestamp}
                           </span>
                         </div>
-                        <p style={{ color: 'var(--secondary-text)', marginTop: '2px', lineHeight: 1.35 }}>
+                        <p style={{ color: 'var(--secondary-text)', marginTop: '2px', lineHeight: 1.35, fontSize: '12px', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                           {act.description}
                         </p>
                         <span className="badge badge-neutral" style={{ fontSize: '10px', marginTop: '4px' }}>
@@ -990,35 +941,48 @@ export default function TeacherDashboard({
                       </div>
                     </div>
                   ))
-                ) : realAssessments.length === 0 ? (
+                ) : top10RealActivities.length === 0 ? (
                   <EmptyState
                     icon={<IconFileText size={24} color="var(--secondary-text)" />}
                     title="No recent evaluations"
                     description="When you create assessments and analyze student answer sheets, your activity history will appear here."
                   />
                 ) : (
-                  realAssessments.map((a) => (
-                    <div key={a._id} className="activity-feed-item">
+                  top10RealActivities.map((a) => (
+                    <div key={a._id} className="activity-feed-item" style={{ minWidth: 0 }}>
                       <div className="activity-icon-badge" aria-hidden="true">
                         <IconCheckCircle size={16} />
                       </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
-                          <span style={{ fontWeight: 'var(--font-weight-semibold)', color: 'var(--main-text)' }}>
+                          <span style={{ fontWeight: 'var(--font-weight-semibold)', color: 'var(--main-text)', fontSize: '13px' }}>
                             {a.title}
                           </span>
-                          <span style={{ fontSize: '11px', color: 'var(--muted-text)' }}>
-                            {new Date(a.createdAt).toLocaleDateString()}
+                          <span style={{ fontSize: '11px', color: 'var(--muted-text)', whiteSpace: 'nowrap' }}>
+                            {a.createdAt ? new Date(a.createdAt).toLocaleDateString() : 'Recent'}
                           </span>
                         </div>
-                        <p style={{ color: 'var(--secondary-text)', marginTop: '2px', lineHeight: 1.35 }}>
-                          Subject: {a.subject} • Max Marks: {a.maximumMarks} • Status: {a.status}
+                        <p style={{ color: 'var(--secondary-text)', marginTop: '2px', lineHeight: 1.35, fontSize: '12px', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                          Subject: {a.subject} &bull; Max Marks: {a.maximumMarks} &bull; Status: <span style={{ textTransform: 'capitalize' }}>{a.status}</span>
                         </p>
+                        {a.classId?.name && (
+                          <span className="badge badge-neutral" style={{ fontSize: '10px', marginTop: '4px' }}>
+                            {a.classId.name}
+                          </span>
+                        )}
                       </div>
                     </div>
                   ))
                 )}
               </div>
+
+              {!isDemoMode && realAssessments.length > 10 && (
+                <div style={{ marginTop: 'var(--space-3)', textAlign: 'center', padding: '8px', borderTop: '1px solid var(--divider-color)' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--secondary-text)' }}>
+                    Showing 10 most recent activities ({realAssessments.length} total assessments recorded).
+                  </span>
+                </div>
+              )}
             </section>
           </div>
         </main>
@@ -1130,6 +1094,24 @@ export default function TeacherDashboard({
 
                 <div>
                   <label style={{ fontSize: 'var(--font-size-xs)', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
+                    Section *
+                  </label>
+                  <select
+                    className="form-select"
+                    value={newClassSection}
+                    onChange={(e) => setNewClassSection(e.target.value)}
+                  >
+                    <option value="Section A">Section A</option>
+                    <option value="Section B">Section B</option>
+                    <option value="Section C">Section C</option>
+                    <option value="Section D">Section D</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
+                <div>
+                  <label style={{ fontSize: 'var(--font-size-xs)', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
                     Subject *
                   </label>
                   <input
@@ -1141,19 +1123,19 @@ export default function TeacherDashboard({
                     required
                   />
                 </div>
-              </div>
 
-              <div>
-                <label style={{ fontSize: 'var(--font-size-xs)', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
-                  Educational Board (Optional)
-                </label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={newClassBoard}
-                  onChange={(e) => setNewClassBoard(e.target.value)}
-                  placeholder="e.g. CBSE, ICSE, State"
-                />
+                <div>
+                  <label style={{ fontSize: 'var(--font-size-xs)', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
+                    Educational Board (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={newClassBoard}
+                    onChange={(e) => setNewClassBoard(e.target.value)}
+                    placeholder="e.g. CBSE, ICSE, State"
+                  />
+                </div>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>

@@ -26,6 +26,12 @@ const classSchema = new mongoose.Schema(
       trim: true,
       maxlength: [100, 'Subject cannot exceed 100 characters'],
     },
+    section: {
+      type: String,
+      trim: true,
+      default: 'Section A',
+      maxlength: [50, 'Section cannot exceed 50 characters'],
+    },
     board: {
       type: String,
       trim: true,
