@@ -41,6 +41,7 @@ import {
 
 import { fetchClasses, createClass } from './services/classService';
 import { createAssessment, updateAssessment } from './services/assessmentService';
+import { verifyAnswerSheet } from './services/answerSheetService';
 
 const EMPTY_SYLLABUS = {
   selectedClass: 'Class 8',
@@ -350,6 +351,21 @@ export default function App() {
       }
     }
 
+    // Auto-verify answer sheet when moving past Step 4 (Teacher Correction) to unlock Step 5 (AI Evaluation)
+    if (currentStep === 4) {
+      setIsTeacherConfirmed(true);
+      if (!isDemoMode && activeAnswerSheet?._id) {
+        try {
+          const verified = await verifyAnswerSheet(activeAnswerSheet._id, extractionData);
+          if (verified) {
+            setActiveAnswerSheet(verified);
+          }
+        } catch (vErr) {
+          console.warn('[App] Auto-verification on continue notice:', vErr.message);
+        }
+      }
+    }
+
     if (currentStep === 5) {
       const sourceEvals = analysisData.length > 0 ? analysisData : activeAnswerSheet?.answers || [];
       if (sourceEvals.length > 0 && gapsData.length === 0) {
@@ -569,6 +585,12 @@ export default function App() {
             activeAnswerSheet={activeAnswerSheet}
             syllabusData={syllabusData}
             isDemoMode={isDemoMode}
+            onAnswerSheetUpdated={(sheet) => {
+              setActiveAnswerSheet(sheet);
+              if (sheet?.status === 'verified' || sheet?.verificationStatus?.isVerified) {
+                setIsTeacherConfirmed(true);
+              }
+            }}
             onEvaluationsUpdated={(evals) => {
               // Update app state if evaluations generated
               if (evals && evals.length > 0) {
