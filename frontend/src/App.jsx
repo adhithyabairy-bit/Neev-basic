@@ -26,6 +26,7 @@ import GapBasedTest from './sections/GapBasedTest';
 import ExportFollowUp from './sections/ExportFollowUp';
 
 // Initial Demonstration Reference Data
+import { deriveGapsAndRemediation } from './utils/gapSynthesizer';
 import {
   WORKFLOW_STEPS,
   INITIAL_SYLLABUS,
@@ -348,6 +349,18 @@ export default function App() {
       }
     }
 
+    if (currentStep === 5) {
+      const sourceEvals = analysisData.length > 0 ? analysisData : activeAnswerSheet?.answers || [];
+      if (sourceEvals.length > 0 && gapsData.length === 0) {
+        const derived = deriveGapsAndRemediation(sourceEvals, syllabusData);
+        if (derived.gaps.length > 0) {
+          setGapsData(derived.gaps);
+          setRoadmapData(derived.roadmap);
+          setTestQuestions(derived.testQuestions);
+        }
+      }
+    }
+
     if (!completedSteps.includes(currentStep)) {
       setCompletedSteps((prev) => [...prev, currentStep]);
     }
@@ -559,6 +572,12 @@ export default function App() {
               // Update app state if evaluations generated
               if (evals && evals.length > 0) {
                 setAnalysisData(evals);
+                const derived = deriveGapsAndRemediation(evals, syllabusData);
+                if (derived.gaps.length > 0) {
+                  setGapsData(derived.gaps);
+                  setRoadmapData(derived.roadmap);
+                  setTestQuestions(derived.testQuestions);
+                }
               }
             }}
           />

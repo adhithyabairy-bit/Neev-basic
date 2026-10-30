@@ -477,6 +477,7 @@ export default function ExtractPreview({
                     className="form-control"
                     rows="3"
                     placeholder="Enter mathematical steps or model answer..."
+                    style={{ resize: 'none', width: '100%', boxSizing: 'border-box' }}
                     value={newQuestionForm.correctedText}
                     onChange={(e) =>
                       setNewQuestionForm({ ...newQuestionForm, correctedText: e.target.value })
@@ -681,8 +682,16 @@ export default function ExtractPreview({
                             <label style={{ fontSize: '11px', fontWeight: 'bold' }}>Extracted / Solution Text</label>
                             <textarea
                               className="form-control"
-                              rows="4"
-                              style={{ fontFamily: 'monospace', fontSize: '13px' }}
+                              rows="6"
+                              style={{
+                                fontFamily: 'monospace',
+                                fontSize: '13px',
+                                lineHeight: 1.5,
+                                resize: 'none',
+                                width: '100%',
+                                minHeight: '140px',
+                                boxSizing: 'border-box',
+                              }}
                               value={editForm.correctedText}
                               onChange={(e) => setEditForm({ ...editForm, correctedText: e.target.value })}
                             />

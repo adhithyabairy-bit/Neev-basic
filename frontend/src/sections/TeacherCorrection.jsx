@@ -332,7 +332,7 @@ export default function TeacherCorrection({
                 value={getAnswerText(currentQ)}
                 onChange={(e) => handleFieldChange('correctedText', e.target.value)}
                 className="form-textarea"
-                style={{ fontFamily: 'monospace', fontSize: '14px', lineHeight: 1.5 }}
+                style={{ fontFamily: 'monospace', fontSize: '14px', lineHeight: 1.5, resize: 'none', width: '100%', boxSizing: 'border-box' }}
               />
             </FormField>
 

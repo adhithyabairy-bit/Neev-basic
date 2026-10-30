@@ -392,15 +392,17 @@
   background: #DCF4E3;
 }
 
-/* Two-Column Grid: Teaching Priorities + Recent Activity */
+/* Dashboard Sections: Full-width stacked layout for seamless responsive wrapping */
 .dashboard-columns-grid {
-  display: grid;
-  grid-template-columns: 1.4fr 1fr;
+  display: flex;
+  flex-direction: column;
   gap: var(--space-6);
+  width: 100%;
 }
 
 /* Teaching Priorities Card & Pulse Animation */
 .teaching-priorities-card {
+  width: 100%;
   scroll-margin-top: 80px;
   transition: box-shadow 0.3s ease, border-color 0.3s ease;
 }
@@ -424,22 +426,30 @@
   animation: pulseHighlight 1.8s ease-out;
 }
 
-/* Recent Activity Feed */
+/* Recent Activity Feed: Responsive Wrapping Grid */
 .activity-feed-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: var(--space-3);
+  width: 100%;
 }
 
 .activity-feed-item {
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
-  padding: 10px 12px;
+  padding: 12px 14px;
   border-radius: var(--radius-md);
   background-color: #FFFFFF;
   border: 1px solid var(--border-color);
   font-size: var(--font-size-xs);
+  transition: all var(--transition-fast);
+}
+
+.activity-feed-item:hover {
+  border-color: var(--primary-orange);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 .activity-icon-badge {
@@ -505,6 +515,9 @@
 
 @media (max-width: 640px) {
   .dashboard-metrics-grid {
+    grid-template-columns: 1fr;
+  }
+  .activity-feed-list {
     grid-template-columns: 1fr;
   }
 }

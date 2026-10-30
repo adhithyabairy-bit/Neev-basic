@@ -140,7 +140,7 @@ export async function evaluateAnswerSheet(req, res, next) {
         questionNumber: item.questionNumber,
         prompt,
         studentAnswer,
-        expectedAnswer: referenceAnswer,
+        expectedAnswer: referenceAnswer || aiResult.expectedSolution || '',
         maxMarks,
         suggestedMarks: aiResult.suggestedMarks,
         approvedMarks: null, // AI suggested marks remain unapproved until teacher approves

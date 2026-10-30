@@ -42,7 +42,8 @@ You must respond with ONLY a valid, parseable JSON object matching this exact sc
   "misconceptionHypothesis": "<prospective conceptual learning gap or root cause, framed as a hypothesis>",
   "evidenceQuotes": ["<exact quote or reference from the retrieved syllabus excerpts supporting this assessment>"],
   "isEvidenceSufficient": <true or false>,
-  "confidence": "<High / Moderate / Low with percentage, e.g. High (92%)>"
+  "confidence": "<High / Moderate / Low with percentage, e.g. High (92%)>",
+  "expectedSolution": "<concise step-by-step correct reference solution and final answer for the teacher rubric>"
 }`;
 }
 
@@ -114,6 +115,12 @@ function evaluateWithLocalHeuristic({
     }
   }
 
+  const expectedSolution =
+    referenceAnswer ||
+    (prompt && prompt.includes('=')
+      ? 'Step 1: Transpose terms and isolate variable.\nStep 2: Simplify both sides.\nStep 3: Verify solution by substitution into LHS & RHS.'
+      : 'Step 1: State appropriate theorem / formula.\nStep 2: Substitute values with proper units.\nStep 3: Conclude final answer.');
+
   return {
     suggestedMarks,
     explanation: 'Evaluated using deterministic rubric-aware heuristic (Offline/Test Mode).',
@@ -122,6 +129,7 @@ function evaluateWithLocalHeuristic({
     evidenceQuotes: ['Standard curriculum syllabus criteria applied.'],
     isEvidenceSufficient: true,
     confidence,
+    expectedSolution,
     isMock: true,
     evaluatorProvider: 'heuristic_mock',
   };
@@ -320,6 +328,7 @@ export class GrokService {
           evidenceQuotes: Array.isArray(parsed.evidenceQuotes) ? parsed.evidenceQuotes : [],
           isEvidenceSufficient: parsed.isEvidenceSufficient !== false,
           confidence: parsed.confidence || 'Moderate',
+          expectedSolution: parsed.expectedSolution || parsed.referenceSolution || referenceAnswer || '',
           isMock: false,
           evaluatorProvider: provider.evaluatorProvider,
           modelUsed: modelCandidate,

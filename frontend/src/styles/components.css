@@ -213,6 +213,15 @@
   color: var(--main-text);
   font-size: var(--font-size-base);
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  box-sizing: border-box;
+}
+
+textarea,
+.form-textarea,
+.form-control textarea,
+textarea.form-control {
+  resize: none !important;
+  box-sizing: border-box !important;
 }
 
 .form-input:hover,
