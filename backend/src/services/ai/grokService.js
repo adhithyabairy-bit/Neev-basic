@@ -1,13 +1,20 @@
 /**
- * Grok API Integration Service for Neev Platform
+ * AI Answer Evaluation Service for Neev Platform
  * Evaluates student answers against rubric and retrieved syllabus evidence.
+ *
+ * Supports both:
+ * 1. Groq Cloud LPU API (keys starting with `gsk_`, e.g. openai/gpt-oss-120b, openai/gpt-oss-20b, qwen/qwen3.8-27b)
+ * 2. xAI Grok API (keys starting with `xai-`, e.g. grok-2-latest)
  *
  * Implements strict security, structured JSON parsing, prompt boundaries,
  * and explicit provider configuration (never silently fabricating marks in production).
  */
 
 const DEFAULT_GROK_MODEL = 'grok-2-latest';
-const GROK_API_ENDPOINT = 'https://api.x.ai/v1/chat/completions';
+const DEFAULT_GROQ_MODEL = 'openai/gpt-oss-120b';
+
+const GROK_XAI_ENDPOINT = 'https://api.x.ai/v1/chat/completions';
+const GROQ_CLOUD_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
 
 /**
  * Builds the system prompt enforcing academic rigor, evidence grounding, and pedagogical caution.
@@ -122,8 +129,18 @@ function evaluateWithLocalHeuristic({
 
 export class GrokService {
   constructor(options = {}) {
-    this.apiKey = options.apiKey || process.env.GROK_API_KEY || null;
-    this.model = options.model || process.env.GROK_MODEL || DEFAULT_GROK_MODEL;
+    this.apiKey =
+      options.apiKey ||
+      process.env.GROQ_API_KEY ||
+      process.env.GROK_API_KEY ||
+      null;
+
+    this.configuredModel =
+      options.model ||
+      process.env.GROQ_MODEL ||
+      process.env.GROK_MODEL ||
+      null;
+
     this.timeoutMs = parseInt(process.env.GROK_TIMEOUT_MS, 10) || 30000;
 
     const inTest =
@@ -140,8 +157,41 @@ export class GrokService {
     return Boolean(this.apiKey && this.apiKey.trim().length > 0);
   }
 
+  getProviderDetails() {
+    const rawKey = (this.apiKey || '').trim();
+    const isGroq =
+      rawKey.startsWith('gsk_') ||
+      Boolean(process.env.GROQ_API_KEY);
+
+    if (isGroq) {
+      // If configured model was for xAI Grok (e.g. grok-2-latest), use top Groq model
+      let activeModel = this.configuredModel;
+      if (!activeModel || activeModel.startsWith('grok-')) {
+        activeModel = DEFAULT_GROQ_MODEL;
+      }
+      return {
+        isGroq: true,
+        endpoint: GROQ_CLOUD_ENDPOINT,
+        model: activeModel,
+        fallbackModels: ['openai/gpt-oss-20b', 'qwen/qwen3.8-27b'],
+        evaluatorProvider: 'groq_ai',
+        displayName: 'Groq Cloud LPU',
+      };
+    }
+
+    return {
+      isGroq: false,
+      endpoint: GROK_XAI_ENDPOINT,
+      model: this.configuredModel || DEFAULT_GROK_MODEL,
+      fallbackModels: ['grok-beta'],
+      evaluatorProvider: 'grok_ai',
+      displayName: 'xAI Grok',
+    };
+  }
+
   getModelName() {
-    return this.model;
+    const details = this.getProviderDetails();
+    return details.model;
   }
 
   /**
@@ -172,11 +222,13 @@ export class GrokService {
         });
       }
       throw new Error(
-        'GROK_UNCONFIGURED: Grok AI API key is not configured. Real answer evaluation requires a valid GROK_API_KEY in environment variables.'
+        'AI_UNCONFIGURED: AI evaluation API key is not configured. Real answer evaluation requires a valid GROK_API_KEY or GROQ_API_KEY in environment variables.'
       );
     }
 
-    // Call live Grok API via fetch with timeout
+    const provider = this.getProviderDetails();
+    const modelsToTry = [provider.model, ...provider.fallbackModels];
+
     const systemPrompt = buildSystemPrompt();
     const userPrompt = buildUserPrompt({
       questionNumber,
@@ -189,76 +241,93 @@ export class GrokService {
       lessonName,
     });
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
+    let lastError = null;
 
-    try {
-      const response = await fetch(GROK_API_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: this.model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-          ],
-          temperature: 0.1,
-          response_format: { type: 'json_object' },
-        }),
-        signal: controller.signal,
-      });
+    for (const modelCandidate of modelsToTry) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
 
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => '');
-        throw new Error(`Grok API returned HTTP ${response.status}: ${errorText || response.statusText}`);
-      }
-
-      const data = await response.json();
-      const content = data.choices?.[0]?.message?.content;
-
-      if (!content) {
-        throw new Error('Grok API returned empty completion content.');
-      }
-
-      let parsed;
       try {
-        parsed = JSON.parse(content);
-      } catch (parseErr) {
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          parsed = JSON.parse(jsonMatch[0]);
-        } else {
-          throw new Error(`Failed to parse Grok JSON evaluation: ${parseErr.message}`);
+        const response = await fetch(provider.endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.apiKey}`,
+          },
+          body: JSON.stringify({
+            model: modelCandidate,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt },
+            ],
+            temperature: 0.1,
+            response_format: { type: 'json_object' },
+          }),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => '');
+          // If model was not found (404), try next model candidate
+          if (response.status === 404 && modelsToTry.indexOf(modelCandidate) < modelsToTry.length - 1) {
+            console.warn(`[GrokService] Model '${modelCandidate}' returned 404. Attempting fallback...`);
+            continue;
+          }
+          throw new Error(
+            `${provider.displayName} API returned HTTP ${response.status}: ${errorText || response.statusText}`
+          );
+        }
+
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content;
+
+        if (!content) {
+          throw new Error(`${provider.displayName} API returned empty completion content.`);
+        }
+
+        let parsed;
+        try {
+          parsed = JSON.parse(content);
+        } catch (parseErr) {
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            parsed = JSON.parse(jsonMatch[0]);
+          } else {
+            throw new Error(`Failed to parse AI JSON evaluation: ${parseErr.message}`);
+          }
+        }
+
+        // Clamp suggestedMarks strictly within [0, parsedMaxMarks]
+        let marks = Number(parsed.suggestedMarks);
+        if (isNaN(marks) || marks < 0) marks = 0;
+        if (marks > parsedMaxMarks) marks = parsedMaxMarks;
+
+        return {
+          suggestedMarks: marks,
+          explanation: parsed.explanation || 'Evaluated against question rubric.',
+          observedErrors: parsed.observedErrors || 'None',
+          misconceptionHypothesis: parsed.misconceptionHypothesis || 'None identified.',
+          evidenceQuotes: Array.isArray(parsed.evidenceQuotes) ? parsed.evidenceQuotes : [],
+          isEvidenceSufficient: parsed.isEvidenceSufficient !== false,
+          confidence: parsed.confidence || 'Moderate',
+          isMock: false,
+          evaluatorProvider: provider.evaluatorProvider,
+          modelUsed: modelCandidate,
+        };
+      } catch (err) {
+        clearTimeout(timeoutId);
+        lastError = err;
+        // If abort or fatal network error, stop immediately
+        if (err.name === 'AbortError') {
+          break;
         }
       }
-
-      // Clamp suggestedMarks strictly within [0, parsedMaxMarks]
-      let marks = Number(parsed.suggestedMarks);
-      if (isNaN(marks) || marks < 0) marks = 0;
-      if (marks > parsedMaxMarks) marks = parsedMaxMarks;
-
-      return {
-        suggestedMarks: marks,
-        explanation: parsed.explanation || 'Evaluated against question rubric.',
-        observedErrors: parsed.observedErrors || 'None',
-        misconceptionHypothesis: parsed.misconceptionHypothesis || 'None identified.',
-        evidenceQuotes: Array.isArray(parsed.evidenceQuotes) ? parsed.evidenceQuotes : [],
-        isEvidenceSufficient: parsed.isEvidenceSufficient !== false,
-        confidence: parsed.confidence || 'Moderate',
-        isMock: false,
-        evaluatorProvider: 'grok_ai',
-      };
-    } catch (err) {
-      clearTimeout(timeoutId);
-      console.error('[GrokService] Error evaluating answer:', err.message);
-      // In production, do NOT fall back to heuristic marks — throw real error
-      throw new Error(`AI Evaluation Failed: ${err.message}`);
     }
+
+    console.error('[GrokService] Error evaluating answer:', lastError?.message);
+    throw new Error(`AI Evaluation Failed: ${lastError?.message || 'Unknown evaluation error'}`);
   }
 }
 

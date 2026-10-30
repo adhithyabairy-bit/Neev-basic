@@ -104,7 +104,7 @@ export default function AIAnswerAnalysis({
     };
   }, [activeAnswerSheet?._id, isDemoMode, analysisData]);
 
-  // Handler to trigger real Grok AI evaluation
+  // Handler to trigger real AI evaluation
   const handleRunEvaluation = async () => {
     const assessmentId = syllabusData?.assessmentId || activeAnswerSheet?.assessmentId;
     const sheetId = activeAnswerSheet?._id;
@@ -123,7 +123,7 @@ export default function AIAnswerAnalysis({
       if (onEvaluationsUpdated) onEvaluationsUpdated(results);
       setTimeout(() => setSuccessBanner(null), 5000);
     } catch (err) {
-      setErrorMessage(err.message || 'AI evaluation failed. Please verify that backend Grok service is reachable.');
+      setErrorMessage(err.message || 'AI evaluation failed. Please verify that the backend AI service is reachable.');
     } finally {
       setIsEvaluating(false);
     }
@@ -206,7 +206,7 @@ export default function AIAnswerAnalysis({
       <PageHeader
         title="AI Answer Analysis & Misconception Detection"
         subtitle="Evaluates verified student answers against syllabus content, extracting conceptual hypotheses and requiring explicit teacher score approval."
-        badgeText="Syllabus RAG + Grok AI"
+        badgeText="Syllabus RAG + AI Evaluator"
       />
 
       {/* Disclaimers & Methodology Banner */}
@@ -254,7 +254,7 @@ export default function AIAnswerAnalysis({
               Run Syllabus-Grounded AI Evaluation
             </h3>
             <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--secondary-text)', marginBottom: 'var(--space-4)', lineHeight: 1.5 }}>
-              Evaluate verified student answers for <strong>{activeAnswerSheet.studentProfile?.name || 'Student'}</strong> against the question rubric and syllabus knowledge base using the Grok AI model.
+              Evaluate verified student answers for <strong>{activeAnswerSheet.studentProfile?.name || 'Student'}</strong> against the question rubric and syllabus knowledge base using the pedagogical AI model.
             </p>
             <button
               type="button"
@@ -263,7 +263,7 @@ export default function AIAnswerAnalysis({
               disabled={isEvaluating}
             >
               <IconSparkles size={16} />
-              <span>{isEvaluating ? 'Evaluating Answers with Grok AI...' : 'Evaluate Student Answers with AI'}</span>
+              <span>{isEvaluating ? 'Evaluating Answers with AI...' : 'Evaluate Student Answers with AI'}</span>
             </button>
           </div>
         </div>
