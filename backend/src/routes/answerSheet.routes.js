@@ -7,6 +7,8 @@ import {
   verifyAnswerSheet,
   getAnswerSheetFile,
   deleteAnswerSheet,
+  deleteAnswerItem,
+  addAnswerItem,
 } from '../controllers/answerSheetController.js';
 
 const router = express.Router();
@@ -20,7 +22,12 @@ router.route('/:id')
 
 router.post('/:id/process', processAnswerSheet);
 
-router.patch('/:id/answers/:answerId', updateAnswerCorrection);
+router.route('/:id/answers')
+  .post(addAnswerItem);
+
+router.route('/:id/answers/:answerId')
+  .patch(updateAnswerCorrection)
+  .delete(deleteAnswerItem);
 
 router.patch('/:id/verify', verifyAnswerSheet);
 

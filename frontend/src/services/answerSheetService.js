@@ -70,6 +70,28 @@ export async function updateAnswerCorrection(id, answerId, updates) {
 }
 
 /**
+ * Delete a single question/answer entry from an answer sheet.
+ * @param {string} id - AnswerSheet MongoDB ID
+ * @param {string} answerId - Subdocument _id of the answer item
+ * @returns {Promise<Object>} Updated answer sheet
+ */
+export async function deleteAnswerItem(id, answerId) {
+  const response = await apiClient.delete(`/api/answer-sheets/${id}/answers/${answerId}`);
+  return response.data;
+}
+
+/**
+ * Add a new question/answer entry to an answer sheet.
+ * @param {string} id - AnswerSheet MongoDB ID
+ * @param {Object} item - { questionNumber, prompt, correctedText, maxMarks, pageNumber }
+ * @returns {Promise<Object>} Updated answer sheet
+ */
+export async function addAnswerItem(id, item) {
+  const response = await apiClient.post(`/api/answer-sheets/${id}/answers`, item);
+  return response.data;
+}
+
+/**
  * Explicitly verify the reviewed answer sheet as ground truth.
  * @param {string} id - AnswerSheet MongoDB ID
  * @returns {Promise<Object>} Updated answer sheet with verificationStatus.isVerified = true

@@ -21,6 +21,37 @@ async function getCreateWorker() {
 }
 
 /**
+ * Helper to identify general marking instructions, rubrics, or examiner guidelines
+ * that should not be converted into questions.
+ */
+function isInstructionOrGuideline(text) {
+  const lower = text.toLowerCase().trim();
+  const instructionPhrases = [
+    'award full marks',
+    'step-wise marks',
+    'accept alternative',
+    'no fractional marks',
+    'general instructions',
+    'instructions for evaluators',
+    'instructions to examiners',
+    'guidelines for marking',
+    'marking scheme guidelines',
+    'marking scheme',
+    'examiners must',
+    'candidates must',
+    'academic excellence academy',
+  ];
+  return (
+    instructionPhrases.some((phrase) => lower.includes(phrase)) &&
+    !lower.includes('equation:') &&
+    !lower.includes('pythagoras') &&
+    !lower.includes('solve for') &&
+    !lower.includes('calculate') &&
+    !lower.includes('simplify')
+  );
+}
+
+/**
  * Segmentation Heuristic
  * Splits extracted text into question blocks based on standard question markers.
  * If no question markers are detected, groups by page or sensible text blocks.
@@ -33,19 +64,24 @@ async function getCreateWorker() {
 export function organizeExtractedText(pages, defaultConfidence = null) {
   const items = [];
 
-  // Question marker pattern:
-  // Matches "Q1", "Q.1", "Q 1", "Question 1", "Question No. 1", "Ans 1", "Answer 1",
-  // "1.", "1)", "1:", "1 -", "(1)", "[1]"
-  const questionRegex = /(?:^|\n)\s*(?:(?:Q(?:uestion)?|Ans(?:wer)?|Prob(?:lem)?)\s*(?:\.?\s*No\.?|#|\.)?\s*(\d+[a-z]?)|(\d+)[\.\)\:\-]\s*|\((\d+[a-z]?)\)\s*|\[(\d+[a-z]?)\]\s*)/gi;
-
   for (const { pageNumber, text } of pages) {
     const cleanText = (text || '').trim();
     if (!cleanText) {
       continue;
     }
 
-    // Check for explicit question markers
+    // Check if the page has explicit "Q1", "Q2" etc.
+    const explicitQRegex = /(?:^|\n)\s*(?:Q(?:uestion)?\s*(?:\.?\s*No\.?|#|\.)?\s*(\d+[a-z]?))\b/gi;
+    const explicitMatches = [...cleanText.matchAll(explicitQRegex)];
+    const hasMultipleExplicitQ = explicitMatches.length >= 2;
+
+    // If explicit Q markers exist, prioritize them over bare numbers like "1.", "2."
+    const questionRegex = hasMultipleExplicitQ
+      ? /(?:^|\n)\s*(?:Q(?:uestion)?\s*(?:\.?\s*No\.?|#|\.)?\s*(\d+[a-z]?))\b/gi
+      : /(?:^|\n)\s*(?:(?:Q(?:uestion)?|Ans(?:wer)?|Prob(?:lem)?)\s*(?:\.?\s*No\.?|#|\.)?\s*(\d+[a-z]?)|(\d+)[\.\)\:\-]\s*|\((\d+[a-z]?)\)\s*|\[(\d+[a-z]?)\]\s*)/gi;
+
     const matches = [...cleanText.matchAll(questionRegex)];
+    const pageItems = [];
 
     if (matches.length > 0) {
       for (let i = 0; i < matches.length; i++) {
@@ -60,36 +96,73 @@ export function organizeExtractedText(pages, defaultConfidence = null) {
         // Strip leading punctuation often left over from marker (e.g. ":", ".", "-", ")")
         rawBody = rawBody.replace(/^[\.\:\-\)\=]+\s*/, '').trim();
 
-        // Check if rawBody contains an explicit question prompt followed by an answer
+        // Skip general instruction blocks that aren't actual questions
+        if (isInstructionOrGuideline(rawBody)) {
+          continue;
+        }
+
+        // Extract max marks if specified (e.g., "3 Marks", "[4 Marks]")
+        let maxMarks = 5;
+        const marksMatch = rawBody.match(/(?:\[|\()?(\d+)\s*(?:Marks?|Pts?|Points?)(?:\]|\))?/i);
+        if (marksMatch) {
+          maxMarks = parseInt(marksMatch[1], 10);
+        }
+
         let prompt = `Question ${rawQNum}`;
         let answerText = rawBody;
 
-        const ansSplitRegex = /(?:\n|^)\s*(?:Ans(?:wer)?|Sol(?:ution)?)\s*[:\.\-]?\s*/i;
-        const ansMatch = rawBody.match(ansSplitRegex);
-        if (ansMatch && ansMatch.index > 0) {
-          const possiblePrompt = rawBody.substring(0, ansMatch.index).trim();
-          const possibleAnswer = rawBody.substring(ansMatch.index + ansMatch[0].length).trim();
-          if (possiblePrompt.length > 0 && possibleAnswer.length > 0) {
-            prompt = possiblePrompt;
-            answerText = possibleAnswer;
+        // Check for table headers like "Steps & Answer Key \t Mark Breakdown"
+        const tableHeaderMatch = rawBody.match(/(?:Steps?\s*(?:&|and)?\s*Answer\s*Key|Solution\s*Key|Model\s*Answer|Expected\s*Steps?)\s*(?:\t|\n|[^\n]*Mark\s*Breakdown)?/i);
+
+        if (tableHeaderMatch) {
+          const headerIndex = tableHeaderMatch.index;
+          const preHeader = rawBody.substring(0, headerIndex).trim();
+          const postHeader = rawBody.substring(headerIndex + tableHeaderMatch[0].length).trim();
+
+          const extractedPrompt = preHeader.replace(/\s*(?:\[|\()?(\d+)\s*(?:Marks?|Pts?|Points?)(?:\]|\))?/i, '').trim();
+
+          const eqMatch = postHeader.match(/^(?:Equation|Problem|Question|Statement)\s*:\s*([^\n]+)/i);
+          if (eqMatch) {
+            prompt = extractedPrompt ? `${extractedPrompt} — ${eqMatch[0]}` : eqMatch[0];
+            answerText = postHeader.substring(eqMatch[0].length).trim();
+          } else {
+            prompt = extractedPrompt || `Question ${rawQNum}`;
+            answerText = postHeader;
           }
         } else {
-          // If first line starts with a common question verb or has a question mark
-          const firstLineBreak = rawBody.indexOf('\n');
-          if (firstLineBreak > 0) {
-            const firstLine = rawBody.substring(0, firstLineBreak).trim();
-            const rest = rawBody.substring(firstLineBreak + 1).trim();
-            if (
-              firstLine.endsWith('?') ||
-              /^(?:solve|find|calculate|evaluate|simplify|what|prove|show|determine|explain|state|write)\b/i.test(firstLine)
-            ) {
-              prompt = firstLine;
-              if (rest.length > 0) {
-                answerText = rest;
+          // Check if rawBody contains an explicit question prompt followed by an answer
+          const ansSplitRegex = /(?:\n|^)\s*(?:Ans(?:wer)?|Sol(?:ution)?)\s*[:\.\-]?\s*/i;
+          const ansMatch = rawBody.match(ansSplitRegex);
+          if (ansMatch && ansMatch.index > 0) {
+            const possiblePrompt = rawBody.substring(0, ansMatch.index).trim();
+            const possibleAnswer = rawBody.substring(ansMatch.index + ansMatch[0].length).trim();
+            if (possiblePrompt.length > 0 && possibleAnswer.length > 0) {
+              prompt = possiblePrompt;
+              answerText = possibleAnswer;
+            }
+          } else {
+            // If first line starts with a common question verb or has a question mark
+            const firstLineBreak = rawBody.indexOf('\n');
+            if (firstLineBreak > 0) {
+              const firstLine = rawBody.substring(0, firstLineBreak).trim();
+              const rest = rawBody.substring(firstLineBreak + 1).trim();
+              if (
+                firstLine.endsWith('?') ||
+                /^(?:solve|find|calculate|evaluate|simplify|what|prove|show|determine|explain|state|write)\b/i.test(firstLine)
+              ) {
+                prompt = firstLine;
+                if (rest.length > 0) {
+                  answerText = rest;
+                }
               }
             }
           }
         }
+
+        // Clean running header/footer noise from answerText
+        answerText = answerText
+          .replace(/(?:Page\s*\d+\s*of\s*\d+|Academic\s*Excellence\s*Academy[^\n]*)/gi, '')
+          .trim();
 
         // Identify uncertain parts (e.g. illegible markers or question marks)
         const uncertainParts = [];
@@ -100,20 +173,25 @@ export function organizeExtractedText(pages, defaultConfidence = null) {
           uncertainParts.push(`Low OCR confidence (${defaultConfidence}%)`);
         }
 
-        items.push({
+        pageItems.push({
           questionNumber: qNumber,
           prompt,
           rawExtractedText: answerText || rawBody || '(No answer text detected for this question)',
           correctedText: answerText || rawBody || '',
           pageNumber,
           confidence: defaultConfidence,
-          maxMarks: 5,
+          maxMarks,
           awardedMarks: 0,
           status: 'Needs Review',
           uncertainParts,
         });
       }
+    }
+
+    if (pageItems.length > 0) {
+      items.push(...pageItems);
     } else {
+      // If no question markers survived or detected, group by multi-paragraph blocks or page
       // If no question markers detected, check if there are distinct multi-paragraph blocks
       const paragraphs = cleanText
         .split(/\n\s*\n+/)

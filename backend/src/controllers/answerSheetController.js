@@ -375,7 +375,21 @@ export async function updateAnswerCorrection(req, res, next) {
       });
     }
 
-    const { correctedText, awardedMarks, status } = req.body;
+    const { correctedText, awardedMarks, status, prompt, questionNumber, maxMarks } = req.body;
+
+    // Update prompt or questionNumber if provided
+    if (prompt !== undefined) {
+      answerItem.prompt = String(prompt).trim();
+    }
+    if (questionNumber !== undefined) {
+      answerItem.questionNumber = String(questionNumber).trim();
+    }
+    if (maxMarks !== undefined) {
+      const parsedMax = Number(maxMarks);
+      if (!isNaN(parsedMax) && parsedMax > 0) {
+        answerItem.maxMarks = parsedMax;
+      }
+    }
 
     // Update correctedText if provided (never touch rawExtractedText!)
     if (correctedText !== undefined) {
@@ -617,4 +631,101 @@ export async function deleteAnswerSheet(req, res, next) {
     return next(err);
   }
 }
+
+/**
+ * DELETE /api/answer-sheets/:id/answers/:answerId
+ * Removes an erroneous or unwanted question/answer item from an answer sheet.
+ */
+export async function deleteAnswerItem(req, res, next) {
+  try {
+    const { id, answerId } = req.params;
+    const teacherId = req.teacher._id;
+
+    if (!mongoose.isValidObjectId(id) || !mongoose.isValidObjectId(answerId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid answer sheet ID or answer item ID format.',
+        code: 'INVALID_ID_FORMAT',
+      });
+    }
+
+    const answerSheet = await AnswerSheet.findOne({ _id: id, teacherId });
+    if (!answerSheet) {
+      return res.status(404).json({
+        success: false,
+        error: 'Answer sheet not found or access denied.',
+        code: 'NOT_FOUND',
+      });
+    }
+
+    answerSheet.answers.pull({ _id: answerId });
+    await answerSheet.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Answer item deleted successfully.',
+      data: answerSheet,
+    });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+/**
+ * POST /api/answer-sheets/:id/answers
+ * Manually adds a question/answer item to an answer sheet.
+ */
+export async function addAnswerItem(req, res, next) {
+  try {
+    const { id } = req.params;
+    const teacherId = req.teacher._id;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid answer sheet ID format.',
+        code: 'INVALID_ID_FORMAT',
+      });
+    }
+
+    const answerSheet = await AnswerSheet.findOne({ _id: id, teacherId });
+    if (!answerSheet) {
+      return res.status(404).json({
+        success: false,
+        error: 'Answer sheet not found or access denied.',
+        code: 'NOT_FOUND',
+      });
+    }
+
+    const {
+      questionNumber = `Q${answerSheet.answers.length + 1}`,
+      prompt = `Question ${answerSheet.answers.length + 1}`,
+      rawExtractedText = '',
+      correctedText = '',
+      maxMarks = 5,
+      pageNumber = 1,
+    } = req.body;
+
+    answerSheet.answers.push({
+      questionNumber: String(questionNumber).trim(),
+      prompt: String(prompt).trim(),
+      rawExtractedText: String(rawExtractedText || correctedText),
+      correctedText: String(correctedText),
+      pageNumber: Number(pageNumber) || 1,
+      maxMarks: Number(maxMarks) || 5,
+      status: 'Needs Review',
+    });
+
+    await answerSheet.save();
+
+    return res.status(201).json({
+      success: true,
+      message: 'Question added successfully.',
+      data: answerSheet,
+    });
+  } catch (err) {
+    return next(err);
+  }
+}
+
 
