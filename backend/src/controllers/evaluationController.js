@@ -119,6 +119,28 @@ export async function evaluateAnswerSheet(req, res, next) {
       }
     }
 
+    // Auto-detect actual curriculum subject if assessment was left as default Mathematics
+    const allAnswersText = (answerSheet.answers || [])
+      .map((a) => `${a.prompt || ''} ${a.correctedText || a.rawExtractedText || ''}`)
+      .join(' ')
+      .toLowerCase();
+
+    const isScienceDetected =
+      /osmosis|cell|organelle|nucleus|mitochondria|golgi|prokaryot|eukaryot|plant|potato|membrane|diffusion|respiration|photosynthesis|scientific model|prediction|hypothesis/i.test(
+        allAnswersText
+      ) ||
+      /science|bio|chem|phys/i.test(answerSheet.originalFileName || '');
+
+    let effectiveSubject = assessment.subject || 'Mathematics';
+    if (isScienceDetected && (!effectiveSubject || effectiveSubject.toLowerCase().includes('math'))) {
+      effectiveSubject = 'Science / Physics';
+      try {
+        await Assessment.findByIdAndUpdate(assessment._id, { subject: 'Science / Physics' });
+      } catch (subErr) {
+        console.warn('[EvaluationController] Auto-update assessment subject notice:', subErr.message);
+      }
+    }
+
     // 4. Evaluate each question concurrently using Promise.all for high speed and responsiveness
     const evalPromises = answerSheet.answers.map(async (item) => {
       const qNumKey = (item.questionNumber || '').trim().toUpperCase();
@@ -129,18 +151,40 @@ export async function evaluateAnswerSheet(req, res, next) {
       const maxMarks = rubricItem?.maximumMarks || item.maxMarks || 5;
       const referenceAnswer = rubricItem?.referenceAnswer || '';
       const keyPoints = rubricItem?.keyPoints || [];
-      const lessonName = rubricItem?.lessonName || assessment.subject || '';
       const lessonId = rubricItem?.lessonId || '';
 
       // Text to evaluate: student's teacher-corrected answer (falls back to raw OCR text)
       const studentAnswer = (item.correctedText || item.rawExtractedText || '').trim();
+
+      // Determine clean, conceptual lesson name
+      let lessonName = rubricItem?.lessonName;
+      if (!lessonName || lessonName === 'Mathematics' || lessonName === 'Science / Physics' || lessonName.startsWith('Foundational')) {
+        const qText = `${prompt} ${referenceAnswer} ${studentAnswer}`.toLowerCase();
+        if (/osmosis|potato|semi-permeable|diffusion|water movement|concentration/i.test(qText)) {
+          lessonName = 'Osmosis & Cellular Transport';
+        } else if (/organelle|nucleus|mitochondria|golgi|atp|energy currency/i.test(qText)) {
+          lessonName = 'Cell Structure & Organelle Functions';
+        } else if (/prokaryot|eukaryot|bacteria|nucleoid/i.test(qText)) {
+          lessonName = 'Prokaryotic vs Eukaryotic Cell Organization';
+        } else if (/scientific model|prediction|hypothesis|guess/i.test(qText)) {
+          lessonName = 'Scientific Models & Experimental Inquiry';
+        } else if (/linear equation|equation|solve for/i.test(qText)) {
+          lessonName = 'Linear Equations in One Variable';
+        } else if (/exponent|power/i.test(qText)) {
+          lessonName = 'Exponents & Powers';
+        } else if (/factoris|polynomial/i.test(qText)) {
+          lessonName = 'Factorisation & Polynomials';
+        } else {
+          lessonName = prompt.length > 5 && !prompt.startsWith('Question') ? prompt.slice(0, 50).trim() : effectiveSubject;
+        }
+      }
 
       // Retrieve evidence from persistent pre-indexed syllabus knowledge base (fast lookup, zero re-embedding)
       const retrievalQuery = `${prompt} ${referenceAnswer} ${studentAnswer}`.trim();
       const { chunks } = await retrieveRelevantSyllabusChunks({
         teacherId,
         queryText: retrievalQuery,
-        subject: assessment.subject,
+        subject: effectiveSubject,
         grade: assessment.classId?.grade || '',
         lessonName,
         topK: 4,

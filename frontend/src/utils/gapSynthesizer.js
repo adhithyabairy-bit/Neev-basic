@@ -83,12 +83,14 @@ export function isNonErrorText(text) {
 const CURRICULUM_KNOWLEDGE_BASE = [
   {
     category: 'linear_equations',
+    subject: 'Mathematics',
     triggers: ['linear equation', '5x', 'transpos', 'variable', 'algebraic balance', 'equation', 'substitute', 'inverse operation'],
     prerequisiteLesson: {
       grade: 'Class 7',
       chapterNumber: 2,
       chapterName: 'Chapter 2: Simple Expressions and Equations',
       pdfFileName: 'Class 7 Maths Chapter 2.pdf',
+      fileName: 'Class 7 Maths Chapter 2.pdf',
       pdfUrl: '/curriculum/Class 7 Maths Chapter 2.pdf',
       concept: 'Equation balancing across equals sign (=), inverse operations, and transposition of variables/constants.',
       studyTip: 'Review Section 2.1 (Simple Expressions) and practice the balance-scale method of moving terms across the equals sign with sign reversal.',
@@ -127,12 +129,14 @@ const CURRICULUM_KNOWLEDGE_BASE = [
   },
   {
     category: 'arithmetic_order_of_operations',
+    subject: 'Mathematics',
     triggers: ['arithmetic', 'addition', 'order of operation', 'calculation error', 'rhs arithmetic', 'multiplication', '15+7', '3(5)+7', '23 instead of 22', 'computation', 'slip in addition'],
     prerequisiteLesson: {
       grade: 'Class 6',
       chapterNumber: 3,
       chapterName: 'Chapter 3: Number Play & Arithmetic Operations',
       pdfFileName: 'Class 6 Maths Chapter 3.pdf',
+      fileName: 'Class 6 Maths Chapter 3.pdf',
       pdfUrl: '/curriculum/Class 6 Maths Chapter 3.pdf',
       concept: 'Basic operations, operational precedence (BODMAS), place value carrying, and mental addition with regrouping.',
       studyTip: 'Reinforce mental addition facts (e.g. 15 + 7 = 22) and always write an intermediate check step before concluding a verification.',
@@ -171,12 +175,14 @@ const CURRICULUM_KNOWLEDGE_BASE = [
   },
   {
     category: 'exponents_powers',
+    subject: 'Mathematics',
     triggers: ['exponent', 'power', 'base', 'indices', '3^-7', '5^m', 'equating exponents', 'radical', 'index law'],
     prerequisiteLesson: {
       grade: 'Class 8',
       chapterNumber: 2,
       chapterName: 'Chapter 2: Power Play (Exponents & Powers)',
       pdfFileName: 'Class 8 Maths Chapter 2.pdf',
+      fileName: 'Class 8 Maths Chapter 2.pdf',
       pdfUrl: '/curriculum/Class 8 Maths Chapter 2.pdf',
       concept: 'Laws of integral exponents: a^m * a^n = a^(m+n), a^m / a^n = a^(m-n), a^(-n) = 1/a^n, and equating exponents for common bases.',
       studyTip: 'Focus on the distinction between negative exponents and negative numbers; practice converting a^(-n) to unit fractions.',
@@ -215,12 +221,14 @@ const CURRICULUM_KNOWLEDGE_BASE = [
   },
   {
     category: 'factorisation_polynomials',
+    subject: 'Mathematics',
     triggers: ['factoris', '16b', 'identity', 'polynomial', 'terms', 'algebraic expression', 'difference of squares'],
     prerequisiteLesson: {
       grade: 'Class 7',
       chapterNumber: 2,
       chapterName: 'Chapter 2: Simple Expressions & Algebraic Identities',
       pdfFileName: 'Class 7 Maths Chapter 2.pdf',
+      fileName: 'Class 7 Maths Chapter 2.pdf',
       pdfUrl: '/curriculum/Class 7 Maths Chapter 2.pdf',
       concept: 'Factoring out common monomial terms and applying standard algebraic identities: a^2 - b^2 = (a - b)(a + b).',
       studyTip: 'Practice recognising perfect squares (e.g. 16b^2 = (4b)^2) and grouping terms with common binomial factors.',
@@ -259,12 +267,14 @@ const CURRICULUM_KNOWLEDGE_BASE = [
   },
   {
     category: 'geometry_mensuration',
+    subject: 'Mathematics',
     triggers: ['mensuration', 'rectangle', 'diagonal', 'pythagor', 'area', 'perimeter', '25', '24', 'hypotenuse', 'width', 'geometry'],
     prerequisiteLesson: {
       grade: 'Class 6',
       chapterNumber: 2,
       chapterName: 'Chapter 2: Lines, Angles and Plane Shapes',
       pdfFileName: 'Class 6 Maths Chapter 2.pdf',
+      fileName: 'Class 6 Maths Chapter 2.pdf',
       pdfUrl: '/curriculum/Class 6 Maths Chapter 2.pdf',
       concept: 'Properties of rectangles, perpendicular sides, right-angled triangles, and Pythagoras theorem (diagonal^2 = length^2 + width^2).',
       studyTip: 'Always sketch the geometric shape, label known diagonals/sides, and verify that the hypotenuse is the longest side.',
@@ -303,12 +313,14 @@ const CURRICULUM_KNOWLEDGE_BASE = [
   },
   {
     category: 'commercial_math_interest',
-    triggers: ['compound interest', 'simple interest', '8000', 'rate', 'compounding', 'commercial', 'principal', 'annual interest', 'percentage'],
+    subject: 'Mathematics',
+    triggers: ['compound interest', 'simple interest', '8000', 'interest rate', 'compounding', 'commercial', 'principal', 'annual interest', 'percentage'],
     prerequisiteLesson: {
       grade: 'Class 7',
       chapterNumber: 1,
       chapterName: 'Chapter 1: Large Numbers & Comparing Quantities',
       pdfFileName: 'Class 7 Maths Chapter 1.pdf',
+      fileName: 'Class 7 Maths Chapter 1.pdf',
       pdfUrl: '/curriculum/Class 7 Maths Chapter 1.pdf',
       concept: 'Simple interest formula I = (P*R*T)/100, year-on-year interest accumulation, and percentage conversion.',
       studyTip: 'Calculate year-1 and year-2 interest sequentially to build intuition before relying entirely on the exponential compounding formula.',
@@ -345,6 +357,259 @@ const CURRICULUM_KNOWLEDGE_BASE = [
       },
     ],
   },
+
+  // =========================================================================
+  // SCIENCE CURRICULUM KNOWLEDGE BASE (NCERT Class 6 - Class 10 Alignment)
+  // =========================================================================
+  {
+    category: 'osmosis_and_diffusion',
+    subject: 'Science',
+    triggers: [
+      'osmosis',
+      'potato',
+      'semi-permeable',
+      'concentration',
+      'diffusion',
+      'membrane',
+      'hypertonic',
+      'hypotonic',
+      'exosmosis',
+      'endosmosis',
+      'solute',
+      'water potential',
+      'potato piece',
+      'salt solution',
+    ],
+    prerequisiteLesson: {
+      grade: 'Class 7',
+      chapterNumber: 2,
+      chapterName: 'Chapter 2: Exploring Living Processes & Cellular Transport',
+      pdfFileName: 'Class 7 Science Chapter 2.pdf',
+      fileName: 'Class 7 Science Chapter 2.pdf',
+      pdfUrl: '/curriculum/Class 7 Science Chapter 2.pdf',
+      concept:
+        'Osmosis as the selective net movement of solvent (water) molecules through a semi-permeable membrane from higher to lower water potential; endosmosis (cell swelling in plain water) versus exosmosis (cell shrinkage/flaccidity in concentrated salt solution).',
+      studyTip:
+        'Review the potato osmometer experiment in Section 2.4 and distinguish between solute movement (diffusion) and solvent movement across selectively permeable cell membranes.',
+      targetLessonName: 'Osmosis & Cellular Transport',
+    },
+    futureLessonsAffected: [
+      {
+        grade: 'Class 9',
+        chapterNumber: 5,
+        lessonName: 'Chapter 5: The Fundamental Unit of Life — Plasma Membrane Dynamics',
+        risk: 'Failure to analyze tonicity, hypotonic/hypertonic media, and plasmolysis in plant cell walls.',
+      },
+      {
+        grade: 'Class 10',
+        chapterNumber: 6,
+        lessonName: 'Chapter 6: Life Processes — Transportation and Excretion',
+        risk: 'Inability to explain xylem sap ascent by root osmotic pressure and selective reabsorption across tubular nephron membranes.',
+      },
+    ],
+    questions2Marks: [
+      {
+        prompt: 'Define osmosis and state the direction of water movement across a semi-permeable membrane.',
+        targetConcept: 'Osmosis & Semipermeable Membranes (Class 7 Prerequisite)',
+        expectedAnswer:
+          'Osmosis is the net movement of water molecules from a region of higher water concentration to lower water concentration through a semi-permeable membrane.',
+      },
+      {
+        prompt:
+          'Why did the potato piece shrink when placed in concentrated salt solution? Name the biological phenomenon.',
+        targetConcept: 'Exosmosis & Cellular Shrinkage (Class 7 Prerequisite)',
+        expectedAnswer:
+          'Water moved out of the potato cells into the concentrated salt solution by exosmosis, causing cell flaccidity and shrinkage.',
+      },
+      {
+        prompt:
+          'Distinguish between endosmosis and exosmosis with one everyday laboratory observation.',
+        targetConcept: 'Endosmosis vs Exosmosis (Class 7 Prerequisite)',
+        expectedAnswer:
+          'Endosmosis is inward water entry causing swelling (potato in plain water); exosmosis is outward water exit causing shrinkage (potato in salt solution).',
+      },
+    ],
+  },
+  {
+    category: 'prokaryotes_vs_eukaryotes',
+    subject: 'Science',
+    triggers: [
+      'prokaryot',
+      'eukaryot',
+      'bacteria',
+      'nucleoid',
+      'backera',
+      'animale',
+      'membrane-bound organelle',
+    ],
+    prerequisiteLesson: {
+      grade: 'Class 8',
+      chapterNumber: 2,
+      chapterName: 'Chapter 2: The Invisible Living World: Beyond Our Naked Eye',
+      pdfFileName: 'Class 8 Science Chapter 2.pdf',
+      fileName: 'Class 8 Science Chapter 2.pdf',
+      pdfUrl: '/curriculum/Class 8 Science Chapter 2.pdf',
+      concept:
+        'Structural hierarchy of life: Prokaryotic cells (e.g. bacteria) lack a nuclear membrane (possess an undefined nucleoid) and lack membrane-bound organelles; Eukaryotic cells possess a true membrane-bound nucleus and organized organelles.',
+      studyTip:
+        'Create a two-column contrast table comparing bacterial prokaryotic cells with plant/animal eukaryotic cells on nucleus presence and organelle compartmentalization.',
+      targetLessonName: 'Prokaryotic vs Eukaryotic Cell Organization',
+    },
+    futureLessonsAffected: [
+      {
+        grade: 'Class 9',
+        chapterNumber: 5,
+        lessonName: 'Chapter 5: The Fundamental Unit of Life — Cellular Organization',
+        risk: 'Confusion between simple bacterial prokaryotes and compartmentalized multicellular eukaryotes.',
+      },
+      {
+        grade: 'Class 10',
+        chapterNumber: 8,
+        lessonName: 'Chapter 8: How do Organisms Reproduce — Modes of Cell Division',
+        risk: 'Inability to contrast binary fission in prokaryotes with complex mitotic and meiotic chromosomal division in eukaryotes.',
+      },
+    ],
+    questions2Marks: [
+      {
+        prompt: 'Name two fundamental structural differences between prokaryotic and eukaryotic cells.',
+        targetConcept: 'Prokaryote vs Eukaryote Distinction (Class 8 Prerequisite)',
+        expectedAnswer:
+          '1. Prokaryotes lack a nuclear membrane (have a nucleoid); eukaryotes have a membrane-bound nucleus. 2. Prokaryotes lack membrane-bound organelles; eukaryotes contain them.',
+      },
+      {
+        prompt:
+          'Classify bacteria and plant cells into prokaryotes or eukaryotes, giving one justifying cellular feature for each.',
+        targetConcept: 'Cellular Classification (Class 8 Prerequisite)',
+        expectedAnswer:
+          'Bacteria are prokaryotes (lack defined nucleus/organelles); Plant cells are eukaryotes (possess membrane-bound nucleus and chloroplasts/mitochondria).',
+      },
+    ],
+  },
+  {
+    category: 'cell_organelles_and_functions',
+    subject: 'Science',
+    triggers: [
+      'organelle',
+      'nucleus',
+      'mitochondria',
+      'golgi',
+      'cell organelle',
+      'cytoplasm',
+      'atp',
+      'powerhouse',
+      'energy production',
+      'respiration',
+      'food synthesis',
+      'packaging',
+      'enemy to the cell',
+    ],
+    prerequisiteLesson: {
+      grade: 'Class 8',
+      chapterNumber: 2,
+      chapterName: 'Chapter 2: The Invisible Living World: Beyond Our Naked Eye',
+      pdfFileName: 'Class 8 Science Chapter 2.pdf',
+      fileName: 'Class 8 Science Chapter 2.pdf',
+      pdfUrl: '/curriculum/Class 8 Science Chapter 2.pdf',
+      concept:
+        'Division of labor in cellular organelles: Nucleus controls hereditary genetic transmission and metabolic regulation; Mitochondria perform aerobic respiration to synthesize cellular energy (ATP); Golgi apparatus processes, packages, and secretes cellular biomolecules.',
+      studyTip:
+        'Map each organelle to its verified metabolic function using a comparative cell diagram, emphasizing that mitochondria produce ATP while chloroplasts (not Golgi) perform food synthesis.',
+      targetLessonName: 'Cell Structure & Organelle Functions',
+    },
+    futureLessonsAffected: [
+      {
+        grade: 'Class 9',
+        chapterNumber: 5,
+        lessonName: 'Chapter 5: Cell Organelles and the Endomembrane System',
+        risk: 'Inability to correlate mitochondrial cristae surface area with ATP generation or Golgi cisternae with protein sorting.',
+      },
+      {
+        grade: 'Class 10',
+        chapterNumber: 6,
+        lessonName: 'Chapter 6: Life Processes — Cellular Respiration and Metabolic Energetics',
+        risk: 'Breakdown in understanding cellular respiration pathways, glycolytic products, and mitochondrial oxidative phosphorylation.',
+      },
+    ],
+    questions2Marks: [
+      {
+        prompt: 'State the primary function of: (a) Mitochondria, and (b) Golgi apparatus.',
+        targetConcept: 'Cell Organelle Functions (Class 8 Prerequisite)',
+        expectedAnswer:
+          '(a) Mitochondria: Generate cellular energy currency (ATP) via respiration. (b) Golgi apparatus: Modification, packaging, and sorting of proteins and lipids.',
+      },
+      {
+        prompt: 'Why is the nucleus often described as the master controller of a eukaryotic cell?',
+        targetConcept: 'Nuclear Control & Genetic Material (Class 8 Prerequisite)',
+        expectedAnswer:
+          'The nucleus contains genetic material (DNA/chromosomes) that coordinates gene expression and directs all cellular metabolic activities.',
+      },
+      {
+        prompt:
+          'Explain why a cell devoid of functional mitochondria cannot sustain active cellular processes.',
+        targetConcept: 'Cellular Respiration & ATP (Class 8 Prerequisite)',
+        expectedAnswer:
+          'It cannot generate ATP required for energy-consuming cellular activities and maintenance.',
+      },
+    ],
+  },
+  {
+    category: 'scientific_models_and_inquiry',
+    subject: 'Science',
+    triggers: [
+      'scientific model',
+      'prediction',
+      'guess',
+      'hypothesis',
+      'complex system',
+      'experimental setup',
+      'mismatch',
+      'observations',
+      'solar system model',
+      '3d cell model',
+    ],
+    prerequisiteLesson: {
+      grade: 'Class 8',
+      chapterNumber: 1,
+      chapterName: 'Chapter 1: Exploring the Investigative World of Science',
+      pdfFileName: 'Class 8 Science Chapter 1.pdf',
+      fileName: 'Class 8 Science Chapter 1.pdf',
+      pdfUrl: '/curriculum/Class 8 Science Chapter 1.pdf',
+      concept:
+        'Scientific models serve as simplified, testable representations of complex phenomena; scientific predictions are evidence-grounded forecasts, distinct from random guesses, and must trigger iterative hypothesis revision upon observational mismatch.',
+      studyTip:
+        'Review Section 1.2 on scientific inquiry and practice identifying controlled variables, testable predictions, and iterative model adjustments.',
+      targetLessonName: 'Scientific Models & Systems',
+    },
+    futureLessonsAffected: [
+      {
+        grade: 'Class 9',
+        chapterNumber: 1,
+        lessonName: 'Chapter 1: Matter in Our Surroundings — Kinetic Particle Models',
+        risk: 'Struggling to visualize and manipulate sub-microscopic molecular representations and phase-change simulations.',
+      },
+      {
+        grade: 'Class 10',
+        chapterNumber: 1,
+        lessonName: 'Chapter 1: Chemical Reactions & Equations — Empirical Scientific Evidence',
+        risk: 'Inability to translate empirical experimental observations into balanced scientific models and conservation laws.',
+      },
+    ],
+    questions2Marks: [
+      {
+        prompt: 'Why are scientific predictions fundamentally different from random guesses?',
+        targetConcept: 'Scientific Predictions vs Guesses (Class 8 Prerequisite)',
+        expectedAnswer:
+          'Scientific predictions are grounded in prior empirical evidence, logical principles, and testable hypotheses, whereas guesses lack evidential basis.',
+      },
+      {
+        prompt:
+          'What essential step must scientists take when observed experimental outcomes contradict their initial prediction?',
+        targetConcept: 'Hypothesis Revision & Scientific Method (Class 8 Prerequisite)',
+        expectedAnswer:
+          'Scientists re-examine their experimental procedure and modify or reject the existing hypothesis to formulate new testable models.',
+      },
+    ],
+  },
 ];
 
 /**
@@ -364,38 +629,68 @@ function resolveCurriculumKnowledge({
   syllabusEvidence = [],
 }) {
   const combined = `${prompt} ${observed} ${hypothesis} ${topicName}`.toLowerCase();
+
+  // 1. Detect if this item or context belongs to Science curriculum
+  const isScienceDetected =
+    subject.toLowerCase().includes('scien') ||
+    subject.toLowerCase().includes('bio') ||
+    subject.toLowerCase().includes('phys') ||
+    subject.toLowerCase().includes('chem') ||
+    /osmosis|cell|organelle|nucleus|mitochondria|golgi|prokaryot|eukaryot|plant|potato|membrane|diffusion|respiration|photosynthesis|scientific model|prediction|hypothesis/i.test(
+      combined
+    );
+
+  const effectiveSubject = isScienceDetected ? 'Science' : 'Mathematics';
+  const candidateCategories = CURRICULUM_KNOWLEDGE_BASE.filter((k) =>
+    effectiveSubject === 'Science' ? k.subject === 'Science' : k.subject !== 'Science'
+  );
+
   let baseKnowledge = null;
 
-  // 1. Check if database retrieval evidence provided a specific textbook chapter file
+  // 2. Check if database retrieval evidence provided a specific textbook chapter file
   if (Array.isArray(syllabusEvidence) && syllabusEvidence.length > 0) {
     for (const chunk of syllabusEvidence) {
       const src = (chunk.sourceFileName || '').toLowerCase();
+      // Science textbook evidence
+      if (src.includes('class 7 science chapter 2') || (src.includes('science') && src.includes('chapter 2') && src.includes('7'))) {
+        baseKnowledge = candidateCategories.find((k) => k.category === 'osmosis_and_diffusion');
+        if (baseKnowledge) break;
+      }
+      if (src.includes('class 8 science chapter 2') || (src.includes('science') && src.includes('chapter 2') && src.includes('8'))) {
+        baseKnowledge = candidateCategories.find((k) => k.category === 'cell_organelles_and_functions');
+        if (baseKnowledge) break;
+      }
+      if (src.includes('class 8 science chapter 1') || (src.includes('science') && src.includes('chapter 1') && src.includes('8'))) {
+        baseKnowledge = candidateCategories.find((k) => k.category === 'scientific_models_and_inquiry');
+        if (baseKnowledge) break;
+      }
+      // Maths textbook evidence
       if (src.includes('class 7 maths chapter 2')) {
-        baseKnowledge = CURRICULUM_KNOWLEDGE_BASE.find((k) => k.category === 'linear_equations');
-        break;
+        baseKnowledge = candidateCategories.find((k) => k.category === 'linear_equations');
+        if (baseKnowledge) break;
       }
       if (src.includes('class 6 maths chapter 3')) {
-        baseKnowledge = CURRICULUM_KNOWLEDGE_BASE.find((k) => k.category === 'arithmetic_order_of_operations');
-        break;
+        baseKnowledge = candidateCategories.find((k) => k.category === 'arithmetic_order_of_operations');
+        if (baseKnowledge) break;
       }
       if (src.includes('class 8 maths chapter 2')) {
-        baseKnowledge = CURRICULUM_KNOWLEDGE_BASE.find((k) => k.category === 'exponents_powers');
-        break;
+        baseKnowledge = candidateCategories.find((k) => k.category === 'exponents_powers');
+        if (baseKnowledge) break;
       }
       if (src.includes('class 7 maths chapter 1')) {
-        baseKnowledge = CURRICULUM_KNOWLEDGE_BASE.find((k) => k.category === 'commercial_math_interest');
-        break;
+        baseKnowledge = candidateCategories.find((k) => k.category === 'commercial_math_interest');
+        if (baseKnowledge) break;
       }
       if (src.includes('class 6 maths chapter 2')) {
-        baseKnowledge = CURRICULUM_KNOWLEDGE_BASE.find((k) => k.category === 'geometry_mensuration');
-        break;
+        baseKnowledge = candidateCategories.find((k) => k.category === 'geometry_mensuration');
+        if (baseKnowledge) break;
       }
     }
   }
 
-  // 2. Keyword trigger match
+  // 3. Keyword trigger match within subject candidate categories
   if (!baseKnowledge) {
-    for (const entry of CURRICULUM_KNOWLEDGE_BASE) {
+    for (const entry of candidateCategories) {
       for (const trigger of entry.triggers) {
         if (combined.includes(trigger.toLowerCase())) {
           baseKnowledge = entry;
@@ -406,43 +701,64 @@ function resolveCurriculumKnowledge({
     }
   }
 
-  // 3. Fallback default for Mathematics
+  // 4. Fallback defaults strictly by subject
   if (!baseKnowledge) {
-    baseKnowledge = subject.toLowerCase().includes('math')
-      ? CURRICULUM_KNOWLEDGE_BASE[0]
-      : {
-          category: 'general_foundations',
+    if (effectiveSubject === 'Science') {
+      baseKnowledge =
+        candidateCategories.find((k) => k.category === 'cell_organelles_and_functions') ||
+        candidateCategories[0] || {
+          category: 'general_science_foundations',
+          subject: 'Science',
           prerequisiteLesson: {
             grade: 'Class 7',
-            chapterNumber: 1,
-            chapterName: `Chapter 1: Foundational ${subject} Principles`,
-            pdfFileName: `Class 7 ${subject} Chapter 1.pdf`,
-            pdfUrl: `/curriculum/Class 7 Maths Chapter 1.pdf`,
-            concept: `Core conceptual definitions and foundational analytical skills in ${subject}.`,
+            chapterNumber: 2,
+            chapterName: 'Chapter 2: Exploring Living Processes & Cellular Transport',
+            pdfFileName: 'Class 7 Science Chapter 2.pdf',
+            fileName: 'Class 7 Science Chapter 2.pdf',
+            pdfUrl: '/curriculum/Class 7 Science Chapter 2.pdf',
+            concept: 'Core conceptual definitions and foundational analytical skills in Science.',
             studyTip: 'Review foundational concepts and complete guided review exercises before advancing.',
+            targetLessonName: 'Foundational Science Principles',
           },
           futureLessonsAffected: [
             {
               grade: 'Class 9',
-              chapterNumber: 1,
-              lessonName: `Advanced Application Units in ${subject}`,
+              chapterNumber: 5,
+              lessonName: 'Chapter 5: The Fundamental Unit of Life',
               risk: 'Gaps in core prerequisite principles will lead to compounding comprehension difficulties.',
             },
             {
               grade: 'Class 10',
-              chapterNumber: 1,
-              lessonName: `Board Examination Preparatory Topics in ${subject}`,
+              chapterNumber: 6,
+              lessonName: 'Chapter 6: Life Processes',
               risk: 'Loss of examination performance in multi-concept synthetic problems.',
             },
           ],
           questions2Marks: [
             {
-              prompt: `Review and define the primary foundational principle of ${subject} covered in previous grades.`,
-              targetConcept: `Foundational ${subject} Principles`,
+              prompt: 'Review and define the primary foundational principle of Science covered in previous grades.',
+              targetConcept: 'Foundational Science Principles',
               expectedAnswer: 'Clear conceptual definition with one verified application example.',
             },
           ],
         };
+    } else {
+      baseKnowledge =
+        candidateCategories.find((k) => k.category === 'linear_equations') ||
+        candidateCategories[0] ||
+        CURRICULUM_KNOWLEDGE_BASE[0];
+    }
+  }
+
+  // Ensure fileName is always present and mirrors pdfFileName
+  if (baseKnowledge?.prerequisiteLesson) {
+    baseKnowledge = {
+      ...baseKnowledge,
+      prerequisiteLesson: {
+        ...baseKnowledge.prerequisiteLesson,
+        fileName: baseKnowledge.prerequisiteLesson.fileName || baseKnowledge.prerequisiteLesson.pdfFileName,
+      },
+    };
   }
 
   // Check if enrolled grade is Class 10
@@ -497,7 +813,22 @@ export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
   const gaps = [];
   const roadmap = [];
 
-  const subject = syllabusData.selectedSubject || 'Mathematics';
+  // Determine true curriculum subject from evaluation content and syllabus
+  const allText = (evaluations || [])
+    .map(
+      (e) =>
+        `${e.prompt || ''} ${e.studentAnswer || ''} ${e.observedErrors || ''} ${e.misconceptionHypothesis || ''} ${e.affectedLessonName || ''}`
+    )
+    .join(' ')
+    .toLowerCase();
+
+  const isExamScience =
+    /osmosis|cell|organelle|nucleus|mitochondria|golgi|prokaryot|eukaryot|plant|potato|membrane|diffusion|respiration|photosynthesis|scientific model|prediction|hypothesis/i.test(
+      allText
+    ) ||
+    String(syllabusData.selectedSubject || '').toLowerCase().includes('scien');
+
+  const subject = isExamScience ? 'Science' : (syllabusData.selectedSubject || 'Mathematics');
   const targetGrade = syllabusData.selectedClass || 'Class 8';
 
   const diagnosedCategories = [];
@@ -533,12 +864,35 @@ export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
       return; // Skip: No actual error or misconception diagnosed
     }
 
-    // Determine clean topic name
-    let topicName =
-      item.affectedLessonName ||
-      (prompt.includes('—') ? prompt.split('—')[0].trim() : prompt.slice(0, 50).trim()) ||
-      `Foundational ${subject} Concept`;
-
+    // Determine clean, conceptual topic name
+    let topicName = item.affectedLessonName;
+    if (
+      !topicName ||
+      topicName === 'Mathematics' ||
+      topicName === 'Science / Physics' ||
+      topicName.startsWith('Foundational')
+    ) {
+      const qText = `${prompt} ${observed} ${hypothesis}`.toLowerCase();
+      if (/osmosis|potato|semi-permeable|diffusion|water movement|concentration/i.test(qText)) {
+        topicName = 'Osmosis & Cellular Transport';
+      } else if (/prokaryot|eukaryot|bacteria|nucleoid/i.test(qText)) {
+        topicName = 'Prokaryotic vs Eukaryotic Cell Organization';
+      } else if (/organelle|nucleus|mitochondria|golgi|atp|energy currency/i.test(qText)) {
+        topicName = 'Cell Structure & Organelle Functions';
+      } else if (/scientific model|prediction|hypothesis|guess/i.test(qText)) {
+        topicName = 'Scientific Models & Experimental Inquiry';
+      } else if (/linear equation|equation|solve for/i.test(qText)) {
+        topicName = 'Linear Equations in One Variable';
+      } else if (/exponent|power/i.test(qText)) {
+        topicName = 'Exponents & Powers';
+      } else if (/factoris|polynomial/i.test(qText)) {
+        topicName = 'Factorisation & Polynomials';
+      } else {
+        topicName = prompt.includes('—')
+          ? prompt.split('—')[0].trim()
+          : prompt.slice(0, 50).trim() || `${subject} Foundational Concept`;
+      }
+    }
     topicName = topicName.replace(/\s*\[\d+\s*Marks?\]/i, '').replace(/Solution/i, '').trim();
 
     // Construct clear, human-readable gap title from misconception or observed error
@@ -556,7 +910,7 @@ export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
     }
 
     const gapId = `gap-${qNum.toLowerCase().replace(/[^a-z0-9]/g, '') || index + 1}`;
-    const lessonName = item.affectedLessonName || topicName;
+    const lessonName = topicName;
 
     // Retrieve previous class foundational lesson and future affected lessons
     const knowledge = resolveCurriculumKnowledge({
@@ -613,26 +967,41 @@ export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
 
   // If student answered all questions without errors, celebrate mastery
   if (gaps.length === 0 && evaluations.length > 0) {
+    const defaultPrereq = isExamScience
+      ? {
+          grade: targetGrade,
+          chapterNumber: 1,
+          chapterName: 'Class 8 Science Advanced Inquiry',
+          pdfFileName: 'Class 8 Science Chapter 1.pdf',
+          fileName: 'Class 8 Science Chapter 1.pdf',
+          pdfUrl: '/curriculum/Class 8 Science Chapter 1.pdf',
+          concept: 'Advanced scientific investigation and experimental design.',
+          studyTip: 'Engage with inquiry extension projects.',
+        }
+      : {
+          grade: targetGrade,
+          chapterNumber: 1,
+          chapterName: `${targetGrade} Advanced Extension Topics`,
+          pdfFileName: 'Class 8 Maths Chapter 1.pdf',
+          fileName: 'Class 8 Maths Chapter 1.pdf',
+          pdfUrl: '/curriculum/Class 8 Maths Chapter 1.pdf',
+          concept: 'Synthesis of multiple mathematical domains, proof formulation, and Olympiad problem-solving.',
+          studyTip: 'Engage with non-routine enrichment challenges.',
+        };
+
     gaps.push({
       id: 'gap-mastery',
       topicName: 'Curriculum Mastery Confirmed',
       grade: targetGrade,
       lessonName: subject,
       lessonId: 'les-mastery',
-      evidence: 'Student demonstrated working steps consistent with rubric across all assessed questions without foundational errors.',
+      evidence:
+        'Student demonstrated working steps consistent with rubric across all assessed questions without foundational errors.',
       likelihood: 'Low',
       status: 'Mastery Validated',
       dependentTopics: ['Advanced Problem Solving', 'Enrichment Units'],
       misconception: 'No critical foundational gaps detected.',
-      prerequisiteLesson: {
-        grade: targetGrade,
-        chapterNumber: 1,
-        chapterName: `${targetGrade} Advanced Extension Topics`,
-        pdfFileName: 'Class 8 Maths Chapter 1.pdf',
-        pdfUrl: '/curriculum/Class 8 Maths Chapter 1.pdf',
-        concept: 'Synthesis of multiple mathematical domains, proof formulation, and Olympiad problem-solving.',
-        studyTip: 'Engage with non-routine enrichment challenges.',
-      },
+      prerequisiteLesson: defaultPrereq,
       futureLessonsAffected: [
         {
           grade: 'Next Grade Level',
@@ -656,15 +1025,7 @@ export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
       practiceQuestions: 5,
       estimatedMinutes: 30,
       status: 'Not Started',
-      prerequisiteLesson: {
-        grade: targetGrade,
-        chapterNumber: 1,
-        chapterName: `${targetGrade} Advanced Extension Topics`,
-        pdfFileName: 'Class 8 Maths Chapter 1.pdf',
-        pdfUrl: '/curriculum/Class 8 Maths Chapter 1.pdf',
-        concept: 'Synthesis of multiple mathematical domains and non-routine problem formulation.',
-        studyTip: 'Explore alternative geometric and algebraic representations.',
-      },
+      prerequisiteLesson: defaultPrereq,
       futureLessonsAffected: [],
     });
   }
@@ -672,14 +1033,22 @@ export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
   // =========================================================================
   // Assemble 2-Mark Diagnostic Test Questions (strictly between 5 and 10 questions)
   // Constraint: "do not exceed 10 and degrade 5"
+  // Strictly filtered by subject: Science questions for Science, Math for Math!
   // =========================================================================
   const questionPool = [];
 
-  // If no diagnosed category (e.g. initial load or perfect score), use primary subject categories
-  const activeCategories = diagnosedCategories.length > 0 ? diagnosedCategories : CURRICULUM_KNOWLEDGE_BASE;
+  const subjectKnowledgeBase = CURRICULUM_KNOWLEDGE_BASE.filter((k) =>
+    isExamScience ? k.subject === 'Science' : k.subject !== 'Science'
+  );
+
+  const activeCategories = diagnosedCategories.filter((k) =>
+    isExamScience ? k.subject === 'Science' : k.subject !== 'Science'
+  );
+
+  const baseCategoriesToUse = activeCategories.length > 0 ? activeCategories : subjectKnowledgeBase;
 
   // 1. Gather 2-mark questions from diagnosed categories
-  activeCategories.forEach((cat) => {
+  baseCategoriesToUse.forEach((cat) => {
     const list = cat.questions2Marks || [];
     list.forEach((q) => {
       questionPool.push({
@@ -690,15 +1059,15 @@ export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
         syllabusTopic: cat.prerequisiteLesson.chapterName || subject,
         expectedAnswer: q.expectedAnswer,
         prerequisiteChapter: cat.prerequisiteLesson.chapterName,
-        pdfFileName: cat.prerequisiteLesson.pdfFileName,
+        pdfFileName: cat.prerequisiteLesson.pdfFileName || cat.prerequisiteLesson.fileName,
       });
     });
   });
 
-  // 2. If questionPool has less than 5 questions, supplement from remaining curriculum categories
-  for (const cat of CURRICULUM_KNOWLEDGE_BASE) {
+  // 2. If questionPool has less than 5 questions, supplement from remaining curriculum categories of the SAME subject
+  for (const cat of subjectKnowledgeBase) {
     if (questionPool.length >= 7) break; // Healthy target of 6-7 questions
-    if (!activeCategories.some((c) => c.category === cat.category)) {
+    if (!baseCategoriesToUse.some((c) => c.category === cat.category)) {
       const list = cat.questions2Marks || [];
       for (const q of list) {
         if (questionPool.length < 10) {
@@ -710,7 +1079,7 @@ export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
             syllabusTopic: cat.prerequisiteLesson.chapterName || subject,
             expectedAnswer: q.expectedAnswer,
             prerequisiteChapter: cat.prerequisiteLesson.chapterName,
-            pdfFileName: cat.prerequisiteLesson.pdfFileName,
+            pdfFileName: cat.prerequisiteLesson.pdfFileName || cat.prerequisiteLesson.fileName,
           });
         }
       }

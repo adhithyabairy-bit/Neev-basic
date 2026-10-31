@@ -129,6 +129,65 @@ export default function UploadAnswerSheets({
     }
   }, [syllabusData?.assessmentId, isDemoMode]);
 
+  // Continuously poll background extraction status if any file is in 'Processing OCR'
+  useEffect(() => {
+    if (isDemoMode || !syllabusData?.assessmentId) return;
+
+    const hasProcessing = (uploadedFiles || []).some(
+      (f) => f.status === 'Processing OCR' || f.rawSheet?.status === 'processing'
+    );
+
+    if (!hasProcessing) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const sheets = await fetchAnswerSheets(syllabusData.assessmentId);
+        if (Array.isArray(sheets) && sheets.length > 0) {
+          let updatedAny = false;
+          const mergedList = (uploadedFiles || []).map((file) => {
+            const remote = sheets.find((s) => s._id === (file._id || file.id));
+            if (remote) {
+              const hasAnswers = Array.isArray(remote.answers) && remote.answers.length > 0;
+              const newStatus =
+                remote.status === 'verified'
+                  ? 'Verified Ground Truth'
+                  : remote.status === 'review_required' || hasAnswers
+                  ? 'Ready for Review'
+                  : remote.status === 'processing'
+                  ? 'Processing OCR'
+                  : 'Ready for Review';
+
+              if (newStatus !== file.status) {
+                updatedAny = true;
+                return {
+                  ...file,
+                  status: newStatus,
+                  rawSheet: remote,
+                  pages: remote.pageCount || file.pages,
+                };
+              }
+            }
+            return file;
+          });
+
+          if (updatedAny) {
+            onUpdateFiles(mergedList);
+            const readyAnswerSheet = mergedList.find(
+              (f) => f.category === 'answer-sheet' && f.rawSheet?.answers?.length > 0
+            );
+            if (readyAnswerSheet?.rawSheet && onAnswerSheetLoaded) {
+              onAnswerSheetLoaded(readyAnswerSheet.rawSheet);
+            }
+          }
+        }
+      } catch (pollErr) {
+        console.warn('[UploadAnswerSheets] Polling notice:', pollErr.message);
+      }
+    }, 2500);
+
+    return () => clearInterval(pollInterval);
+  }, [uploadedFiles, syllabusData?.assessmentId, isDemoMode]);
+
   // Process incoming files from input or drag-drop
   const handleProcessFiles = async (fileList) => {
     setValidationError(null);

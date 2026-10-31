@@ -58,6 +58,7 @@ async function callGeminiVisionJson({ buffer, mimeType, systemPrompt, userPrompt
         generationConfig: {
           responseMimeType: 'application/json',
           temperature: 0.1,
+          thinkingConfig: { thinkingBudget: 0 },
         },
       }),
       signal: controller.signal,

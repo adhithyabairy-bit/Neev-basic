@@ -26,6 +26,21 @@ export default function ExportFollowUp({
 
   const activeStudentName = studentProfile?.name?.trim() || 'Student';
 
+  // Dynamic curriculum subject detection
+  const isScienceInGaps =
+    (gapsData || []).some(
+      (g) =>
+        /science|osmosis|cell|organelle|nucleus|mitochondria|prokaryot|eukaryot/i.test(g.lessonName || '') ||
+        /science|osmosis|cell|organelle|nucleus|mitochondria|prokaryot|eukaryot/i.test(g.prerequisiteLesson?.chapterName || '')
+    ) ||
+    (testQuestions || []).some((q) =>
+      /science|osmosis|cell|organelle|nucleus|mitochondria/i.test(q.syllabusTopic || q.prompt || '')
+    );
+
+  const effectiveSubject = isScienceInGaps
+    ? 'Science'
+    : (syllabusData?.selectedSubject || 'Mathematics');
+
   // Client-side real PDF blob document exporter
   const triggerDownload = (filename, blobOrContent, mimeType = 'application/pdf') => {
     const blob =
@@ -53,7 +68,7 @@ export default function ExportFollowUp({
       studentName: activeStudentName,
       examName: syllabusData.examName || 'Assessment',
       className: syllabusData.selectedClass || 'Grade 8',
-      subject: syllabusData.selectedSubject || 'Mathematics',
+      subject: effectiveSubject,
       gapsData,
       roadmapData,
     });
@@ -67,7 +82,7 @@ export default function ExportFollowUp({
       studentName: activeStudentName,
       examName: syllabusData.examName || 'Diagnostic Retest',
       className: syllabusData.selectedClass || 'Grade 8',
-      subject: syllabusData.selectedSubject || 'Mathematics',
+      subject: effectiveSubject,
       testQuestions,
     });
     triggerDownload(filename, pdfBlob);
@@ -81,7 +96,7 @@ export default function ExportFollowUp({
       studentName: activeStudentName,
       examName: syllabusData.examName || 'Assessment',
       className: syllabusData.selectedClass || 'Grade 8',
-      subject: syllabusData.selectedSubject || 'Mathematics',
+      subject: effectiveSubject,
       roadmapData,
     });
     triggerDownload(filename, pdfBlob);
@@ -94,7 +109,7 @@ export default function ExportFollowUp({
       studentName: activeStudentName,
       examName: syllabusData.examName || 'Diagnostic Retest',
       className: syllabusData.selectedClass || 'Grade 8',
-      subject: syllabusData.selectedSubject || 'Mathematics',
+      subject: effectiveSubject,
       testQuestions,
     });
     triggerDownload(filename, pdfBlob);
@@ -107,7 +122,7 @@ export default function ExportFollowUp({
     const pdfBlob = generateSyllabusContinuityPdfBlob({
       studentName: activeStudentName,
       className: syllabusData.selectedClass || 'Grade 8',
-      subject: syllabusData.selectedSubject || 'Mathematics',
+      subject: effectiveSubject,
       examName: syllabusData.examName || 'Assessment',
       gapsData,
       roadmapData,

@@ -180,6 +180,20 @@ export async function getAnswerSheetsByAssessment(req, res, next) {
       });
     }
 
+    // Auto-recover stale 'processing' sheets older than 40 seconds so UI never hangs indefinitely
+    const staleThreshold = new Date(Date.now() - 40000);
+    await AnswerSheet.updateMany(
+      {
+        assessmentId,
+        teacherId,
+        status: 'processing',
+        updatedAt: { $lt: staleThreshold },
+      },
+      {
+        $set: { status: 'review_required' },
+      }
+    ).catch(() => {});
+
     const answerSheets = await AnswerSheet.find({
       assessmentId,
       teacherId,
