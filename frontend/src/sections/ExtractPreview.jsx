@@ -830,7 +830,7 @@ export default function ExtractPreview({
                               display: 'flex',
                               justifyContent: 'space-between',
                               alignItems: 'center',
-                              marginBottom: '6px',
+                              marginBottom: '8px',
                             }}
                           >
                             <span className="badge" style={{ backgroundColor: '#2B8A3E', color: '#FFF', fontWeight: 'bold' }}>
@@ -840,15 +840,7 @@ export default function ExtractPreview({
                               Marking Scheme Reference
                             </span>
                           </div>
-                          {/* Never duplicate: only display prompt if it's a distinct question statement, not model answer */}
-                          {q.prompt &&
-                            !q.prompt.toLowerCase().startsWith('model answer') &&
-                            q.prompt.trim().toLowerCase() !== modelAnswer.trim().toLowerCase() && (
-                              <p style={{ color: '#231B16', fontSize: '12px', fontStyle: 'italic', marginBottom: '6px' }}>
-                                {q.prompt}
-                              </p>
-                          )}
-                          <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #D3F9D8', padding: '8px 10px', borderRadius: '4px', color: '#2B8A3E', whiteSpace: 'pre-wrap' }}>
+                          <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #D3F9D8', padding: '10px 12px', borderRadius: '4px', color: '#2B8A3E', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
                             {modelAnswer}
                           </div>
                         </div>
