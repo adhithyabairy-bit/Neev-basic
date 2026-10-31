@@ -9,6 +9,12 @@
       "root": "frontend"
     }
   },
+  "functions": {
+    "backend/index.js": {
+      "maxDuration": 60,
+      "memory": 1024
+    }
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",

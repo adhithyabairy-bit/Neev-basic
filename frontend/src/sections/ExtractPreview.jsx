@@ -141,10 +141,25 @@ export default function ExtractPreview({
     }
 
     setIsProcessing(true);
-    setProcessNotice('Running smart OCR extraction on answer sheet...');
+    setProcessNotice('Running fast multimodal AI extraction on exam documents...');
     setProcessError(null);
 
     try {
+      // If question paper exists and hasn't been extracted, extract it first
+      if (
+        questionPaperFile?._id &&
+        (!questionPaperFile.rawSheet?.answers || questionPaperFile.rawSheet.answers.length === 0)
+      ) {
+        try {
+          const updatedQp = await processAnswerSheet(questionPaperFile._id);
+          if (updatedQp) {
+            questionPaperFile.rawSheet = updatedQp;
+          }
+        } catch (qpErr) {
+          console.warn('[ExtractPreview] Auto-extract QP notice:', qpErr.message);
+        }
+      }
+
       const updatedSheet = await processAnswerSheet(targetSheet._id);
       if (updatedSheet?.answers) {
         onUpdateExtraction(updatedSheet.answers);
@@ -152,7 +167,7 @@ export default function ExtractPreview({
           onAnswerSheetUpdated(updatedSheet);
         }
         setProcessNotice(
-          `Smart OCR complete! Extracted ${updatedSheet.answers.length} question(s) cleanly.`
+          `Smart AI extraction complete! Extracted ${updatedSheet.answers.length} question(s) cleanly.`
         );
       }
     } catch (err) {
