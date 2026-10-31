@@ -1,5 +1,10 @@
 // Ensure standard web geometry APIs (DOMMatrix, DOMPoint, DOMRect) exist on globalThis in serverless environments
 import '../../utils/domPolyfill.js';
+import {
+  extractQuestionsFromQuestionPaper,
+  extractAnswersFromAnswerSheet,
+  extractRubricFromMarkingScheme,
+} from './groqExtractionService.js';
 
 // Lazy dynamic imports for serverless cold start performance and AWS Lambda compatibility
 let PDFParseClass = null;
@@ -21,11 +26,14 @@ async function getCreateWorker() {
 }
 
 /**
- * Helper to generate an uncompressed 32-bit BMP buffer from raw RGBA/RGB image pixel data
+ * Helper to generate an uncompressed 24-bit or 32-bit BMP buffer from raw RGBA/RGB image pixel data
  * so Tesseract.js can recognize it directly without external image processing binaries.
  */
 function createBmpBuffer(width, height, rgbaBuffer) {
-  const rowSize = width * 4;
+  const isRGBA = rgbaBuffer.length === width * height * 4;
+  const isRGB = rgbaBuffer.length === width * height * 3;
+  const bytesPerPixel = 3;
+  const rowSize = (width * bytesPerPixel + 3) & ~3; // 4-byte boundary
   const pixelArraySize = rowSize * height;
   const fileSize = 54 + pixelArraySize;
   const buf = Buffer.alloc(fileSize);
@@ -39,37 +47,21 @@ function createBmpBuffer(width, height, rgbaBuffer) {
   buf.writeInt32LE(width, 18);
   buf.writeInt32LE(-height, 22); // Negative height specifies top-down orientation
   buf.writeUInt16LE(1, 26); // Color planes
-  buf.writeUInt16LE(32, 28); // 32 bits per pixel
+  buf.writeUInt16LE(24, 28); // 24 bits per pixel
   buf.writeUInt32LE(0, 30); // BI_RGB (uncompressed)
   buf.writeUInt32LE(pixelArraySize, 34);
 
   let srcOffset = 0;
-  let dstOffset = 54;
-  const isRGBA = rgbaBuffer.length === width * height * 4;
-  const isRGB = rgbaBuffer.length === width * height * 3;
-
   for (let y = 0; y < height; y++) {
+    let dstOffset = 54 + y * rowSize;
     for (let x = 0; x < width; x++) {
-      let r, g, b, a = 255;
-      if (isRGBA) {
-        r = rgbaBuffer[srcOffset];
-        g = rgbaBuffer[srcOffset + 1];
-        b = rgbaBuffer[srcOffset + 2];
-        a = rgbaBuffer[srcOffset + 3];
-        srcOffset += 4;
-      } else if (isRGB) {
-        r = rgbaBuffer[srcOffset];
-        g = rgbaBuffer[srcOffset + 1];
-        b = rgbaBuffer[srcOffset + 2];
-        srcOffset += 3;
-      } else {
-        r = g = b = rgbaBuffer[srcOffset++];
-      }
-      buf[dstOffset] = b;
-      buf[dstOffset + 1] = g;
-      buf[dstOffset + 2] = r;
-      buf[dstOffset + 3] = a;
-      dstOffset += 4;
+      const r = rgbaBuffer[srcOffset];
+      const g = rgbaBuffer[srcOffset + 1];
+      const b = rgbaBuffer[srcOffset + 2];
+      srcOffset += isRGBA ? 4 : (isRGB ? 3 : 1);
+      buf[dstOffset++] = b;
+      buf[dstOffset++] = g;
+      buf[dstOffset++] = r;
     }
   }
   return buf;
@@ -88,34 +80,42 @@ export async function extractScannedPdf(pdfBuffer) {
   const loadingTask = pdfjsLib.getDocument({ data: uint8 });
   const doc = await loadingTask.promise;
   const pages = [];
-  const createWorker = await getCreateWorker();
   let worker = null;
 
   try {
-    worker = await createWorker('eng');
+    const createWorker = await getCreateWorker();
+    // Safety timeout: abort worker initialization after 5 seconds to prevent hanging
+    const workerPromise = createWorker('eng');
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Tesseract worker init timeout')), 5000)
+    );
+    worker = await Promise.race([workerPromise, timeoutPromise]);
+  } catch (workerErr) {
+    console.warn('[ExtractionService] Tesseract worker unavailable for scanned PDF:', workerErr.message);
+  }
 
+  try {
     for (let pageNum = 1; pageNum <= doc.numPages; pageNum++) {
       const page = await doc.getPage(pageNum);
       const ops = await page.getOperatorList();
       let pageText = '';
 
-      for (let i = 0; i < ops.fnArray.length; i++) {
-        if (ops.fnArray[i] === pdfjsLib.OPS.paintImageXObject) {
-          const objId = ops.argsArray[i][0];
-          await new Promise((resolve) => {
-            page.objs.get(objId, async (img) => {
+      if (worker) {
+        for (let i = 0; i < ops.fnArray.length; i++) {
+          if (ops.fnArray[i] === pdfjsLib.OPS.paintImageXObject) {
+            const objId = ops.argsArray[i][0];
+            try {
+              // In pdfjs-dist v5, page.objs.get(objId) returns image object synchronously
+              const img = page.objs.get(objId);
               if (img && img.data && img.width && img.height) {
-                try {
-                  const bmp = createBmpBuffer(img.width, img.height, img.data);
-                  const ocrRes = await worker.recognize(bmp);
-                  pageText += (ocrRes.data?.text || '') + '\n';
-                } catch (e) {
-                  console.warn(`[ExtractionService] OCR failed on page ${pageNum} image ${objId}:`, e.message);
-                }
+                const bmp = createBmpBuffer(img.width, img.height, img.data);
+                const ocrRes = await worker.recognize(bmp);
+                pageText += (ocrRes.data?.text || '') + '\n';
               }
-              resolve();
-            });
-          });
+            } catch (e) {
+              console.warn(`[ExtractionService] OCR failed on page ${pageNum} image ${objId}:`, e.message);
+            }
+          }
         }
       }
 
@@ -539,12 +539,20 @@ export async function extractImageOcr(buffer) {
  *
  * @param {Buffer} buffer - File buffer
  * @param {string} mimeType - File MIME type ('application/pdf', 'image/jpeg', 'image/png')
+ * @param {Object} options - Extraction options (category, questions, subject)
  * @returns {Promise<{ rawOcrText: string, answers: Array<Object>, pageCount: number, ocrStatus: Object }>}
  */
-export async function processDocumentExtraction(buffer, mimeType) {
+export async function processDocumentExtraction(buffer, mimeType, options = {}) {
   const isPdf = mimeType === 'application/pdf';
+  const category = options.category || 'answer-sheet';
 
   try {
+    let rawText = '';
+    let pageCount = 1;
+    let pages = [{ pageNumber: 1, text: '' }];
+    let method = isPdf ? 'pdf-text-extract' : 'tesseract-ocr';
+    let confidence = 100;
+
     if (isPdf) {
       let pdfResult = null;
       try {
@@ -555,76 +563,168 @@ export async function processDocumentExtraction(buffer, mimeType) {
 
       // Check if PDF has substantial embedded text (native vector PDF)
       const cleanEmbedded = (pdfResult?.text || '').replace(/--\s*\d+\s*of\s*\d+\s*--/gi, '').trim();
-      if (cleanEmbedded && cleanEmbedded.length >= 40) {
-        const answers = organizeExtractedText(pdfResult.pages, null);
-        return {
-          rawOcrText: pdfResult.text,
-          answers,
-          pageCount: pdfResult.pageCount || 1,
-          ocrStatus: {
-            method: 'pdf-text-extract',
-            processedAt: new Date(),
-            confidence: 100, // Native embedded vector text
-            errorDetails: null,
-          },
-        };
-      }
+      if (cleanEmbedded && cleanEmbedded.length >= 30) {
+        rawText = pdfResult.text;
+        pageCount = pdfResult.pageCount || 1;
+        pages = pdfResult.pages || [{ pageNumber: 1, text: rawText }];
+        confidence = 100;
+        method = 'pdf-text-extract';
+      } else {
+        // Scanned PDF: extract images and perform OCR safely without hanging
+        try {
+          const scannedResult = await extractScannedPdf(buffer);
+          if (scannedResult.text && scannedResult.text.trim().length > 5) {
+            rawText = scannedResult.text;
+            pageCount = scannedResult.pageCount || 1;
+            pages = scannedResult.pages || [{ pageNumber: 1, text: rawText }];
+            confidence = 85;
+            method = 'tesseract-ocr-pdf';
+          }
+        } catch (scannedErr) {
+          console.warn('[ExtractionService] Scanned PDF image OCR failed:', scannedErr.message);
+        }
 
-      // If PDF has no text layer (scanned handwritten answer sheet), run Tesseract OCR on page images
+        if (!rawText) {
+          rawText = cleanEmbedded || '';
+          pageCount = pdfResult?.pageCount || 1;
+          pages = pdfResult?.pages || [{ pageNumber: 1, text: '' }];
+          method = 'pdf-scan-review';
+          confidence = 50;
+        }
+      }
+    } else {
+      // Image file (JPEG, PNG): Run Tesseract OCR
+      const imageResult = await extractImageOcr(buffer);
+      rawText = imageResult.text;
+      pageCount = imageResult.pageCount || 1;
+      pages = imageResult.pages || [{ pageNumber: 1, text: rawText }];
+      confidence = imageResult.confidence || 80;
+      method = 'tesseract-ocr';
+    }
+
+    // 1. QUESTION PAPER PROCESSING: Extract genuine questions and max marks using Groq
+    if (category === 'question-paper') {
       try {
-        const scannedResult = await extractScannedPdf(buffer);
-        if (scannedResult.text && scannedResult.text.trim().length > 10) {
-          const answers = organizeExtractedText(scannedResult.pages, 85);
+        const qpQuestions = await extractQuestionsFromQuestionPaper(rawText, options.subject);
+        if (Array.isArray(qpQuestions) && qpQuestions.length > 0) {
+          const answers = qpQuestions.map((q, idx) => ({
+            questionNumber: q.questionNumber || `Q${idx + 1}`,
+            prompt: q.prompt,
+            rawExtractedText: q.prompt,
+            correctedText: q.prompt,
+            pageNumber: 1,
+            confidence: 100,
+            maxMarks: Number(q.maxMarks) || 3,
+            awardedMarks: 0,
+            status: 'Needs Review',
+            uncertainParts: [],
+          }));
+
           return {
-            rawOcrText: scannedResult.text,
+            rawOcrText: rawText,
             answers,
-            pageCount: scannedResult.pageCount,
+            pageCount,
             ocrStatus: {
-              method: 'tesseract-ocr-pdf',
+              method: 'groq-question-paper-extract',
               processedAt: new Date(),
-              confidence: 85,
+              confidence: 100,
               errorDetails: null,
             },
           };
         }
-      } catch (scannedErr) {
-        console.warn('[ExtractionService] Scanned PDF image OCR failed:', scannedErr.message);
+      } catch (qpErr) {
+        console.warn('[ExtractionService] Groq QP extraction error:', qpErr.message);
       }
-
-      // If neither embedded text nor scanned image OCR found text, flag for review
-      const answers = organizeExtractedText(
-        [{ pageNumber: 1, text: '' }],
-        null
-      );
-      answers[0].uncertainParts = [
-        'Scanned document without embedded text layer. Please review scan directly.',
-      ];
-
-      return {
-        rawOcrText: '',
-        answers,
-        pageCount: pdfResult?.pageCount || 1,
-        ocrStatus: {
-          method: 'pdf-scan-review',
-          processedAt: new Date(),
-          confidence: null,
-          errorDetails: 'Scanned document with no embedded text layer.',
-        },
-      };
     }
 
-    // Image file (JPEG, PNG): Run Tesseract OCR
-    const imageResult = await extractImageOcr(buffer);
-    const answers = organizeExtractedText(imageResult.pages, imageResult.confidence);
+    // 2. MARKING SCHEME PROCESSING: Extract expected rubric answers using Groq
+    if (category === 'marking-scheme') {
+      try {
+        const rubricItems = await extractRubricFromMarkingScheme(rawText, options.questions);
+        if (Array.isArray(rubricItems) && rubricItems.length > 0) {
+          const answers = rubricItems.map((r, idx) => ({
+            questionNumber: r.questionNumber || `Q${idx + 1}`,
+            prompt: r.referenceAnswer,
+            rawExtractedText: r.referenceAnswer,
+            correctedText: r.referenceAnswer,
+            pageNumber: 1,
+            confidence: 100,
+            maxMarks: Number(r.maxMarks) || 3,
+            awardedMarks: 0,
+            status: 'Needs Review',
+            uncertainParts: [],
+          }));
+
+          return {
+            rawOcrText: rawText,
+            answers,
+            pageCount,
+            ocrStatus: {
+              method: 'groq-marking-scheme-extract',
+              processedAt: new Date(),
+              confidence: 100,
+              errorDetails: null,
+            },
+          };
+        }
+      } catch (msErr) {
+        console.warn('[ExtractionService] Groq marking scheme extraction error:', msErr.message);
+      }
+    }
+
+    // 3. STUDENT ANSWER SHEET PROCESSING:
+    // If Question Paper questions exist, map student work question-by-question with 100% verbatim fidelity!
+    if (category === 'answer-sheet' && Array.isArray(options.questions) && options.questions.length > 0) {
+      try {
+        const studentAnswers = await extractAnswersFromAnswerSheet(rawText, options.questions);
+        if (Array.isArray(studentAnswers) && studentAnswers.length > 0) {
+          const answers = options.questions.map((q, idx) => {
+            const found = studentAnswers.find(
+              (a) => (a.questionNumber || '').toUpperCase() === (q.questionNumber || '').toUpperCase()
+            ) || studentAnswers[idx];
+            const answerText = found ? (found.studentAnswer || found.text || '') : '';
+            return {
+              questionNumber: q.questionNumber || `Q${idx + 1}`,
+              prompt: q.prompt || `Question ${q.questionNumber || idx + 1}`,
+              rawExtractedText: answerText,
+              correctedText: answerText,
+              pageNumber: q.pageNumber || 1,
+              confidence: answerText ? 95 : 0,
+              maxMarks: Number(q.maxMarks) || 3,
+              awardedMarks: 0,
+              status: 'Needs Review',
+              uncertainParts: answerText ? [] : ['No answer detected for this question'],
+            };
+          });
+
+          return {
+            rawOcrText: rawText,
+            answers,
+            pageCount,
+            ocrStatus: {
+              method: 'groq-answer-sheet-extract',
+              processedAt: new Date(),
+              confidence: 95,
+              errorDetails: null,
+            },
+          };
+        }
+      } catch (ansErr) {
+        console.warn('[ExtractionService] Groq student answer extraction error:', ansErr.message);
+      }
+    }
+
+    // Default Fallback: organize by regex / page blocks
+    const answers = organizeExtractedText(pages, confidence);
 
     return {
-      rawOcrText: imageResult.text,
+      rawOcrText: rawText,
       answers,
-      pageCount: imageResult.pageCount || 1,
+      pageCount,
       ocrStatus: {
-        method: 'tesseract-ocr',
+        method,
         processedAt: new Date(),
-        confidence: imageResult.confidence,
+        confidence,
         errorDetails: null,
       },
     };
@@ -634,8 +734,8 @@ export async function processDocumentExtraction(buffer, mimeType) {
       rawOcrText: '',
       answers: [
         {
-          questionNumber: 'Page 1',
-          prompt: 'Extraction Failed',
+          questionNumber: 'Q1',
+          prompt: 'Extraction Incomplete',
           rawExtractedText: '',
           correctedText: '',
           pageNumber: 1,
@@ -643,7 +743,7 @@ export async function processDocumentExtraction(buffer, mimeType) {
           maxMarks: 5,
           awardedMarks: 0,
           status: 'Needs Review',
-          uncertainParts: [`Extraction error: ${err.message}`],
+          uncertainParts: [`Extraction notice: ${err.message}`],
         },
       ],
       pageCount: 1,

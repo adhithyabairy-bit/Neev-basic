@@ -230,6 +230,7 @@ export default function UploadAnswerSheets({
       const formData = new FormData();
       formData.append('studentName', activeStudentName);
       formData.append('rollNumber', studentProfile.rollNumber ? studentProfile.rollNumber.trim() : '');
+      formData.append('category', selectedCategory);
 
       filesToUpload.forEach((file) => {
         formData.append('files', file);
@@ -285,14 +286,34 @@ export default function UploadAnswerSheets({
         );
         setTimeout(() => setUploadNotice(null), 5000);
 
-        // 2. Launch background OCR text extraction asynchronously for answer sheets only
+        // 2. Launch background extraction: process Question Paper first, then Answer Sheet
+        const qpToProcess = newlyMapped.filter((m) => m.category === 'question-paper');
         const answerSheetsToProcess = newlyMapped.filter(
           (m) => m.category === 'answer-sheet' && (!m.rawSheet?.answers || m.rawSheet.answers.length === 0)
         );
 
-        answerSheetsToProcess.forEach((sheetItem) => {
-          processAnswerSheet(sheetItem._id)
-            .then((processedSheet) => {
+        const runSequentialExtraction = async () => {
+          for (const qp of qpToProcess) {
+            try {
+              const processedQp = await processAnswerSheet(qp._id);
+              if (processedQp) {
+                onUpdateFiles((prev) => {
+                  const list = Array.isArray(prev) ? prev : [];
+                  return list.map((f) =>
+                    f._id === processedQp._id || f.id === processedQp._id
+                      ? { ...f, status: 'Ready for Review', rawSheet: processedQp }
+                      : f
+                  );
+                });
+              }
+            } catch (qpErr) {
+              console.warn('[UploadAnswerSheets] Background QP extraction notice:', qpErr.message);
+            }
+          }
+
+          for (const sheetItem of answerSheetsToProcess) {
+            try {
+              const processedSheet = await processAnswerSheet(sheetItem._id);
               if (processedSheet) {
                 if (onAnswerSheetLoaded) {
                   onAnswerSheetLoaded(processedSheet);
@@ -316,22 +337,21 @@ export default function UploadAnswerSheets({
                 );
                 setTimeout(() => setUploadNotice(null), 5000);
               }
-            })
-            .catch((extractErr) => {
+            } catch (extractErr) {
               console.warn('[UploadAnswerSheets] Background extraction notice:', extractErr.message);
               onUpdateFiles((prev) => {
                 const list = Array.isArray(prev) ? prev : [];
                 return list.map((f) =>
                   f._id === sheetItem._id || f.id === sheetItem._id
-                    ? {
-                        ...f,
-                        status: 'Ready for Review',
-                      }
+                    ? { ...f, status: 'Ready for Review' }
                     : f
                 );
               });
-            });
-        });
+            }
+          }
+        };
+
+        runSequentialExtraction();
       } else {
         setUploadNotice('Files uploaded successfully.');
         setTimeout(() => setUploadNotice(null), 4000);

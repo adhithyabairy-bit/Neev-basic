@@ -2,6 +2,8 @@ import mongoose from 'mongoose';
 import Assessment from '../models/Assessment.js';
 import AnswerSheet from '../models/AnswerSheet.js';
 import Evaluation from '../models/Evaluation.js';
+import storageService from '../services/storage/storageService.js';
+import { processDocumentExtraction } from '../services/extraction/extractionService.js';
 import { retrieveRelevantSyllabusChunks, formatChunksAsEvidence } from '../services/rag/retrievalService.js';
 import grokService from '../services/ai/grokService.js';
 
@@ -72,6 +74,49 @@ export async function evaluateAnswerSheet(req, res, next) {
         const key = (r.questionNumber || '').trim().toUpperCase();
         if (key) rubricMap.set(key, r);
       });
+    }
+
+    // Check if an official Marking Scheme document was uploaded for this assessment
+    const markingSchemeDoc = await AnswerSheet.findOne({
+      assessmentId,
+      teacherId,
+      $or: [
+        { category: 'marking-scheme' },
+        { originalFileName: { $regex: /marking|rubric|scheme/i } },
+      ],
+    });
+
+    if (markingSchemeDoc) {
+      if (!markingSchemeDoc.answers || markingSchemeDoc.answers.length === 0) {
+        try {
+          const msBuf = await storageService.getFileBuffer(markingSchemeDoc.storageKey);
+          const msExt = await processDocumentExtraction(msBuf, markingSchemeDoc.mimeType, {
+            category: 'marking-scheme',
+            subject: assessment.subject,
+          });
+          markingSchemeDoc.rawOcrText = msExt.rawOcrText;
+          markingSchemeDoc.answers = msExt.answers;
+          markingSchemeDoc.status = 'review_required';
+          await markingSchemeDoc.save();
+        } catch (msErr) {
+          console.warn('[EvaluateAnswerSheet] Auto-extract marking scheme notice:', msErr.message);
+        }
+      }
+
+      if (Array.isArray(markingSchemeDoc.answers)) {
+        markingSchemeDoc.answers.forEach((ans) => {
+          const key = (ans.questionNumber || '').trim().toUpperCase();
+          if (key && !rubricMap.has(key)) {
+            rubricMap.set(key, {
+              questionNumber: ans.questionNumber,
+              prompt: ans.prompt,
+              maximumMarks: ans.maxMarks || 5,
+              referenceAnswer: ans.correctedText || ans.rawExtractedText || ans.prompt,
+              keyPoints: [ans.prompt || 'Expected answer from official marking scheme'],
+            });
+          }
+        });
+      }
     }
 
     // 4. Evaluate each question concurrently using Promise.all for high speed and responsiveness

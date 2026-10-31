@@ -84,6 +84,11 @@ export default function TeacherCorrection({
           if (!isNaN(num) && num >= 0) {
             payload.awardedMarks = num;
           }
+        } else if (field === 'maxMarks') {
+          const num = Number(value);
+          if (!isNaN(num) && num > 0) {
+            payload.maxMarks = num;
+          }
         }
         if (Object.keys(payload).length > 0) {
           updateAnswerCorrection(activeAnswerSheet._id, currentQ._id, payload).catch((err) => {
@@ -358,13 +363,19 @@ export default function TeacherCorrection({
               <FormField
                 id={`max-marks-${currentQ._id || currentQ.id || activeQuestionIndex}`}
                 label="Maximum Marks"
+                helpText="Extracted from question paper; editable by teacher"
               >
                 <input
                   type="number"
-                  disabled
+                  min="0.5"
+                  step="0.5"
                   value={getMaxMarks(currentQ)}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    if (val > 0) handleFieldChange('maxMarks', val);
+                  }}
                   className="form-input"
-                  style={{ backgroundColor: 'var(--surface-bg)' }}
+                  aria-label="Maximum marks for this question"
                 />
               </FormField>
             </div>

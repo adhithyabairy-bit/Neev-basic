@@ -72,11 +72,28 @@ export default function ExtractPreview({
     correctedText: '',
   });
 
-  // Derive active sheet from prop or first uploaded file with a backend _id
+  // Identify distinct document roles from uploadedFiles
+  const questionPaperFile =
+    uploadedFiles.find((f) => f.category === 'question-paper' || /question|qp|paper/i.test(f.name || f.originalFileName));
+
+  const answerSheetFile =
+    uploadedFiles.find((f) => f.category === 'answer-sheet' || /answer|ans/i.test(f.name || f.originalFileName)) ||
+    uploadedFiles.find((f) => f.rawSheet && f.category !== 'question-paper' && f.category !== 'marking-scheme') ||
+    uploadedFiles[0];
+
+  const markingSchemeFile =
+    uploadedFiles.find((f) => f.category === 'marking-scheme' || /marking|rubric|scheme/i.test(f.name || f.originalFileName));
+
+  // Default target answer sheet for OCR and persistence
   const targetSheet =
     activeAnswerSheet ||
+    answerSheetFile?.rawSheet ||
+    (answerSheetFile?._id ? answerSheetFile : null) ||
     uploadedFiles.find((f) => f.rawSheet)?.rawSheet ||
     (uploadedFiles[0]?._id ? uploadedFiles[0] : null);
+
+  // Active view tab for left panel: default to Question Paper if available
+  const [activeDocType, setActiveDocType] = useState(() => (questionPaperFile ? 'question-paper' : 'answer-sheet'));
 
   // Compute total pages from extraction items or active sheet metadata
   const totalPages = Math.max(
@@ -532,14 +549,51 @@ export default function ExtractPreview({
             {/* Scanned Document View Panel */}
             <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
               <div className="card-header">
-                <h2 className="card-title" style={{ fontSize: 'var(--font-size-md)' }}>
-                  Scanned Document View &bull; Page {currentPage}
-                </h2>
+                <div>
+                  <h2 className="card-title" style={{ fontSize: 'var(--font-size-md)' }}>
+                    Scanned Document View &bull; Page {currentPage}
+                  </h2>
+                  <p style={{ fontSize: '12px', color: 'var(--secondary-text)', margin: '2px 0 0 0' }}>
+                    Viewing {activeDocType === 'question-paper' ? 'Question Paper (Questions & Max Marks)' : activeDocType === 'marking-scheme' ? 'Marking Scheme (Official Rubric)' : 'Student Answer Sheet'}
+                  </p>
+                </div>
                 <span className="badge badge-neutral">
-                  {targetSheet?.originalFileName || studentProfile?.name
-                    ? `${studentProfile.name || targetSheet.studentName || 'Document'} - Copy`
-                    : 'Document View'}
+                  {activeDocType === 'question-paper'
+                    ? (questionPaperFile?.name || 'Question Paper')
+                    : activeDocType === 'marking-scheme'
+                    ? (markingSchemeFile?.name || 'Marking Scheme')
+                    : (targetSheet?.originalFileName || answerSheetFile?.name || 'Answer Sheet')}
                 </span>
+              </div>
+
+              {/* Document Type Switcher Tabs */}
+              <div style={{ display: 'flex', gap: '6px', padding: '0 16px 12px 16px', flexWrap: 'wrap', borderBottom: '1px solid var(--border-color)' }}>
+                <button
+                  type="button"
+                  className={`btn btn-sm ${activeDocType === 'question-paper' ? 'btn-primary' : 'btn-outline'}`}
+                  onClick={() => setActiveDocType('question-paper')}
+                  style={{ fontSize: '12px', padding: '4px 10px' }}
+                >
+                  📄 Question Paper
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-sm ${activeDocType === 'answer-sheet' ? 'btn-primary' : 'btn-outline'}`}
+                  onClick={() => setActiveDocType('answer-sheet')}
+                  style={{ fontSize: '12px', padding: '4px 10px' }}
+                >
+                  📝 Student Answer Sheet
+                </button>
+                {markingSchemeFile && (
+                  <button
+                    type="button"
+                    className={`btn btn-sm ${activeDocType === 'marking-scheme' ? 'btn-primary' : 'btn-outline'}`}
+                    onClick={() => setActiveDocType('marking-scheme')}
+                    style={{ fontSize: '12px', padding: '4px 10px' }}
+                  >
+                    📋 Marking Scheme
+                  </button>
+                )}
               </div>
 
               {/* Styled Document / Scan Sheet Preview */}
@@ -549,7 +603,7 @@ export default function ExtractPreview({
                   minHeight: '420px',
                   backgroundColor: '#FFFDF9',
                   border: '1.5px solid var(--border-color)',
-                  borderRadius: 'var(--radius-md)',
+                  borderRadius: '0 0 var(--radius-md) var(--radius-md)',
                   padding: 'var(--space-4)',
                   boxShadow: 'inset 0 1px 3px rgba(35, 27, 22, 0.05)',
                   fontFamily: 'monospace',
@@ -569,16 +623,94 @@ export default function ExtractPreview({
                     color: '#6F6259',
                   }}
                 >
-                  <span>{targetSheet?.originalFileName || 'EXAMINATION ANSWER SHEET'}</span>
+                  <span>
+                    {activeDocType === 'question-paper'
+                      ? (questionPaperFile?.name || 'EXAMINATION QUESTION PAPER')
+                      : activeDocType === 'marking-scheme'
+                      ? (markingSchemeFile?.name || 'OFFICIAL MARKING SCHEME')
+                      : (targetSheet?.originalFileName || answerSheetFile?.name || 'STUDENT ANSWER SHEET')}
+                  </span>
                   <span>PAGE {currentPage} OF {totalPages}</span>
                 </div>
 
-                {/* Show Page Questions */}
+                {/* Show Document Questions / Scanned Content */}
                 {pageQuestions.length > 0 ? (
                   pageQuestions.map((q, idx) => {
                     const qNum = q.questionNumber || `Q${idx + 1}`;
                     const displayPrompt = cleanDisplayPrompt(q.prompt, qNum);
 
+                    if (activeDocType === 'question-paper') {
+                      return (
+                        <div
+                          key={q._id || q.id || idx}
+                          style={{
+                            border: '1.5px solid var(--primary-orange)',
+                            backgroundColor: 'rgba(242, 107, 29, 0.04)',
+                            padding: '14px',
+                            borderRadius: '6px',
+                            marginBottom: '14px',
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              marginBottom: '6px',
+                            }}
+                          >
+                            <span className="badge badge-orange" style={{ fontWeight: 'bold' }}>
+                              {qNum} &bull; [{q.maxMarks || 3} Marks]
+                            </span>
+                            <span style={{ fontSize: '11px', color: 'var(--secondary-text)' }}>
+                              Question Paper Scan &bull; Direct Text
+                            </span>
+                          </div>
+                          <p style={{ color: '#231B16', fontWeight: 'bold', fontSize: '13px', margin: 0, whiteSpace: 'pre-wrap' }}>
+                            {displayPrompt}
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    if (activeDocType === 'marking-scheme') {
+                      return (
+                        <div
+                          key={q._id || q.id || idx}
+                          style={{
+                            border: '1.5px solid #2B8A3E',
+                            backgroundColor: 'rgba(43, 138, 62, 0.04)',
+                            padding: '14px',
+                            borderRadius: '6px',
+                            marginBottom: '14px',
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              marginBottom: '6px',
+                            }}
+                          >
+                            <span className="badge" style={{ backgroundColor: '#2B8A3E', color: '#FFF', fontWeight: 'bold' }}>
+                              {qNum} &bull; Model Answer [{q.maxMarks || 3} Marks]
+                            </span>
+                            <span style={{ fontSize: '11px', color: 'var(--secondary-text)' }}>
+                              Marking Scheme Reference
+                            </span>
+                          </div>
+                          <p style={{ color: '#231B16', fontSize: '12px', fontStyle: 'italic', marginBottom: '6px' }}>
+                            {displayPrompt}
+                          </p>
+                          <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #D3F9D8', padding: '8px 10px', borderRadius: '4px', color: '#2B8A3E', whiteSpace: 'pre-wrap' }}>
+                            {q.referenceAnswer || q.expectedAnswer || 'Expected step-wise scoring criteria and final answer.'}
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // Student Answer Sheet View
                     return (
                       <div
                         key={q._id || q.id || idx}
@@ -837,8 +969,36 @@ export default function ExtractPreview({
                               <span className="badge badge-neutral">
                                 OCR: {q.confidence !== null && q.confidence !== undefined ? `${q.confidence}%` : 'Direct Text'}
                               </span>
-                              <span className="badge badge-neutral">
-                                Marks: {q.awardedMarks !== undefined ? q.awardedMarks : 0}/{q.maxMarks || 5}
+                              <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <span>Max Marks:</span>
+                                <input
+                                  type="number"
+                                  min="0.5"
+                                  step="0.5"
+                                  value={q.maxMarks || 3}
+                                  onChange={(e) => {
+                                    const val = Number(e.target.value);
+                                    if (val > 0) {
+                                      const updated = extractionData.map((item) =>
+                                        (item._id || item.id) === qId ? { ...item, maxMarks: val } : item
+                                      );
+                                      onUpdateExtraction(updated);
+                                      if (targetSheet?._id && qId) {
+                                        updateAnswerCorrection(targetSheet._id, qId, { maxMarks: val }).catch(console.warn);
+                                      }
+                                    }
+                                  }}
+                                  style={{
+                                    width: '45px',
+                                    padding: '1px 4px',
+                                    fontSize: '11px',
+                                    fontWeight: 'bold',
+                                    border: '1px solid var(--border-color)',
+                                    borderRadius: '3px',
+                                    textAlign: 'center',
+                                  }}
+                                  title="Click to edit maximum marks for this question"
+                                />
                               </span>
                             </div>
 

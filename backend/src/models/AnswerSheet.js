@@ -84,6 +84,12 @@ const answerSheetSchema = new mongoose.Schema(
       required: [true, 'Class ID reference is required'],
       index: true,
     },
+    category: {
+      type: String,
+      enum: ['answer-sheet', 'question-paper', 'marking-scheme'],
+      default: 'answer-sheet',
+      index: true,
+    },
     studentName: {
       type: String,
       required: [true, 'Student full name is required'],

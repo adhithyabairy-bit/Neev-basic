@@ -82,6 +82,19 @@ export async function uploadAnswerSheets(req, res, next) {
         continue;
       }
 
+      // Determine document category (from body or intelligent file name detection)
+      let docCategory = req.body.category || 'answer-sheet';
+      const lowerName = file.originalname.toLowerCase();
+      if (lowerName.includes('marking') || lowerName.includes('rubric') || lowerName.includes('scheme')) {
+        docCategory = 'marking-scheme';
+      } else if (
+        lowerName.includes('question') ||
+        lowerName.includes('qp') ||
+        (lowerName.includes('paper') && !lowerName.includes('answer'))
+      ) {
+        docCategory = 'question-paper';
+      }
+
       // Save file to storage provider
       let storageResult;
       try {
@@ -106,6 +119,7 @@ export async function uploadAnswerSheets(req, res, next) {
         teacherId,
         assessmentId: assessment._id,
         classId: assessment.classId,
+        category: docCategory,
         studentName: finalStudentName,
         rollNumber: (rollNumber || '').trim(),
         originalFileName: file.originalname,
@@ -253,6 +267,20 @@ export async function processAnswerSheet(req, res, next) {
     answerSheet.status = 'processing';
     await answerSheet.save();
 
+    // Re-detect or verify category from filename if not set
+    if (!answerSheet.category || answerSheet.category === 'answer-sheet') {
+      const lower = answerSheet.originalFileName.toLowerCase();
+      if (lower.includes('marking') || lower.includes('rubric') || lower.includes('scheme')) {
+        answerSheet.category = 'marking-scheme';
+      } else if (
+        lower.includes('question') ||
+        lower.includes('qp') ||
+        (lower.includes('paper') && !lower.includes('answer'))
+      ) {
+        answerSheet.category = 'question-paper';
+      }
+    }
+
     // Read stored buffer
     let buffer;
     try {
@@ -273,9 +301,49 @@ export async function processAnswerSheet(req, res, next) {
       });
     }
 
+    // Look up parent assessment to provide subject context
+    const assessment = await Assessment.findById(answerSheet.assessmentId).lean();
+
+    // If processing an answer sheet, look for an uploaded question paper for this assessment
+    let qpQuestions = [];
+    if (answerSheet.category === 'answer-sheet') {
+      const qpDoc = await AnswerSheet.findOne({
+        assessmentId: answerSheet.assessmentId,
+        teacherId,
+        $or: [
+          { category: 'question-paper' },
+          { originalFileName: { $regex: /question|qp|exam\s*paper/i } },
+        ],
+      });
+
+      if (qpDoc) {
+        // If question paper hasn't been extracted yet, extract its questions first
+        if (!qpDoc.answers || qpDoc.answers.length === 0) {
+          try {
+            const qpBuf = await storageService.getFileBuffer(qpDoc.storageKey);
+            const qpExtraction = await processDocumentExtraction(qpBuf, qpDoc.mimeType, {
+              category: 'question-paper',
+              subject: assessment?.subject,
+            });
+            qpDoc.rawOcrText = qpExtraction.rawOcrText;
+            qpDoc.answers = qpExtraction.answers;
+            qpDoc.status = 'review_required';
+            await qpDoc.save();
+          } catch (qpErr) {
+            console.warn('[ProcessAnswerSheet] Auto-extract question paper notice:', qpErr.message);
+          }
+        }
+        qpQuestions = qpDoc.answers || [];
+      }
+    }
+
     // Execute extraction
     try {
-      const extraction = await processDocumentExtraction(buffer, answerSheet.mimeType);
+      const extraction = await processDocumentExtraction(buffer, answerSheet.mimeType, {
+        category: answerSheet.category,
+        questions: qpQuestions,
+        subject: assessment?.subject,
+      });
       answerSheet.rawOcrText = extraction.rawOcrText;
       answerSheet.answers = extraction.answers;
       answerSheet.pageCount = extraction.pageCount;
