@@ -1,8 +1,10 @@
 /**
  * Gap & Remediation Synthesizer for Neev Platform
+ * Multi-Subject Support: Mathematics, Science, English Language, Social Studies,
+ * with Universal Dynamic Subject Fallback for any curriculum subject.
+ *
  * Derives foundational prerequisite gaps, ordered learning roadmaps,
  * and diagnostic re-test items from evaluated answer sheet results.
- *
  * Grounded in curriculum knowledge base with textbook chapter retrieval
  * and future grade impact mapping up to Class 10 (with dedicated Class 10 rules).
  */
@@ -75,12 +77,72 @@ export function isNonErrorText(text) {
 }
 
 /**
+ * Intelligently detects the genuine academic subject from contextual text
+ * and defaults to user selection or Mathematics if ambiguous.
+ */
+export function detectSubject(contextText = '', defaultSubject = 'Mathematics') {
+  const clean = String(contextText).toLowerCase();
+  const def = String(defaultSubject).toLowerCase();
+
+  // Science keyword triggers
+  const scienceMatches = (clean.match(/osmosis|diffusion|potato|semi-permeable|cell|organelle|nucleus|mitochondria|golgi|atp|prokaryot|eukaryot|bacteria|respiration|photosynthesis|scientific model|prediction|hypothesis|plant cell|animal cell|matter in our surroundings/g) || []).length;
+
+  // Social Studies keyword triggers
+  const socialMatches = (clean.match(/constitution|preamble|democracy|republic|sovereign|fundamental rights|secularism|parliament|judiciary|legislature|executive|doctrine of lapse|revolt of 1857|mughal|sultanate|mansabdar|zamindar|colonial|british|historical source|\b(bce|ce)\b|natural resource|renewable|soil conservation|terrace farming|primary sector|secondary sector|tertiary sector|monsoon|kharif|rabi|latitude|longitude|map scale/g) || []).length;
+
+  // English Language keyword triggers
+  const englishMatches = (clean.match(/grammar|tense|passive voice|active voice|reported speech|direct speech|indirect speech|subject-verb|concord|subordinate clause|reading comprehension|passage|inference|author|poet|poem|metaphor|simile|personification|vocabulary|synonym|antonym|letter writing|narrative/g) || []).length;
+
+  // Mathematics keyword triggers
+  const mathMatches = (clean.match(/linear equation|algebra|transposition|solve for|exponent|base|index law|factoris|polynomial|mensuration|pythagor|rectangle|diagonal|perimeter|area|simple interest|compound interest|bodmas|arithmetic|integers/g) || []).length;
+
+  const candidateScores = [
+    { subject: 'Science / Physics', score: scienceMatches },
+    { subject: 'Social Studies', score: socialMatches },
+    { subject: 'English Language', score: englishMatches },
+    { subject: 'Mathematics', score: mathMatches },
+  ];
+
+  candidateScores.sort((a, b) => b.score - a.score);
+
+  if (candidateScores[0].score > 0) {
+    return candidateScores[0].subject;
+  }
+
+  // Fallback to explicitly configured subject from Step 1
+  if (def.includes('computer') || def.includes('informatics') || def.includes('programming')) {
+    return 'Computer Science';
+  }
+  if (def.includes('social') || def.includes('history') || def.includes('civics') || def.includes('geography') || def.includes('sst')) {
+    return 'Social Studies';
+  }
+  if (def.includes('english') || def.includes('literature') || def.includes('grammar')) {
+    return 'English Language';
+  }
+  if (
+    (def.includes('science') || def.includes('physics') || def.includes('bio') || def.includes('chem')) &&
+    !def.includes('social') &&
+    !def.includes('computer')
+  ) {
+    return 'Science / Physics';
+  }
+  if (def.includes('math')) {
+    return 'Mathematics';
+  }
+
+  return defaultSubject || 'Mathematics';
+}
+
+/**
  * Knowledge Base linking exam concepts and misconceptions to:
- * 1. Prerequisite Foundational Lesson & Chapter Name in Previous Class (with downloadable/viewable PDF)
+ * 1. Prerequisite Foundational Lesson & Chapter Name in Previous Class (with viewable PDF)
  * 2. Downstream Future Lessons Affected up to Class 10
  * 3. 2-Mark Diagnostic Test Questions pool formatted strictly in clean ASCII
  */
-const CURRICULUM_KNOWLEDGE_BASE = [
+export const CURRICULUM_KNOWLEDGE_BASE = [
+  // =========================================================================
+  // MATHEMATICS CURRICULUM KNOWLEDGE BASE
+  // =========================================================================
   {
     category: 'linear_equations',
     subject: 'Mathematics',
@@ -90,7 +152,6 @@ const CURRICULUM_KNOWLEDGE_BASE = [
       chapterNumber: 2,
       chapterName: 'Chapter 2: Simple Expressions and Equations',
       pdfFileName: 'Class 7 Maths Chapter 2.pdf',
-      fileName: 'Class 7 Maths Chapter 2.pdf',
       pdfUrl: '/curriculum/Class 7 Maths Chapter 2.pdf',
       concept: 'Equation balancing across equals sign (=), inverse operations, and transposition of variables/constants.',
       studyTip: 'Review Section 2.1 (Simple Expressions) and practice the balance-scale method of moving terms across the equals sign with sign reversal.',
@@ -136,7 +197,6 @@ const CURRICULUM_KNOWLEDGE_BASE = [
       chapterNumber: 3,
       chapterName: 'Chapter 3: Number Play & Arithmetic Operations',
       pdfFileName: 'Class 6 Maths Chapter 3.pdf',
-      fileName: 'Class 6 Maths Chapter 3.pdf',
       pdfUrl: '/curriculum/Class 6 Maths Chapter 3.pdf',
       concept: 'Basic operations, operational precedence (BODMAS), place value carrying, and mental addition with regrouping.',
       studyTip: 'Reinforce mental addition facts (e.g. 15 + 7 = 22) and always write an intermediate check step before concluding a verification.',
@@ -182,7 +242,6 @@ const CURRICULUM_KNOWLEDGE_BASE = [
       chapterNumber: 2,
       chapterName: 'Chapter 2: Power Play (Exponents & Powers)',
       pdfFileName: 'Class 8 Maths Chapter 2.pdf',
-      fileName: 'Class 8 Maths Chapter 2.pdf',
       pdfUrl: '/curriculum/Class 8 Maths Chapter 2.pdf',
       concept: 'Laws of integral exponents: a^m * a^n = a^(m+n), a^m / a^n = a^(m-n), a^(-n) = 1/a^n, and equating exponents for common bases.',
       studyTip: 'Focus on the distinction between negative exponents and negative numbers; practice converting a^(-n) to unit fractions.',
@@ -228,7 +287,6 @@ const CURRICULUM_KNOWLEDGE_BASE = [
       chapterNumber: 2,
       chapterName: 'Chapter 2: Simple Expressions & Algebraic Identities',
       pdfFileName: 'Class 7 Maths Chapter 2.pdf',
-      fileName: 'Class 7 Maths Chapter 2.pdf',
       pdfUrl: '/curriculum/Class 7 Maths Chapter 2.pdf',
       concept: 'Factoring out common monomial terms and applying standard algebraic identities: a^2 - b^2 = (a - b)(a + b).',
       studyTip: 'Practice recognising perfect squares (e.g. 16b^2 = (4b)^2) and grouping terms with common binomial factors.',
@@ -268,13 +326,12 @@ const CURRICULUM_KNOWLEDGE_BASE = [
   {
     category: 'geometry_mensuration',
     subject: 'Mathematics',
-    triggers: ['mensuration', 'rectangle', 'diagonal', 'pythagor', 'area', 'perimeter', '25', '24', 'hypotenuse', 'width', 'geometry'],
+    triggers: ['mensuration', 'rectangle', 'diagonal', 'pythagor', 'area', 'perimeter', 'hypotenuse', 'width', 'geometry'],
     prerequisiteLesson: {
       grade: 'Class 6',
       chapterNumber: 2,
       chapterName: 'Chapter 2: Lines, Angles and Plane Shapes',
       pdfFileName: 'Class 6 Maths Chapter 2.pdf',
-      fileName: 'Class 6 Maths Chapter 2.pdf',
       pdfUrl: '/curriculum/Class 6 Maths Chapter 2.pdf',
       concept: 'Properties of rectangles, perpendicular sides, right-angled triangles, and Pythagoras theorem (diagonal^2 = length^2 + width^2).',
       studyTip: 'Always sketch the geometric shape, label known diagonals/sides, and verify that the hypotenuse is the longest side.',
@@ -314,13 +371,12 @@ const CURRICULUM_KNOWLEDGE_BASE = [
   {
     category: 'commercial_math_interest',
     subject: 'Mathematics',
-    triggers: ['compound interest', 'simple interest', '8000', 'interest rate', 'compounding', 'commercial', 'principal', 'annual interest', 'percentage'],
+    triggers: ['compound interest', 'simple interest', 'rate', 'compounding', 'commercial', 'principal', 'annual interest', 'percentage'],
     prerequisiteLesson: {
       grade: 'Class 7',
       chapterNumber: 1,
       chapterName: 'Chapter 1: Large Numbers & Comparing Quantities',
       pdfFileName: 'Class 7 Maths Chapter 1.pdf',
-      fileName: 'Class 7 Maths Chapter 1.pdf',
       pdfUrl: '/curriculum/Class 7 Maths Chapter 1.pdf',
       concept: 'Simple interest formula I = (P*R*T)/100, year-on-year interest accumulation, and percentage conversion.',
       studyTip: 'Calculate year-1 and year-2 interest sequentially to build intuition before relying entirely on the exponential compounding formula.',
@@ -359,51 +415,33 @@ const CURRICULUM_KNOWLEDGE_BASE = [
   },
 
   // =========================================================================
-  // SCIENCE CURRICULUM KNOWLEDGE BASE (NCERT Class 6 - Class 10 Alignment)
+  // SCIENCE CURRICULUM KNOWLEDGE BASE (NCERT Class 6 - Class 10)
   // =========================================================================
   {
     category: 'osmosis_and_diffusion',
     subject: 'Science',
-    triggers: [
-      'osmosis',
-      'potato',
-      'semi-permeable',
-      'concentration',
-      'diffusion',
-      'membrane',
-      'hypertonic',
-      'hypotonic',
-      'exosmosis',
-      'endosmosis',
-      'solute',
-      'water potential',
-      'potato piece',
-      'salt solution',
-    ],
+    triggers: ['osmosis', 'potato', 'semi-permeable', 'concentration', 'diffusion', 'membrane', 'hypertonic', 'hypotonic', 'exosmosis', 'endosmosis', 'solute', 'water potential', 'potato piece', 'salt solution'],
     prerequisiteLesson: {
       grade: 'Class 7',
       chapterNumber: 2,
       chapterName: 'Chapter 2: Exploring Living Processes & Cellular Transport',
       pdfFileName: 'Class 7 Science Chapter 2.pdf',
-      fileName: 'Class 7 Science Chapter 2.pdf',
       pdfUrl: '/curriculum/Class 7 Science Chapter 2.pdf',
-      concept:
-        'Osmosis as the selective net movement of solvent (water) molecules through a semi-permeable membrane from higher to lower water potential; endosmosis (cell swelling in plain water) versus exosmosis (cell shrinkage/flaccidity in concentrated salt solution).',
-      studyTip:
-        'Review the potato osmometer experiment in Section 2.4 and distinguish between solute movement (diffusion) and solvent movement across selectively permeable cell membranes.',
+      concept: 'Osmosis as the selective net movement of solvent (water) molecules through a semi-permeable membrane from higher to lower water potential; endosmosis (cell swelling in plain water) versus exosmosis (cell shrinkage/flaccidity in concentrated salt solution).',
+      studyTip: 'Review the potato osmometer experiment in Section 2.4 and distinguish between solute movement (diffusion) and solvent movement across selectively permeable cell membranes.',
       targetLessonName: 'Osmosis & Cellular Transport',
     },
     futureLessonsAffected: [
       {
         grade: 'Class 9',
         chapterNumber: 5,
-        lessonName: 'Chapter 5: The Fundamental Unit of Life — Plasma Membrane Dynamics',
+        lessonName: 'Chapter 5: The Fundamental Unit of Life - Plasma Membrane Dynamics',
         risk: 'Failure to analyze tonicity, hypotonic/hypertonic media, and plasmolysis in plant cell walls.',
       },
       {
         grade: 'Class 10',
         chapterNumber: 6,
-        lessonName: 'Chapter 6: Life Processes — Transportation and Excretion',
+        lessonName: 'Chapter 6: Life Processes - Transportation and Excretion',
         risk: 'Inability to explain xylem sap ascent by root osmotic pressure and selective reabsorption across tubular nephron membranes.',
       },
     ],
@@ -411,109 +449,32 @@ const CURRICULUM_KNOWLEDGE_BASE = [
       {
         prompt: 'Define osmosis and state the direction of water movement across a semi-permeable membrane.',
         targetConcept: 'Osmosis & Semipermeable Membranes (Class 7 Prerequisite)',
-        expectedAnswer:
-          'Osmosis is the net movement of water molecules from a region of higher water concentration to lower water concentration through a semi-permeable membrane.',
+        expectedAnswer: 'Osmosis is the net movement of water molecules from a region of higher water concentration to lower water concentration through a semi-permeable membrane.',
       },
       {
-        prompt:
-          'Why did the potato piece shrink when placed in concentrated salt solution? Name the biological phenomenon.',
+        prompt: 'Why did the potato piece shrink when placed in concentrated salt solution? Name the biological phenomenon.',
         targetConcept: 'Exosmosis & Cellular Shrinkage (Class 7 Prerequisite)',
-        expectedAnswer:
-          'Water moved out of the potato cells into the concentrated salt solution by exosmosis, causing cell flaccidity and shrinkage.',
+        expectedAnswer: 'Water moved out of the potato cells into the concentrated salt solution by exosmosis, causing cell flaccidity and shrinkage.',
       },
       {
-        prompt:
-          'Distinguish between endosmosis and exosmosis with one everyday laboratory observation.',
+        prompt: 'Distinguish between endosmosis and exosmosis with one everyday laboratory observation.',
         targetConcept: 'Endosmosis vs Exosmosis (Class 7 Prerequisite)',
-        expectedAnswer:
-          'Endosmosis is inward water entry causing swelling (potato in plain water); exosmosis is outward water exit causing shrinkage (potato in salt solution).',
-      },
-    ],
-  },
-  {
-    category: 'prokaryotes_vs_eukaryotes',
-    subject: 'Science',
-    triggers: [
-      'prokaryot',
-      'eukaryot',
-      'bacteria',
-      'nucleoid',
-      'backera',
-      'animale',
-      'membrane-bound organelle',
-    ],
-    prerequisiteLesson: {
-      grade: 'Class 8',
-      chapterNumber: 2,
-      chapterName: 'Chapter 2: The Invisible Living World: Beyond Our Naked Eye',
-      pdfFileName: 'Class 8 Science Chapter 2.pdf',
-      fileName: 'Class 8 Science Chapter 2.pdf',
-      pdfUrl: '/curriculum/Class 8 Science Chapter 2.pdf',
-      concept:
-        'Structural hierarchy of life: Prokaryotic cells (e.g. bacteria) lack a nuclear membrane (possess an undefined nucleoid) and lack membrane-bound organelles; Eukaryotic cells possess a true membrane-bound nucleus and organized organelles.',
-      studyTip:
-        'Create a two-column contrast table comparing bacterial prokaryotic cells with plant/animal eukaryotic cells on nucleus presence and organelle compartmentalization.',
-      targetLessonName: 'Prokaryotic vs Eukaryotic Cell Organization',
-    },
-    futureLessonsAffected: [
-      {
-        grade: 'Class 9',
-        chapterNumber: 5,
-        lessonName: 'Chapter 5: The Fundamental Unit of Life — Cellular Organization',
-        risk: 'Confusion between simple bacterial prokaryotes and compartmentalized multicellular eukaryotes.',
-      },
-      {
-        grade: 'Class 10',
-        chapterNumber: 8,
-        lessonName: 'Chapter 8: How do Organisms Reproduce — Modes of Cell Division',
-        risk: 'Inability to contrast binary fission in prokaryotes with complex mitotic and meiotic chromosomal division in eukaryotes.',
-      },
-    ],
-    questions2Marks: [
-      {
-        prompt: 'Name two fundamental structural differences between prokaryotic and eukaryotic cells.',
-        targetConcept: 'Prokaryote vs Eukaryote Distinction (Class 8 Prerequisite)',
-        expectedAnswer:
-          '1. Prokaryotes lack a nuclear membrane (have a nucleoid); eukaryotes have a membrane-bound nucleus. 2. Prokaryotes lack membrane-bound organelles; eukaryotes contain them.',
-      },
-      {
-        prompt:
-          'Classify bacteria and plant cells into prokaryotes or eukaryotes, giving one justifying cellular feature for each.',
-        targetConcept: 'Cellular Classification (Class 8 Prerequisite)',
-        expectedAnswer:
-          'Bacteria are prokaryotes (lack defined nucleus/organelles); Plant cells are eukaryotes (possess membrane-bound nucleus and chloroplasts/mitochondria).',
+        expectedAnswer: 'Endosmosis is inward water entry causing swelling (potato in plain water); exosmosis is outward water exit causing shrinkage (potato in salt solution).',
       },
     ],
   },
   {
     category: 'cell_organelles_and_functions',
     subject: 'Science',
-    triggers: [
-      'organelle',
-      'nucleus',
-      'mitochondria',
-      'golgi',
-      'cell organelle',
-      'cytoplasm',
-      'atp',
-      'powerhouse',
-      'energy production',
-      'respiration',
-      'food synthesis',
-      'packaging',
-      'enemy to the cell',
-    ],
+    triggers: ['organelle', 'nucleus', 'mitochondria', 'golgi', 'cell', 'cytoplasm', 'atp', 'powerhouse', 'energy production', 'respiration', 'food synthesis', 'packaging'],
     prerequisiteLesson: {
       grade: 'Class 8',
       chapterNumber: 2,
       chapterName: 'Chapter 2: The Invisible Living World: Beyond Our Naked Eye',
       pdfFileName: 'Class 8 Science Chapter 2.pdf',
-      fileName: 'Class 8 Science Chapter 2.pdf',
       pdfUrl: '/curriculum/Class 8 Science Chapter 2.pdf',
-      concept:
-        'Division of labor in cellular organelles: Nucleus controls hereditary genetic transmission and metabolic regulation; Mitochondria perform aerobic respiration to synthesize cellular energy (ATP); Golgi apparatus processes, packages, and secretes cellular biomolecules.',
-      studyTip:
-        'Map each organelle to its verified metabolic function using a comparative cell diagram, emphasizing that mitochondria produce ATP while chloroplasts (not Golgi) perform food synthesis.',
+      concept: 'Division of labor in cellular organelles: Nucleus controls hereditary genetic transmission and metabolic regulation; Mitochondria perform aerobic respiration to synthesize cellular energy (ATP); Golgi apparatus processes, packages, and secretes cellular biomolecules.',
+      studyTip: 'Map each organelle to its verified metabolic function using a comparative cell diagram, emphasizing that mitochondria produce ATP while chloroplasts perform food synthesis.',
       targetLessonName: 'Cell Structure & Organelle Functions',
     },
     futureLessonsAffected: [
@@ -526,7 +487,7 @@ const CURRICULUM_KNOWLEDGE_BASE = [
       {
         grade: 'Class 10',
         chapterNumber: 6,
-        lessonName: 'Chapter 6: Life Processes — Cellular Respiration and Metabolic Energetics',
+        lessonName: 'Chapter 6: Life Processes - Cellular Respiration and Metabolic Energetics',
         risk: 'Breakdown in understanding cellular respiration pathways, glycolytic products, and mitochondrial oxidative phosphorylation.',
       },
     ],
@@ -534,63 +495,86 @@ const CURRICULUM_KNOWLEDGE_BASE = [
       {
         prompt: 'State the primary function of: (a) Mitochondria, and (b) Golgi apparatus.',
         targetConcept: 'Cell Organelle Functions (Class 8 Prerequisite)',
-        expectedAnswer:
-          '(a) Mitochondria: Generate cellular energy currency (ATP) via respiration. (b) Golgi apparatus: Modification, packaging, and sorting of proteins and lipids.',
+        expectedAnswer: '(a) Mitochondria: Generate cellular energy currency (ATP) via respiration. (b) Golgi apparatus: Modification, packaging, and sorting of proteins and lipids.',
       },
       {
         prompt: 'Why is the nucleus often described as the master controller of a eukaryotic cell?',
         targetConcept: 'Nuclear Control & Genetic Material (Class 8 Prerequisite)',
-        expectedAnswer:
-          'The nucleus contains genetic material (DNA/chromosomes) that coordinates gene expression and directs all cellular metabolic activities.',
+        expectedAnswer: 'The nucleus contains genetic material (DNA/chromosomes) that coordinates gene expression and directs all cellular metabolic activities.',
       },
       {
-        prompt:
-          'Explain why a cell devoid of functional mitochondria cannot sustain active cellular processes.',
+        prompt: 'Explain why a cell devoid of functional mitochondria cannot sustain active cellular processes.',
         targetConcept: 'Cellular Respiration & ATP (Class 8 Prerequisite)',
-        expectedAnswer:
-          'It cannot generate ATP required for energy-consuming cellular activities and maintenance.',
+        expectedAnswer: 'It cannot generate ATP required for energy-consuming cellular activities and maintenance.',
+      },
+    ],
+  },
+  {
+    category: 'prokaryotes_vs_eukaryotes',
+    subject: 'Science',
+    triggers: ['prokaryot', 'eukaryot', 'bacteria', 'nucleoid', 'membrane bound', 'organelles', 'plant cell', 'animal cell'],
+    prerequisiteLesson: {
+      grade: 'Class 8',
+      chapterNumber: 2,
+      chapterName: 'Chapter 2: The Invisible Living World: Beyond Our Naked Eye',
+      pdfFileName: 'Class 8 Science Chapter 2.pdf',
+      pdfUrl: '/curriculum/Class 8 Science Chapter 2.pdf',
+      concept: 'Structural hierarchy of life: Prokaryotic cells (e.g. bacteria) lack a nuclear membrane (possess an undefined nucleoid) and lack membrane-bound organelles; Eukaryotic cells possess a true membrane-bound nucleus and organized organelles.',
+      studyTip: 'Create a two-column contrast table comparing bacterial prokaryotic cells with plant/animal eukaryotic cells on nucleus presence and organelle compartmentalization.',
+      targetLessonName: 'Prokaryotic vs Eukaryotic Cell Organization',
+    },
+    futureLessonsAffected: [
+      {
+        grade: 'Class 9',
+        chapterNumber: 5,
+        lessonName: 'Chapter 5: The Fundamental Unit of Life - Cellular Organization',
+        risk: 'Confusion between simple bacterial prokaryotes and compartmentalized multicellular eukaryotes.',
+      },
+      {
+        grade: 'Class 10',
+        chapterNumber: 8,
+        lessonName: 'Chapter 8: How do Organisms Reproduce - Modes of Cell Division',
+        risk: 'Inability to contrast binary fission in prokaryotes with complex mitotic and meiotic chromosomal division in eukaryotes.',
+      },
+    ],
+    questions2Marks: [
+      {
+        prompt: 'Name two fundamental structural differences between prokaryotic and eukaryotic cells.',
+        targetConcept: 'Prokaryote vs Eukaryote Distinction (Class 8 Prerequisite)',
+        expectedAnswer: '1. Prokaryotes lack a nuclear membrane (have a nucleoid); eukaryotes have a membrane-bound nucleus. 2. Prokaryotes lack membrane-bound organelles; eukaryotes contain them.',
+      },
+      {
+        prompt: 'Classify bacteria and plant cells into prokaryotes or eukaryotes, giving one justifying cellular feature for each.',
+        targetConcept: 'Cellular Classification (Class 8 Prerequisite)',
+        expectedAnswer: 'Bacteria are prokaryotes (lack defined nucleus/organelles); Plant cells are eukaryotes (possess membrane-bound nucleus and chloroplasts/mitochondria).',
       },
     ],
   },
   {
     category: 'scientific_models_and_inquiry',
     subject: 'Science',
-    triggers: [
-      'scientific model',
-      'prediction',
-      'guess',
-      'hypothesis',
-      'complex system',
-      'experimental setup',
-      'mismatch',
-      'observations',
-      'solar system model',
-      '3d cell model',
-    ],
+    triggers: ['scientific model', 'prediction', 'guess', 'hypothesis', 'complex system', 'experimental setup', 'mismatch', 'observations', 'solar system model', '3d cell model'],
     prerequisiteLesson: {
       grade: 'Class 8',
       chapterNumber: 1,
       chapterName: 'Chapter 1: Exploring the Investigative World of Science',
       pdfFileName: 'Class 8 Science Chapter 1.pdf',
-      fileName: 'Class 8 Science Chapter 1.pdf',
       pdfUrl: '/curriculum/Class 8 Science Chapter 1.pdf',
-      concept:
-        'Scientific models serve as simplified, testable representations of complex phenomena; scientific predictions are evidence-grounded forecasts, distinct from random guesses, and must trigger iterative hypothesis revision upon observational mismatch.',
-      studyTip:
-        'Review Section 1.2 on scientific inquiry and practice identifying controlled variables, testable predictions, and iterative model adjustments.',
+      concept: 'Scientific models serve as simplified, testable representations of complex phenomena; scientific predictions are evidence-grounded forecasts, distinct from random guesses, and must trigger iterative hypothesis revision upon observational mismatch.',
+      studyTip: 'Review Section 1.2 on scientific inquiry and practice identifying controlled variables, testable predictions, and iterative model adjustments.',
       targetLessonName: 'Scientific Models & Systems',
     },
     futureLessonsAffected: [
       {
         grade: 'Class 9',
         chapterNumber: 1,
-        lessonName: 'Chapter 1: Matter in Our Surroundings — Kinetic Particle Models',
+        lessonName: 'Chapter 1: Matter in Our Surroundings - Kinetic Particle Models',
         risk: 'Struggling to visualize and manipulate sub-microscopic molecular representations and phase-change simulations.',
       },
       {
         grade: 'Class 10',
         chapterNumber: 1,
-        lessonName: 'Chapter 1: Chemical Reactions & Equations — Empirical Scientific Evidence',
+        lessonName: 'Chapter 1: Chemical Reactions & Equations - Empirical Scientific Evidence',
         risk: 'Inability to translate empirical experimental observations into balanced scientific models and conservation laws.',
       },
     ],
@@ -598,15 +582,496 @@ const CURRICULUM_KNOWLEDGE_BASE = [
       {
         prompt: 'Why are scientific predictions fundamentally different from random guesses?',
         targetConcept: 'Scientific Predictions vs Guesses (Class 8 Prerequisite)',
-        expectedAnswer:
-          'Scientific predictions are grounded in prior empirical evidence, logical principles, and testable hypotheses, whereas guesses lack evidential basis.',
+        expectedAnswer: 'Scientific predictions are grounded in prior empirical evidence, logical principles, and testable hypotheses, whereas guesses lack evidential basis.',
       },
       {
-        prompt:
-          'What essential step must scientists take when observed experimental outcomes contradict their initial prediction?',
+        prompt: 'What essential step must scientists take when observed experimental outcomes contradict their initial prediction?',
         targetConcept: 'Hypothesis Revision & Scientific Method (Class 8 Prerequisite)',
-        expectedAnswer:
-          'Scientists re-examine their experimental procedure and modify or reject the existing hypothesis to formulate new testable models.',
+        expectedAnswer: 'Scientists re-examine their experimental procedure and modify or reject the existing hypothesis to formulate new testable models.',
+      },
+    ],
+  },
+
+  // =========================================================================
+  // SOCIAL STUDIES CURRICULUM KNOWLEDGE BASE (NCERT Class 6 - Class 10)
+  // =========================================================================
+  {
+    category: 'social_constitution_and_governance',
+    subject: 'Social Studies',
+    triggers: [
+      'constitution',
+      'preamble',
+      'democracy',
+      'fundamental rights',
+      'secularism',
+      'parliament',
+      'judiciary',
+      'legislature',
+      'executive',
+      'equality',
+      'article 15',
+      'separation of powers',
+      'universal adult suffrage',
+      'civics',
+      'sovereign',
+    ],
+    prerequisiteLesson: {
+      grade: 'Class 7',
+      chapterNumber: 1,
+      chapterName: 'Chapter 1: The Indian Constitution & Democratic Institutions',
+      pdfFileName: 'Class 7 Social Studies Chapter 1.pdf',
+      pdfUrl: '/curriculum/Class 7 Social Studies Chapter 1.pdf',
+      concept: 'Constitutional values: Sovereign, Socialist, Secular, Democratic Republic; institutional separation of powers (Legislature, Executive, Judiciary); fundamental rights and universal equality under Article 15.',
+      studyTip: 'Review the three separate organs of government and understand how checks and balances prevent misuse of state power.',
+      targetLessonName: 'The Indian Constitution & Democratic Institutions',
+    },
+    futureLessonsAffected: [
+      {
+        grade: 'Class 9',
+        chapterNumber: 1,
+        lessonName: 'Chapter 1: Democratic Politics - Constitutional Design & Electoral Competition',
+        risk: 'Inability to comprehend the rationale of institutional checks, constituent assemblies, or electoral procedures.',
+      },
+      {
+        grade: 'Class 10',
+        chapterNumber: 1,
+        lessonName: 'Chapter 1: Power Sharing & Federalism in Indian Democracy',
+        risk: 'Failure to analyze vertical and horizontal power sharing or judicial arbitration in state-center disputes.',
+      },
+    ],
+    questions2Marks: [
+      {
+        prompt: 'Define Universal Adult Suffrage and state its minimum age requirement in democratic India.',
+        targetConcept: 'Democratic Franchise & Universal Adult Suffrage (Class 7 Prerequisite)',
+        expectedAnswer: 'Universal Adult Suffrage guarantees that all adult citizens aged 18 and above have an equal right to vote, irrespective of gender, caste, religion, or wealth.',
+      },
+      {
+        prompt: 'Why is separation of powers among Legislature, Executive, and Judiciary vital in a constitutional democracy?',
+        targetConcept: 'Institutional Separation of Powers (Class 7 Prerequisite)',
+        expectedAnswer: 'It ensures that no single branch exercises absolute authority, with each branch exercising checks and balances over the others.',
+      },
+      {
+        prompt: 'State any two fundamental rights guaranteed to Indian citizens under the Constitution.',
+        targetConcept: 'Fundamental Rights & Equality (Class 7 Prerequisite)',
+        expectedAnswer: '1. Right to Equality (Article 14-18). 2. Right to Freedom of Speech and Expression (Article 19).',
+      },
+    ],
+  },
+  {
+    category: 'social_resources_and_environment',
+    subject: 'Social Studies',
+    triggers: [
+      'resource',
+      'natural resource',
+      'renewable',
+      'non-renewable',
+      'soil erosion',
+      'terrace farming',
+      'rainwater harvesting',
+      'water scarcity',
+      'ecosystem',
+      'environment',
+      'deforestation',
+      'lithosphere',
+      'hydrosphere',
+      'geography',
+      'sustainable development',
+    ],
+    prerequisiteLesson: {
+      grade: 'Class 7',
+      chapterNumber: 2,
+      chapterName: 'Chapter 2: Natural Resources: Land, Water, Air and Conservation',
+      pdfFileName: 'Class 7 Social Studies Chapter 2.pdf',
+      pdfUrl: '/curriculum/Class 7 Social Studies Chapter 2.pdf',
+      concept: 'Resource classification into renewable and non-renewable; ecological spheres; land and soil degradation factors; conservation measures including terrace farming, contour plowing, and rainwater harvesting.',
+      studyTip: 'Analyze how human interventions disrupt natural cycles and focus on practical sustainable conservation techniques.',
+      targetLessonName: 'Natural Resources & Environmental Conservation',
+    },
+    futureLessonsAffected: [
+      {
+        grade: 'Class 9',
+        chapterNumber: 2,
+        lessonName: 'Chapter 2: Contemporary India - Physical Features of India & Natural Drainage',
+        risk: 'Failure to understand watershed management, river system degradation, and topographical soil patterns.',
+      },
+      {
+        grade: 'Class 10',
+        chapterNumber: 1,
+        lessonName: 'Chapter 1: Resources, Sustainable Development & Agricultural Land Use',
+        risk: 'Breakdown in evaluating resource planning stages, Agenda 21 guidelines, and cropping moisture patterns.',
+      },
+    ],
+    questions2Marks: [
+      {
+        prompt: 'Differentiate between renewable and non-renewable natural resources with one example each.',
+        targetConcept: 'Resource Classification (Class 7 Prerequisite)',
+        expectedAnswer: 'Renewable resources replenish naturally in short cycles (e.g. solar energy, water); non-renewable resources have finite reserves taking millions of years to form (e.g. coal, petroleum).',
+      },
+      {
+        prompt: 'Explain how terrace farming prevents soil erosion on mountainous slopes.',
+        targetConcept: 'Soil Conservation & Topography (Class 7 Prerequisite)',
+        expectedAnswer: 'Broad flat steps cut into steep slopes reduce the velocity of surface water runoff, preventing fertile topsoil from being washed away.',
+      },
+      {
+        prompt: 'Why is rainwater harvesting considered an essential method for combating groundwater depletion?',
+        targetConcept: 'Hydrological Conservation (Class 7 Prerequisite)',
+        expectedAnswer: 'It collects surface runoff during monsoons and channels it into aquifers, directly recharging underground water tables.',
+      },
+    ],
+  },
+  {
+    category: 'social_historical_inquiry_and_movements',
+    subject: 'Social Studies',
+    triggers: [
+      'history',
+      'revolt of 1857',
+      'colonial',
+      'british east india company',
+      'doctrine of lapse',
+      'viceroy',
+      'sepoy',
+      '1858',
+      'mughal',
+      'mansabdar',
+      'zat',
+      'sawar',
+      'common era',
+      'chronology',
+      'archaeological source',
+      'dalhousie',
+    ],
+    prerequisiteLesson: {
+      grade: 'Class 8',
+      chapterNumber: 1,
+      chapterName: 'Chapter 1: Colonial Rule & The Indian Freedom Movement (Revolt of 1857)',
+      pdfFileName: 'Class 8 Social Studies Chapter 1.pdf',
+      pdfUrl: '/curriculum/Class 8 Social Studies Chapter 1.pdf',
+      concept: 'Periodization and chronology in Indian history; economic disaffection under colonial commercial monopolies; political annexations via Doctrine of Lapse; causes and outcomes of the Revolt of 1857 terminating Company rule.',
+      studyTip: 'Distinguish immediate triggers (greased cartridges) from underlying long-term causes (peasant land taxation, state annexations under Doctrine of Lapse).',
+      targetLessonName: 'Colonial Rule & The 1857 Uprising',
+    },
+    futureLessonsAffected: [
+      {
+        grade: 'Class 9',
+        chapterNumber: 2,
+        lessonName: 'Chapter 2: Socialism in Europe & Modern Nationalist Struggles',
+        risk: 'Difficulty contrasting anti-colonial mass mobilization with European revolutionary movements.',
+      },
+      {
+        grade: 'Class 10',
+        chapterNumber: 2,
+        lessonName: 'Chapter 2: Nationalism in India & The Freedom Struggle (Board Exam Units)',
+        risk: 'Inability to trace the evolution from 1857 regional rebellions to Gandhi nationwide Non-Cooperation and Civil Disobedience.',
+      },
+    ],
+    questions2Marks: [
+      {
+        prompt: 'State two major administrative changes introduced by the British Government after the 1857 revolt under the Act of 1858.',
+        targetConcept: 'Outcomes of the 1857 Revolt (Class 8 Prerequisite)',
+        expectedAnswer: '1. Rule of the British East India Company ended and direct sovereignty was assumed by the British Crown. 2. The Governor-General was designated Viceroy of India.',
+      },
+      {
+        prompt: 'What was Lord Dalhousie Doctrine of Lapse, and which Indian state was annexed under it?',
+        targetConcept: 'Colonial Annexation Policies (Class 8 Prerequisite)',
+        expectedAnswer: 'It decreed that any princely state whose ruler died without a natural male heir would be annexed by the British; Jhansi (or Satara) was annexed under this doctrine.',
+      },
+      {
+        prompt: 'Why are primary historical sources such as official records and archaeological artifacts critical for validating historical facts?',
+        targetConcept: 'Historical Inquiry & Sources (Class 8 Prerequisite)',
+        expectedAnswer: 'Primary sources provide direct, firsthand contemporary evidence from the period under study, minimizing subjective retrospective bias.',
+      },
+    ],
+  },
+  {
+    category: 'social_economic_development_and_sectors',
+    subject: 'Social Studies',
+    triggers: [
+      'economic',
+      'primary sector',
+      'secondary sector',
+      'tertiary sector',
+      'agriculture',
+      'manufacturing',
+      'services',
+      'employment',
+      'gdp',
+      'per capita income',
+      'poverty',
+      'development',
+      'human capital',
+    ],
+    prerequisiteLesson: {
+      grade: 'Class 8',
+      chapterNumber: 2,
+      chapterName: 'Chapter 2: Economic Activities, Sectors & Resource Management',
+      pdfFileName: 'Class 8 Social Studies Chapter 2.pdf',
+      pdfUrl: '/curriculum/Class 8 Social Studies Chapter 2.pdf',
+      concept: 'Classification of economic activities into primary (natural resource extraction), secondary (manufacturing/processing), and tertiary (services and commerce) sectors and their interdependence.',
+      studyTip: 'Trace the lifecycle of a commodity across all three sectors: e.g. sugarcane farming (primary) -> sugar refining (secondary) -> transport and retail sale (tertiary).',
+      targetLessonName: 'Economic Activities & Sectors of the Economy',
+    },
+    futureLessonsAffected: [
+      {
+        grade: 'Class 9',
+        chapterNumber: 2,
+        lessonName: 'Chapter 2: People as Resource & Poverty Metrics',
+        risk: 'Confusion between productive labor force participation, disguised unemployment, and human capital investments.',
+      },
+      {
+        grade: 'Class 10',
+        chapterNumber: 1,
+        lessonName: 'Chapter 1: Understanding Economic Development & Sectors of the Indian Economy',
+        risk: 'Breakdown in calculating GDP sector contributions, formal/informal employment, and national development indicators.',
+      },
+    ],
+    questions2Marks: [
+      {
+        prompt: 'Distinguish between primary and secondary economic sectors with one example each.',
+        targetConcept: 'Economic Sectors Classification (Class 8 Prerequisite)',
+        expectedAnswer: 'Primary sector directly extracts natural resources (e.g. dairy farming or mining); secondary sector processes raw materials into manufactured finished goods (e.g. textile weaving).',
+      },
+      {
+        prompt: 'Why is human capital formation (investing in education and healthcare) essential for national economic development?',
+        targetConcept: 'Human Capital & Development (Class 8 Prerequisite)',
+        expectedAnswer: 'A healthier, well-educated population possesses higher productivity, innovation, and skills, generating higher national income and standard of living.',
+      },
+      {
+        prompt: 'Classify these two activities into their respective economic sectors: (a) Extracting crude petroleum, (b) Transporting petroleum by pipeline.',
+        targetConcept: 'Sectoral Interdependence (Class 8 Prerequisite)',
+        expectedAnswer: '(a) Extracting crude petroleum is in the Primary sector. (b) Transporting petroleum by pipeline is in the Tertiary (service) sector.',
+      },
+    ],
+  },
+
+  // =========================================================================
+  // ENGLISH LANGUAGE CURRICULUM KNOWLEDGE BASE (NCERT Class 6 - Class 10)
+  // =========================================================================
+  {
+    category: 'reading_comprehension_and_inference',
+    subject: 'English Language',
+    triggers: [
+      'reading comprehension',
+      'passage',
+      'inference',
+      'theme',
+      'author',
+      'central idea',
+      'contextual meaning',
+      'textual evidence',
+      'three questions',
+      'paraphrase',
+      'moral',
+    ],
+    prerequisiteLesson: {
+      grade: 'Class 7',
+      chapterNumber: 1,
+      chapterName: 'Chapter 1: Reading Comprehension & Textual Inferences',
+      pdfFileName: 'Class 7 English Chapter 1.pdf',
+      pdfUrl: '/curriculum/Class 7 English Chapter 1.pdf',
+      concept: 'Locating direct textual evidence, inferring underlying character motivations, discerning authorial tone, and synthesizing thematic takeaways in analytical prose.',
+      studyTip: 'Read the comprehension passage actively, underline key topic sentences in each paragraph, and verify that answers cite explicit textual facts.',
+      targetLessonName: 'Reading Comprehension & Textual Inference',
+    },
+    futureLessonsAffected: [
+      {
+        grade: 'Class 9',
+        chapterNumber: 1,
+        lessonName: 'Chapter 1: The Fun They Had - Analytical Text Comprehension',
+        risk: 'Difficulty synthesizing implicit character perspectives and thematic subtext in complex narratives.',
+      },
+      {
+        grade: 'Class 10',
+        chapterNumber: 1,
+        lessonName: 'Chapter 1: A Letter to God - Critical Prose Inference & Theme Analysis',
+        risk: 'Loss of examination marks on Board analytical extract-based questions requiring critical thematic deduction.',
+      },
+    ],
+    questions2Marks: [
+      {
+        prompt: 'How does a reader distinguish between the literal meaning of a passage and an inferred theme? Give one example.',
+        targetConcept: 'Literal vs Inferred Meaning (Class 7 Prerequisite)',
+        expectedAnswer: 'Literal meaning is explicitly stated in the words of the text; inferred meaning is deduced by combining textual clues with logical reasoning (e.g. inferring grief from tears).',
+      },
+      {
+        prompt: 'In reading comprehension, explain why answering strictly from textual evidence is preferred over external personal assumptions.',
+        targetConcept: 'Textual Evidence Verification (Class 7 Prerequisite)',
+        expectedAnswer: 'Textual evidence ensures objective fidelity to the author argument and prevents subjective distortion of the passage.',
+      },
+      {
+        prompt: 'State the primary purpose of identifying the author tone in an analytical reading passage.',
+        targetConcept: 'Authorial Tone & Perspective (Class 7 Prerequisite)',
+        expectedAnswer: 'Identifying tone (e.g. humorous, critical, cautionary) reveals the author attitude and emotional stance toward the central subject.',
+      },
+    ],
+  },
+  {
+    category: 'english_grammar_tenses_voice',
+    subject: 'English Language',
+    triggers: [
+      'active voice',
+      'passive voice',
+      'tense',
+      'past perfect',
+      'present continuous',
+      'auxiliary verb',
+      'participle',
+      'verb form',
+      'grammatical error',
+      'voice change',
+    ],
+    prerequisiteLesson: {
+      grade: 'Class 7',
+      chapterNumber: 2,
+      chapterName: 'Chapter 2: Tenses & Active-Passive Voice Transformations',
+      pdfFileName: 'Class 7 English Chapter 2.pdf',
+      pdfUrl: '/curriculum/Class 7 English Chapter 2.pdf',
+      concept: 'Systematic tense conjugation; active-to-passive voice transformations maintaining tense consistency (auxiliary be-verb + past participle); agent omission when doer is unknown.',
+      studyTip: 'Identify the grammatical object in the active sentence, promote it to the subject position, and match the be-verb auxiliary strictly to the original tense.',
+      targetLessonName: 'English Grammar: Tenses & Voice Transformations',
+    },
+    futureLessonsAffected: [
+      {
+        grade: 'Class 9',
+        chapterNumber: 2,
+        lessonName: 'Chapter 2: Reported Speech & Complex Verb Concord',
+        risk: 'Breakdown in back-shifting tenses and converting modal auxiliaries in direct-to-indirect transformations.',
+      },
+      {
+        grade: 'Class 10',
+        chapterNumber: 1,
+        lessonName: 'Chapter 1: Board Examination Grammar Editing & Error Correction',
+        risk: 'High penalty in Board proofreading passages requiring tense and voice alignment.',
+      },
+    ],
+    questions2Marks: [
+      {
+        prompt: 'Convert the active sentence into passive voice: "The students completed the science project on time."',
+        targetConcept: 'Active to Passive Voice Transformation (Class 7 Prerequisite)',
+        expectedAnswer: '"The science project was completed by the students on time."',
+      },
+      {
+        prompt: 'Identify and rectify the tense error in this sentence: "She has went to the library yesterday afternoon."',
+        targetConcept: 'Past Tense vs Present Perfect (Class 7 Prerequisite)',
+        expectedAnswer: 'Error is "has went". Rectified: "She went to the library yesterday afternoon" (simple past required with past time marker "yesterday").',
+      },
+      {
+        prompt: 'Explain when passive voice is preferred over active voice in scientific or objective writing.',
+        targetConcept: 'Stylistic Function of Passive Voice (Class 7 Prerequisite)',
+        expectedAnswer: 'When the action or its result is more important than the doer, or when the agent is unknown, irrelevant, or obvious.',
+      },
+    ],
+  },
+  {
+    category: 'subject_verb_concord_and_clauses',
+    subject: 'English Language',
+    triggers: [
+      'subject verb agreement',
+      'concord',
+      'clause',
+      'subordinate clause',
+      'relative clause',
+      'either or',
+      'neither nor',
+      'singular verb',
+      'plural verb',
+      'conjunction',
+    ],
+    prerequisiteLesson: {
+      grade: 'Class 7',
+      chapterNumber: 3,
+      chapterName: 'Chapter 3: Subject-Verb Agreement & Sentence Synthesis',
+      pdfFileName: 'Class 7 English Chapter 3.pdf',
+      pdfUrl: '/curriculum/Class 7 English Chapter 3.pdf',
+      concept: 'Rules of subject-verb concord: singular subjects take singular verbs; compound subjects joined by and take plural verbs; phrases intervening between subject and verb do not alter agreement; neither/nor matches the closer subject.',
+      studyTip: 'Bracket off intervening prepositional phrases (e.g. "The quality [of these apples] IS excellent") to clearly locate the true head noun.',
+      targetLessonName: 'Subject-Verb Concord & Sentence Clauses',
+    },
+    futureLessonsAffected: [
+      {
+        grade: 'Class 9',
+        chapterNumber: 3,
+        lessonName: 'Chapter 3: Complex Sentence Synthesis & Subordinate Clauses',
+        risk: 'Failure to join dependent adverbial and relative clauses without creating run-on sentences or fragments.',
+      },
+      {
+        grade: 'Class 10',
+        chapterNumber: 2,
+        lessonName: 'Chapter 2: Analytical Paragraph Writing & Formal Cohesion',
+        risk: 'Frequent syntax and concord deductions in Board analytical composition rubrics.',
+      },
+    ],
+    questions2Marks: [
+      {
+        prompt: 'Choose the correct verb form: "Neither the teacher nor the students (was / were) aware of the schedule change." Explain your choice.',
+        targetConcept: 'Proximity Rule in Subject-Verb Concord (Class 7 Prerequisite)',
+        expectedAnswer: '"were" is correct because with "neither... nor", the verb agrees with the closer subject ("students", which is plural).',
+      },
+      {
+        prompt: 'Combine the two simple sentences using a relative clause: "This is the student. She scored top marks in the national Olympiad."',
+        targetConcept: 'Relative Clause Synthesis (Class 7 Prerequisite)',
+        expectedAnswer: '"This is the student who scored top marks in the national Olympiad."',
+      },
+      {
+        prompt: 'Identify the error and rewrite correctly: "A bouquet of yellow roses were placed on the teacher desk."',
+        targetConcept: 'Intervening Phrase Concord (Class 7 Prerequisite)',
+        expectedAnswer: 'Error is "were". Correct: "A bouquet of yellow roses was placed on the teacher desk" (head noun "bouquet" is singular).',
+      },
+    ],
+  },
+  {
+    category: 'vocabulary_and_literary_devices',
+    subject: 'English Language',
+    triggers: [
+      'literary device',
+      'metaphor',
+      'simile',
+      'personification',
+      'vocabulary',
+      'synonym',
+      'antonym',
+      'poetic device',
+      'alliteration',
+      'hyperbole',
+    ],
+    prerequisiteLesson: {
+      grade: 'Class 8',
+      chapterNumber: 1,
+      chapterName: 'Chapter 1: Vocabulary in Context & Figurative Language',
+      pdfFileName: 'Class 8 English Chapter 1.pdf',
+      pdfUrl: '/curriculum/Class 8 English Chapter 1.pdf',
+      concept: 'Recognizing figurative literary devices: similes (explicit comparison using like/as), metaphors (implicit equivalence), personification (giving human traits to non-human entities); inferring nuanced word meanings from context.',
+      studyTip: 'Look for comparative syntax markers to distinguish similes from metaphors, and analyze how figurative imagery enhances emotive depth in prose and poetry.',
+      targetLessonName: 'Vocabulary & Figurative Literary Devices',
+    },
+    futureLessonsAffected: [
+      {
+        grade: 'Class 9',
+        chapterNumber: 2,
+        lessonName: 'Chapter 2: Poetry Analysis & Poetic Devices',
+        risk: 'Inability to interpret stanza symbolism, rhyme schemes, or extended metaphors in poetry questions.',
+      },
+      {
+        grade: 'Class 10',
+        chapterNumber: 2,
+        lessonName: 'Chapter 2: Board Examination Literary Prose & Poetic Interpretations',
+        risk: 'Loss of marks in 3-mark Board literary evaluation questions requiring figure-of-speech analysis.',
+      },
+    ],
+    questions2Marks: [
+      {
+        prompt: 'Identify the literary device used in the sentence: "The autumn leaves danced gracefully across the lawn," and justify your answer.',
+        targetConcept: 'Personification Identification (Class 8 Prerequisite)',
+        expectedAnswer: 'Personification; human actions ("danced gracefully") are attributed to non-human objects (autumn leaves).',
+      },
+      {
+        prompt: 'Distinguish between a simile and a metaphor with one original illustrative sentence for each.',
+        targetConcept: 'Simile vs Metaphor (Class 8 Prerequisite)',
+        expectedAnswer: 'A simile compares using "like" or "as" (e.g. "He was as brave as a lion"); a metaphor states direct equivalence without comparison words (e.g. "He was a lion in the battlefield").',
+      },
+      {
+        prompt: 'Explain the contextual meaning of the idiomatic phrase "a blessing in disguise" with a brief example sentence.',
+        targetConcept: 'Idioms & Contextual Vocabulary (Class 8 Prerequisite)',
+        expectedAnswer: 'An apparent misfortune that eventually results in an unexpected good outcome. Example: "Missing that delayed train turned out to be a blessing in disguise."',
       },
     ],
   },
@@ -629,68 +1094,44 @@ function resolveCurriculumKnowledge({
   syllabusEvidence = [],
 }) {
   const combined = `${prompt} ${observed} ${hypothesis} ${topicName}`.toLowerCase();
-
-  // 1. Detect if this item or context belongs to Science curriculum
-  const isScienceDetected =
-    subject.toLowerCase().includes('scien') ||
-    subject.toLowerCase().includes('bio') ||
-    subject.toLowerCase().includes('phys') ||
-    subject.toLowerCase().includes('chem') ||
-    /osmosis|cell|organelle|nucleus|mitochondria|golgi|prokaryot|eukaryot|plant|potato|membrane|diffusion|respiration|photosynthesis|scientific model|prediction|hypothesis/i.test(
-      combined
-    );
-
-  const effectiveSubject = isScienceDetected ? 'Science' : 'Mathematics';
-  const candidateCategories = CURRICULUM_KNOWLEDGE_BASE.filter((k) =>
-    effectiveSubject === 'Science' ? k.subject === 'Science' : k.subject !== 'Science'
-  );
+  const activeSubject = detectSubject(combined, subject);
 
   let baseKnowledge = null;
 
-  // 2. Check if database retrieval evidence provided a specific textbook chapter file
+  // 1. Check if database retrieval evidence provided a specific textbook chapter file
+  // CRITICAL FIX: Only accept chunks from syllabusEvidence IF they belong to the SAME active subject!
   if (Array.isArray(syllabusEvidence) && syllabusEvidence.length > 0) {
     for (const chunk of syllabusEvidence) {
       const src = (chunk.sourceFileName || '').toLowerCase();
-      // Science textbook evidence
-      if (src.includes('class 7 science chapter 2') || (src.includes('science') && src.includes('chapter 2') && src.includes('7'))) {
-        baseKnowledge = candidateCategories.find((k) => k.category === 'osmosis_and_diffusion');
-        if (baseKnowledge) break;
-      }
-      if (src.includes('class 8 science chapter 2') || (src.includes('science') && src.includes('chapter 2') && src.includes('8'))) {
-        baseKnowledge = candidateCategories.find((k) => k.category === 'cell_organelles_and_functions');
-        if (baseKnowledge) break;
-      }
-      if (src.includes('class 8 science chapter 1') || (src.includes('science') && src.includes('chapter 1') && src.includes('8'))) {
-        baseKnowledge = candidateCategories.find((k) => k.category === 'scientific_models_and_inquiry');
-        if (baseKnowledge) break;
-      }
-      // Maths textbook evidence
-      if (src.includes('class 7 maths chapter 2')) {
-        baseKnowledge = candidateCategories.find((k) => k.category === 'linear_equations');
-        if (baseKnowledge) break;
-      }
-      if (src.includes('class 6 maths chapter 3')) {
-        baseKnowledge = candidateCategories.find((k) => k.category === 'arithmetic_order_of_operations');
-        if (baseKnowledge) break;
-      }
-      if (src.includes('class 8 maths chapter 2')) {
-        baseKnowledge = candidateCategories.find((k) => k.category === 'exponents_powers');
-        if (baseKnowledge) break;
-      }
-      if (src.includes('class 7 maths chapter 1')) {
-        baseKnowledge = candidateCategories.find((k) => k.category === 'commercial_math_interest');
-        if (baseKnowledge) break;
-      }
-      if (src.includes('class 6 maths chapter 2')) {
-        baseKnowledge = candidateCategories.find((k) => k.category === 'geometry_mensuration');
-        if (baseKnowledge) break;
+      const chunkSubject = (chunk.subject || '').toLowerCase();
+
+      // Skip mismatched chunks to prevent math chunks overriding science or social studies
+      if (activeSubject.includes('Science') && (chunkSubject.includes('math') || src.includes('math'))) continue;
+      if (activeSubject.includes('Social') && (chunkSubject.includes('math') || src.includes('math') || chunkSubject.includes('science') || src.includes('science'))) continue;
+      if (activeSubject.includes('English') && (chunkSubject.includes('math') || src.includes('math') || chunkSubject.includes('science') || src.includes('science'))) continue;
+      if (activeSubject.includes('Math') && (chunkSubject.includes('science') || src.includes('science') || chunkSubject.includes('english') || src.includes('english'))) continue;
+
+      const match = CURRICULUM_KNOWLEDGE_BASE.find(
+        (k) => k.prerequisiteLesson.pdfFileName && src.includes(k.prerequisiteLesson.pdfFileName.toLowerCase())
+      );
+      if (match) {
+        baseKnowledge = match;
+        break;
       }
     }
   }
 
-  // 3. Keyword trigger match within subject candidate categories
+  // 2. Keyword trigger match within the SAME subject first
   if (!baseKnowledge) {
-    for (const entry of candidateCategories) {
+    const subjectCategories = CURRICULUM_KNOWLEDGE_BASE.filter((k) => {
+      const catSub = (k.subject || 'Mathematics').toLowerCase();
+      if (activeSubject.includes('Science')) return catSub.includes('science');
+      if (activeSubject.includes('Social')) return catSub.includes('social');
+      if (activeSubject.includes('English')) return catSub.includes('english');
+      return catSub.includes('math');
+    });
+
+    for (const entry of subjectCategories) {
       for (const trigger of entry.triggers) {
         if (combined.includes(trigger.toLowerCase())) {
           baseKnowledge = entry;
@@ -701,63 +1142,86 @@ function resolveCurriculumKnowledge({
     }
   }
 
-  // 4. Fallback defaults strictly by subject
+  // 3. Fallback check across all entries if no subject-specific match
   if (!baseKnowledge) {
-    if (effectiveSubject === 'Science') {
-      baseKnowledge =
-        candidateCategories.find((k) => k.category === 'cell_organelles_and_functions') ||
-        candidateCategories[0] || {
-          category: 'general_science_foundations',
-          subject: 'Science',
-          prerequisiteLesson: {
-            grade: 'Class 7',
-            chapterNumber: 2,
-            chapterName: 'Chapter 2: Exploring Living Processes & Cellular Transport',
-            pdfFileName: 'Class 7 Science Chapter 2.pdf',
-            fileName: 'Class 7 Science Chapter 2.pdf',
-            pdfUrl: '/curriculum/Class 7 Science Chapter 2.pdf',
-            concept: 'Core conceptual definitions and foundational analytical skills in Science.',
-            studyTip: 'Review foundational concepts and complete guided review exercises before advancing.',
-            targetLessonName: 'Foundational Science Principles',
-          },
-          futureLessonsAffected: [
-            {
-              grade: 'Class 9',
-              chapterNumber: 5,
-              lessonName: 'Chapter 5: The Fundamental Unit of Life',
-              risk: 'Gaps in core prerequisite principles will lead to compounding comprehension difficulties.',
-            },
-            {
-              grade: 'Class 10',
-              chapterNumber: 6,
-              lessonName: 'Chapter 6: Life Processes',
-              risk: 'Loss of examination performance in multi-concept synthetic problems.',
-            },
-          ],
-          questions2Marks: [
-            {
-              prompt: 'Review and define the primary foundational principle of Science covered in previous grades.',
-              targetConcept: 'Foundational Science Principles',
-              expectedAnswer: 'Clear conceptual definition with one verified application example.',
-            },
-          ],
-        };
-    } else {
-      baseKnowledge =
-        candidateCategories.find((k) => k.category === 'linear_equations') ||
-        candidateCategories[0] ||
-        CURRICULUM_KNOWLEDGE_BASE[0];
+    for (const entry of CURRICULUM_KNOWLEDGE_BASE) {
+      for (const trigger of entry.triggers) {
+        if (combined.includes(trigger.toLowerCase())) {
+          baseKnowledge = entry;
+          break;
+        }
+      }
+      if (baseKnowledge) break;
     }
   }
 
-  // Ensure fileName is always present and mirrors pdfFileName
-  if (baseKnowledge?.prerequisiteLesson) {
+  // 4. Universal Dynamic Subject Fallback (NEVER default to Math if subject is Science, Social, English, etc.)
+  if (!baseKnowledge) {
+    const isScience = activeSubject.includes('Science');
+    const isSocial = activeSubject.includes('Social');
+    const isEnglish = activeSubject.includes('English');
+
+    const prevGrade = targetGrade === 'Class 6' ? 'Class 5' : 'Class 7';
+    let chapterName = `Chapter 1: Foundational ${activeSubject} Principles`;
+    let pdfFileName = `Class 7 ${activeSubject.split(/[\/\s]/)[0]} Chapter 1.pdf`;
+    let pdfUrl = `/curriculum/${pdfFileName}`;
+    let concept = `Core foundational definitions, principles, and analytical problem-solving in ${activeSubject}.`;
+
+    if (isSocial) {
+      chapterName = 'Chapter 1: The Indian Constitution & Democratic Institutions';
+      pdfFileName = 'Class 7 Social Studies Chapter 1.pdf';
+      pdfUrl = '/curriculum/Class 7 Social Studies Chapter 1.pdf';
+      concept = 'Foundational constitutional principles, democratic institutions, and separation of powers.';
+    } else if (isEnglish) {
+      chapterName = 'Chapter 1: Reading Comprehension & Textual Inferences';
+      pdfFileName = 'Class 7 English Chapter 1.pdf';
+      pdfUrl = '/curriculum/Class 7 English Chapter 1.pdf';
+      concept = 'Comprehension analysis, identifying author intent, and textual evidence synthesis.';
+    } else if (isScience) {
+      chapterName = 'Chapter 1: Exploring Investigative Science & Physical Systems';
+      pdfFileName = 'Class 7 Science Chapter 1.pdf';
+      pdfUrl = '/curriculum/Class 7 Science Chapter 1.pdf';
+      concept = 'Scientific inquiry, empirical observation, and controlled experimentation.';
+    }
+
     baseKnowledge = {
-      ...baseKnowledge,
+      category: `${activeSubject.toLowerCase().replace(/[^a-z0-9]/g, '_')}_foundations`,
+      subject: activeSubject,
       prerequisiteLesson: {
-        ...baseKnowledge.prerequisiteLesson,
-        fileName: baseKnowledge.prerequisiteLesson.fileName || baseKnowledge.prerequisiteLesson.pdfFileName,
+        grade: prevGrade,
+        chapterNumber: 1,
+        chapterName,
+        pdfFileName,
+        pdfUrl,
+        concept,
+        studyTip: `Review Section 1.1 in ${chapterName} and practice guided exercises before advancing.`,
       },
+      futureLessonsAffected: [
+        {
+          grade: 'Class 9',
+          chapterNumber: 1,
+          lessonName: `Advanced Application Units in ${activeSubject}`,
+          risk: `Gaps in core prerequisite principles will lead to compounding difficulty in ${activeSubject}.`,
+        },
+        {
+          grade: 'Class 10',
+          chapterNumber: 1,
+          lessonName: `Board Examination Preparatory Units in ${activeSubject}`,
+          risk: `Loss of examination performance in multi-concept synthetic problems.`,
+        },
+      ],
+      questions2Marks: [
+        {
+          prompt: `Define the primary concept of ${topicName || activeSubject} and provide one illustrative example.`,
+          targetConcept: `Foundational ${activeSubject} Concepts`,
+          expectedAnswer: `Accurate conceptual definition with one verified example relevant to ${activeSubject}.`,
+        },
+        {
+          prompt: `Explain why understanding ${topicName || activeSubject} is essential for solving advanced problems in higher classes.`,
+          targetConcept: `Prerequisite Conceptual Understanding in ${activeSubject}`,
+          expectedAnswer: `Explains how this foundational concept directly links to future coursework in ${activeSubject}.`,
+        },
+      ],
     };
   }
 
@@ -774,14 +1238,14 @@ function resolveCurriculumKnowledge({
         {
           grade: 'Class 10',
           chapterNumber: 'Board Exam',
-          lessonName: 'Class 10 Board Examination Assessment Units',
+          lessonName: `${activeSubject} Board Examination Assessment Units`,
           risk: 'Direct mark deduction in Board Examination question papers and internal cumulative assessments.',
         },
         {
           grade: 'Class 11 & Class 12',
           chapterNumber: 'Foundations',
-          lessonName: 'Higher Secondary Coursework (Class 11 and Class 12)',
-          risk: 'Underlying conceptual weakness in senior secondary core subjects. (Detailed 11/12 chapter syllabus not mapped).',
+          lessonName: `Higher Secondary Coursework in ${activeSubject} (Class 11 and Class 12)`,
+          risk: `Underlying conceptual weakness in senior secondary ${activeSubject}. (Detailed 11/12 chapter syllabus not mapped).`,
         },
       ],
     };
@@ -813,22 +1277,17 @@ export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
   const gaps = [];
   const roadmap = [];
 
-  // Determine true curriculum subject from evaluation content and syllabus
-  const allText = (evaluations || [])
+  // Consolidate full assessment text to auto-detect the genuine subject
+  const fullText = evaluations
     .map(
       (e) =>
-        `${e.prompt || ''} ${e.studentAnswer || ''} ${e.observedErrors || ''} ${e.misconceptionHypothesis || ''} ${e.affectedLessonName || ''}`
+        `${e.prompt || ''} ${e.studentAnswer || ''} ${e.expectedAnswer || ''} ${e.affectedLessonName || ''} ${
+          e.misconceptionHypothesis || ''
+        } ${e.observedErrors || ''}`
     )
-    .join(' ')
-    .toLowerCase();
+    .join(' ');
 
-  const isExamScience =
-    /osmosis|cell|organelle|nucleus|mitochondria|golgi|prokaryot|eukaryot|plant|potato|membrane|diffusion|respiration|photosynthesis|scientific model|prediction|hypothesis/i.test(
-      allText
-    ) ||
-    String(syllabusData.selectedSubject || '').toLowerCase().includes('scien');
-
-  const subject = isExamScience ? 'Science' : (syllabusData.selectedSubject || 'Mathematics');
+  const activeSubject = detectSubject(fullText, syllabusData.selectedSubject || 'Mathematics');
   const targetGrade = syllabusData.selectedClass || 'Class 8';
 
   const diagnosedCategories = [];
@@ -845,7 +1304,7 @@ export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
     const awarded = Number(
       item.approvedMarks !== null && item.approvedMarks !== undefined
         ? item.approvedMarks
-        : (item.suggestedMarks ?? item.awardedMarks ?? item.detectedMarks ?? max)
+        : item.suggestedMarks ?? item.awardedMarks ?? item.detectedMarks ?? max
     );
     const hasScoreLoss = awarded < max;
 
@@ -864,35 +1323,12 @@ export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
       return; // Skip: No actual error or misconception diagnosed
     }
 
-    // Determine clean, conceptual topic name
-    let topicName = item.affectedLessonName;
-    if (
-      !topicName ||
-      topicName === 'Mathematics' ||
-      topicName === 'Science / Physics' ||
-      topicName.startsWith('Foundational')
-    ) {
-      const qText = `${prompt} ${observed} ${hypothesis}`.toLowerCase();
-      if (/osmosis|potato|semi-permeable|diffusion|water movement|concentration/i.test(qText)) {
-        topicName = 'Osmosis & Cellular Transport';
-      } else if (/prokaryot|eukaryot|bacteria|nucleoid/i.test(qText)) {
-        topicName = 'Prokaryotic vs Eukaryotic Cell Organization';
-      } else if (/organelle|nucleus|mitochondria|golgi|atp|energy currency/i.test(qText)) {
-        topicName = 'Cell Structure & Organelle Functions';
-      } else if (/scientific model|prediction|hypothesis|guess/i.test(qText)) {
-        topicName = 'Scientific Models & Experimental Inquiry';
-      } else if (/linear equation|equation|solve for/i.test(qText)) {
-        topicName = 'Linear Equations in One Variable';
-      } else if (/exponent|power/i.test(qText)) {
-        topicName = 'Exponents & Powers';
-      } else if (/factoris|polynomial/i.test(qText)) {
-        topicName = 'Factorisation & Polynomials';
-      } else {
-        topicName = prompt.includes('—')
-          ? prompt.split('—')[0].trim()
-          : prompt.slice(0, 50).trim() || `${subject} Foundational Concept`;
-      }
-    }
+    // Determine clean topic name
+    let topicName =
+      item.affectedLessonName ||
+      (prompt.includes('—') ? prompt.split('—')[0].trim() : prompt.slice(0, 50).trim()) ||
+      `Foundational ${activeSubject} Concept`;
+
     topicName = topicName.replace(/\s*\[\d+\s*Marks?\]/i, '').replace(/Solution/i, '').trim();
 
     // Construct clear, human-readable gap title from misconception or observed error
@@ -910,7 +1346,7 @@ export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
     }
 
     const gapId = `gap-${qNum.toLowerCase().replace(/[^a-z0-9]/g, '') || index + 1}`;
-    const lessonName = topicName;
+    const lessonName = item.affectedLessonName || topicName;
 
     // Retrieve previous class foundational lesson and future affected lessons
     const knowledge = resolveCurriculumKnowledge({
@@ -918,7 +1354,7 @@ export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
       observed,
       hypothesis,
       topicName,
-      subject,
+      subject: activeSubject,
       targetGrade,
       syllabusEvidence: item.syllabusEvidence,
     });
@@ -937,7 +1373,7 @@ export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
       evidence: `In ${qNum}, ${observed || hypothesis || 'discrepancy identified in working steps.'}`,
       likelihood: awarded <= max / 2 ? 'Likely' : 'Possible',
       status: 'Verified from Answer Evidence',
-      dependentTopics: [topicName, `${subject} Core Curriculum`],
+      dependentTopics: [topicName, `${activeSubject} Core Curriculum`],
       misconception: hypothesis || observed || 'Conceptual reinforcement required.',
       prerequisiteLesson: knowledge.prerequisiteLesson,
       futureLessonsAffected: knowledge.futureLessonsAffected,
@@ -967,46 +1403,31 @@ export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
 
   // If student answered all questions without errors, celebrate mastery
   if (gaps.length === 0 && evaluations.length > 0) {
-    const defaultPrereq = isExamScience
-      ? {
-          grade: targetGrade,
-          chapterNumber: 1,
-          chapterName: 'Class 8 Science Advanced Inquiry',
-          pdfFileName: 'Class 8 Science Chapter 1.pdf',
-          fileName: 'Class 8 Science Chapter 1.pdf',
-          pdfUrl: '/curriculum/Class 8 Science Chapter 1.pdf',
-          concept: 'Advanced scientific investigation and experimental design.',
-          studyTip: 'Engage with inquiry extension projects.',
-        }
-      : {
-          grade: targetGrade,
-          chapterNumber: 1,
-          chapterName: `${targetGrade} Advanced Extension Topics`,
-          pdfFileName: 'Class 8 Maths Chapter 1.pdf',
-          fileName: 'Class 8 Maths Chapter 1.pdf',
-          pdfUrl: '/curriculum/Class 8 Maths Chapter 1.pdf',
-          concept: 'Synthesis of multiple mathematical domains, proof formulation, and Olympiad problem-solving.',
-          studyTip: 'Engage with non-routine enrichment challenges.',
-        };
-
     gaps.push({
       id: 'gap-mastery',
       topicName: 'Curriculum Mastery Confirmed',
       grade: targetGrade,
-      lessonName: subject,
+      lessonName: activeSubject,
       lessonId: 'les-mastery',
-      evidence:
-        'Student demonstrated working steps consistent with rubric across all assessed questions without foundational errors.',
+      evidence: 'Student demonstrated working steps consistent with rubric across all assessed questions without foundational errors.',
       likelihood: 'Low',
       status: 'Mastery Validated',
       dependentTopics: ['Advanced Problem Solving', 'Enrichment Units'],
       misconception: 'No critical foundational gaps detected.',
-      prerequisiteLesson: defaultPrereq,
+      prerequisiteLesson: {
+        grade: targetGrade,
+        chapterNumber: 1,
+        chapterName: `${targetGrade} Advanced Extension Topics in ${activeSubject}`,
+        pdfFileName: `Class 8 ${activeSubject.split(/[\/\s]/)[0]} Chapter 1.pdf`,
+        pdfUrl: `/curriculum/Class 8 ${activeSubject.split(/[\/\s]/)[0]} Chapter 1.pdf`,
+        concept: `Synthesis of multiple domains and olympiad problem solving in ${activeSubject}.`,
+        studyTip: 'Engage with non-routine enrichment challenges.',
+      },
       futureLessonsAffected: [
         {
           grade: 'Next Grade Level',
           chapterNumber: 'Advanced',
-          lessonName: 'Accelerated Curriculum Pathway',
+          lessonName: `Accelerated Curriculum Pathway in ${activeSubject}`,
           risk: 'No negative impact detected. Student is prepared for advanced honors topics.',
         },
       ],
@@ -1016,7 +1437,7 @@ export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
     roadmap.push({
       id: 'rm-mastery',
       rank: 1,
-      topic: 'Syllabus Enrichment & Advanced Problem Formulation',
+      topic: `Syllabus Enrichment & Advanced Problem Formulation in ${activeSubject}`,
       grade: `${targetGrade} Core`,
       lessonId: 'les-enrichment',
       prereqChain: 'None (Prerequisites Mastered)',
@@ -1025,7 +1446,15 @@ export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
       practiceQuestions: 5,
       estimatedMinutes: 30,
       status: 'Not Started',
-      prerequisiteLesson: defaultPrereq,
+      prerequisiteLesson: {
+        grade: targetGrade,
+        chapterNumber: 1,
+        chapterName: `${targetGrade} Advanced Extension Topics in ${activeSubject}`,
+        pdfFileName: `Class 8 ${activeSubject.split(/[\/\s]/)[0]} Chapter 1.pdf`,
+        pdfUrl: `/curriculum/Class 8 ${activeSubject.split(/[\/\s]/)[0]} Chapter 1.pdf`,
+        concept: `Synthesis of multiple domains in ${activeSubject}.`,
+        studyTip: 'Explore alternative representations and comparative analytical formulations.',
+      },
       futureLessonsAffected: [],
     });
   }
@@ -1033,22 +1462,22 @@ export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
   // =========================================================================
   // Assemble 2-Mark Diagnostic Test Questions (strictly between 5 and 10 questions)
   // Constraint: "do not exceed 10 and degrade 5"
-  // Strictly filtered by subject: Science questions for Science, Math for Math!
   // =========================================================================
   const questionPool = [];
 
-  const subjectKnowledgeBase = CURRICULUM_KNOWLEDGE_BASE.filter((k) =>
-    isExamScience ? k.subject === 'Science' : k.subject !== 'Science'
-  );
+  // Filter curriculum categories to the active subject
+  const sameSubjectCategories = CURRICULUM_KNOWLEDGE_BASE.filter((k) => {
+    const catSub = (k.subject || 'Mathematics').toLowerCase();
+    if (activeSubject.includes('Science')) return catSub.includes('science');
+    if (activeSubject.includes('Social')) return catSub.includes('social');
+    if (activeSubject.includes('English')) return catSub.includes('english');
+    return catSub.includes('math');
+  });
 
-  const activeCategories = diagnosedCategories.filter((k) =>
-    isExamScience ? k.subject === 'Science' : k.subject !== 'Science'
-  );
-
-  const baseCategoriesToUse = activeCategories.length > 0 ? activeCategories : subjectKnowledgeBase;
+  const activeCategories = diagnosedCategories.length > 0 ? diagnosedCategories : sameSubjectCategories;
 
   // 1. Gather 2-mark questions from diagnosed categories
-  baseCategoriesToUse.forEach((cat) => {
+  activeCategories.forEach((cat) => {
     const list = cat.questions2Marks || [];
     list.forEach((q) => {
       questionPool.push({
@@ -1056,18 +1485,18 @@ export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
         type: 'Short Answer',
         marks: 2,
         targetConcept: q.targetConcept,
-        syllabusTopic: cat.prerequisiteLesson.chapterName || subject,
+        syllabusTopic: cat.prerequisiteLesson?.chapterName || activeSubject,
         expectedAnswer: q.expectedAnswer,
-        prerequisiteChapter: cat.prerequisiteLesson.chapterName,
-        pdfFileName: cat.prerequisiteLesson.pdfFileName || cat.prerequisiteLesson.fileName,
+        prerequisiteChapter: cat.prerequisiteLesson?.chapterName,
+        pdfFileName: cat.prerequisiteLesson?.pdfFileName,
       });
     });
   });
 
-  // 2. If questionPool has less than 5 questions, supplement from remaining curriculum categories of the SAME subject
-  for (const cat of subjectKnowledgeBase) {
+  // 2. If questionPool has less than 5 questions, supplement ONLY from the SAME SUBJECT categories!
+  for (const cat of sameSubjectCategories) {
     if (questionPool.length >= 7) break; // Healthy target of 6-7 questions
-    if (!baseCategoriesToUse.some((c) => c.category === cat.category)) {
+    if (!activeCategories.some((c) => c.category === cat.category)) {
       const list = cat.questions2Marks || [];
       for (const q of list) {
         if (questionPool.length < 10) {
@@ -1076,21 +1505,39 @@ export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
             type: 'Short Answer',
             marks: 2,
             targetConcept: q.targetConcept,
-            syllabusTopic: cat.prerequisiteLesson.chapterName || subject,
+            syllabusTopic: cat.prerequisiteLesson?.chapterName || activeSubject,
             expectedAnswer: q.expectedAnswer,
-            prerequisiteChapter: cat.prerequisiteLesson.chapterName,
-            pdfFileName: cat.prerequisiteLesson.pdfFileName || cat.prerequisiteLesson.fileName,
+            prerequisiteChapter: cat.prerequisiteLesson?.chapterName,
+            pdfFileName: cat.prerequisiteLesson?.pdfFileName,
           });
         }
       }
     }
   }
 
-  // 3. Bound question count strictly: minimum 5, maximum 10
+  // 3. If STILL less than 5 questions, synthesize questions based on the student's evaluated prompts in the same subject:
+  if (questionPool.length < 5 && evaluations.length > 0) {
+    evaluations.forEach((item, idx) => {
+      if (questionPool.length >= 7) return;
+      const p = item.prompt || `Question ${idx + 1}`;
+      questionPool.push({
+        prompt: `Review and explain the key foundational principle involved in: ${p.slice(0, 90)}...`,
+        type: 'Short Answer',
+        marks: 2,
+        targetConcept: `${activeSubject} Diagnostic Application`,
+        syllabusTopic: item.affectedLessonName || activeSubject,
+        expectedAnswer: item.expectedAnswer || 'Clear step-by-step conceptual answer.',
+        prerequisiteChapter: `Class 7 ${activeSubject} Foundational Units`,
+        pdfFileName: `Class 7 ${activeSubject.split(/[\/\s]/)[0]} Chapter 1.pdf`,
+      });
+    });
+  }
+
+  // 4. Bound question count strictly: minimum 5, maximum 10
   const targetCount = Math.min(10, Math.max(5, questionPool.length));
   const boundedQuestions = questionPool.slice(0, targetCount);
 
-  // 4. Renumber sequentially and enforce 2 marks
+  // 5. Renumber sequentially and enforce 2 marks
   const testQuestions = boundedQuestions.map((q, idx) => ({
     ...q,
     id: `test-q-${idx + 1}`,

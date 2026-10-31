@@ -26,20 +26,28 @@ export default function ExportFollowUp({
 
   const activeStudentName = studentProfile?.name?.trim() || 'Student';
 
-  // Dynamic curriculum subject detection
-  const isScienceInGaps =
-    (gapsData || []).some(
-      (g) =>
-        /science|osmosis|cell|organelle|nucleus|mitochondria|prokaryot|eukaryot/i.test(g.lessonName || '') ||
-        /science|osmosis|cell|organelle|nucleus|mitochondria|prokaryot|eukaryot/i.test(g.prerequisiteLesson?.chapterName || '')
-    ) ||
-    (testQuestions || []).some((q) =>
-      /science|osmosis|cell|organelle|nucleus|mitochondria/i.test(q.syllabusTopic || q.prompt || '')
-    );
+  // Dynamic curriculum subject detection across all subjects
+  const allGapsText = (gapsData || [])
+    .map((g) => `${g.lessonName || ''} ${g.prerequisiteLesson?.chapterName || ''} ${g.topicName || ''}`)
+    .join(' ')
+    .toLowerCase();
+  const allQuestionsText = (testQuestions || [])
+    .map((q) => `${q.syllabusTopic || ''} ${q.prompt || ''}`)
+    .join(' ')
+    .toLowerCase();
+  const combinedExportText = `${allGapsText} ${allQuestionsText}`;
 
-  const effectiveSubject = isScienceInGaps
-    ? 'Science'
-    : (syllabusData?.selectedSubject || 'Mathematics');
+  const isScienceInGaps =
+    /science|osmosis|cell|organelle|nucleus|mitochondria|prokaryot|eukaryot/i.test(combinedExportText);
+  const isSocialInGaps =
+    /social|constitution|preamble|democracy|resource|revolt|history|geography|civics|economic|secularism|parliament/i.test(combinedExportText);
+  const isEnglishInGaps =
+    /english|comprehension|grammar|tense|voice|concord|clause|vocabulary|literary|passage/i.test(combinedExportText);
+
+  let effectiveSubject = syllabusData?.selectedSubject || 'Mathematics';
+  if (isScienceInGaps) effectiveSubject = 'Science';
+  else if (isSocialInGaps) effectiveSubject = 'Social Studies';
+  else if (isEnglishInGaps) effectiveSubject = 'English Language';
 
   // Client-side real PDF blob document exporter
   const triggerDownload = (filename, blobOrContent, mimeType = 'application/pdf') => {

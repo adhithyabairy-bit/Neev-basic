@@ -202,8 +202,10 @@ export async function retrieveRelevantSyllabusChunks({
   // 3. Fallback: Query chunks from MongoDB filtered strictly by teacherId, then compute cosine similarity
   try {
     const filter = { teacherId };
-    if (subject) filter.subject = subject;
-    if (grade) filter.grade = grade;
+    if (subjectRegex) filter.subject = subjectRegex;
+    else if (subject) filter.subject = subject;
+    if (gradeRegex) filter.grade = gradeRegex;
+    else if (grade) filter.grade = grade;
 
     const candidates = await SyllabusChunk.find(filter)
       .select('documentId chunkId sourceFileName pageNumber pageRange chunkIndex chunkText lessonName grade subject embedding')

@@ -508,6 +508,44 @@ export function getTeachingPrioritiesForClass(cls, allAssessments = []) {
     ];
   }
 
+  if (subject.toLowerCase().includes('english')) {
+    return [
+      {
+        id: `${cls._id || cls.id || 'cls'}-eng-1`,
+        rank: 1,
+        topicName: `Reading Comprehension & Critical Inference (${cls.grade || 'Class 8'})`,
+        grade: 'Foundational English',
+        chapterName: 'Chapter 1: Critical Reading & Inferences',
+        pdfFileName: 'Class 8 English Chapter 1.pdf',
+        reason: 'Textual Evidence: Failing to locate explicit text citations and confusing fact with inference.',
+        suggestedActivity: 'Unseen analytical passage reading drills highlighting topic sentences and core arguments.',
+        estimatedMinutes: 40,
+      },
+      {
+        id: `${cls._id || cls.id || 'cls'}-eng-2`,
+        rank: 2,
+        topicName: 'Subject-Verb Concord & Auxiliary Verb Agreement',
+        grade: 'Foundational English',
+        chapterName: 'Chapter 2: Grammar & Sentence Structure',
+        pdfFileName: 'Class 8 English Chapter 2.pdf',
+        reason: 'Grammatical Accuracy: Agreement errors in sentences with compound subjects and intervening prepositional phrases.',
+        suggestedActivity: 'Sentence error correction sprint identifying and rewriting subject-verb mismatches.',
+        estimatedMinutes: 35,
+      },
+      {
+        id: `${cls._id || cls.id || 'cls'}-eng-3`,
+        rank: 3,
+        topicName: 'Active-Passive Voice Transformations & Reported Speech',
+        grade: 'Foundational English',
+        chapterName: 'Chapter 3: Applied Grammar & Writing Skills',
+        pdfFileName: 'Class 8 English Chapter 3.pdf',
+        reason: 'Syntactic Structure: Inconsistent tense shifting and auxiliary omission in passive conversions.',
+        suggestedActivity: 'Paired dialogue transformation exercise converting direct interview speech into formal reports.',
+        estimatedMinutes: 45,
+      },
+    ];
+  }
+
   if (subject.toLowerCase().includes('science')) {
     return [
       {

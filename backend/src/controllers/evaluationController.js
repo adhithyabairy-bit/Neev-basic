@@ -125,17 +125,35 @@ export async function evaluateAnswerSheet(req, res, next) {
       .join(' ')
       .toLowerCase();
 
+    const fileNameText = (answerSheet.originalFileName || '').toLowerCase();
+
     const isScienceDetected =
       /osmosis|cell|organelle|nucleus|mitochondria|golgi|prokaryot|eukaryot|plant|potato|membrane|diffusion|respiration|photosynthesis|scientific model|prediction|hypothesis/i.test(
         allAnswersText
-      ) ||
-      /science|bio|chem|phys/i.test(answerSheet.originalFileName || '');
+      ) || /science|bio|chem|phys/i.test(fileNameText);
+
+    const isSocialDetected =
+      /constitution|preamble|democracy|republic|sovereign|fundamental rights|secularism|parliament|judiciary|legislature|executive|doctrine of lapse|revolt of 1857|mughal|sultanate|mansabdar|zamindar|colonial|british|historical source|bce|ce|natural resource|renewable|soil conservation|terrace farming|primary sector|secondary sector|tertiary sector|monsoon|kharif|rabi|latitude|longitude|map scale/i.test(
+        allAnswersText
+      ) || /social|history|geography|civics|polity|economics|sst/i.test(fileNameText);
+
+    const isEnglishDetected =
+      /grammar|tense|passive voice|active voice|reported speech|direct speech|indirect speech|subject-verb|concord|subordinate clause|reading comprehension|passage|inference|author|poet|poem|metaphor|simile|personification|vocabulary|synonym|antonym/i.test(
+        allAnswersText
+      ) || /english|literature|grammar/i.test(fileNameText);
 
     let effectiveSubject = assessment.subject || 'Mathematics';
     if (isScienceDetected && (!effectiveSubject || effectiveSubject.toLowerCase().includes('math'))) {
       effectiveSubject = 'Science / Physics';
+    } else if (isSocialDetected && (!effectiveSubject || effectiveSubject.toLowerCase().includes('math'))) {
+      effectiveSubject = 'Social Studies';
+    } else if (isEnglishDetected && (!effectiveSubject || effectiveSubject.toLowerCase().includes('math'))) {
+      effectiveSubject = 'English Language';
+    }
+
+    if (effectiveSubject !== assessment.subject) {
       try {
-        await Assessment.findByIdAndUpdate(assessment._id, { subject: 'Science / Physics' });
+        await Assessment.findByIdAndUpdate(assessment._id, { subject: effectiveSubject });
       } catch (subErr) {
         console.warn('[EvaluationController] Auto-update assessment subject notice:', subErr.message);
       }
@@ -158,22 +176,48 @@ export async function evaluateAnswerSheet(req, res, next) {
 
       // Determine clean, conceptual lesson name
       let lessonName = rubricItem?.lessonName;
-      if (!lessonName || lessonName === 'Mathematics' || lessonName === 'Science / Physics' || lessonName.startsWith('Foundational')) {
+      if (!lessonName || lessonName === 'Mathematics' || lessonName === 'Science / Physics' || lessonName === 'Social Studies' || lessonName === 'English Language' || lessonName.startsWith('Foundational')) {
         const qText = `${prompt} ${referenceAnswer} ${studentAnswer}`.toLowerCase();
+        // Science
         if (/osmosis|potato|semi-permeable|diffusion|water movement|concentration/i.test(qText)) {
           lessonName = 'Osmosis & Cellular Transport';
-        } else if (/organelle|nucleus|mitochondria|golgi|atp|energy currency/i.test(qText)) {
-          lessonName = 'Cell Structure & Organelle Functions';
         } else if (/prokaryot|eukaryot|bacteria|nucleoid/i.test(qText)) {
           lessonName = 'Prokaryotic vs Eukaryotic Cell Organization';
+        } else if (/organelle|nucleus|mitochondria|golgi|atp|energy currency/i.test(qText)) {
+          lessonName = 'Cell Structure & Organelle Functions';
         } else if (/scientific model|prediction|hypothesis|guess/i.test(qText)) {
           lessonName = 'Scientific Models & Experimental Inquiry';
+        // Social Studies
+        } else if (/constitution|preamble|fundamental rights|secularism|separation of powers|parliament|judiciary/i.test(qText)) {
+          lessonName = 'The Indian Constitution & Democratic Institutions';
+        } else if (/resource|soil|conservation|terrace farming|water|hydrosphere|environment/i.test(qText)) {
+          lessonName = 'Natural Resources & Environmental Conservation';
+        } else if (/revolt of 1857|colonial|british|doctrine of lapse|east india company/i.test(qText)) {
+          lessonName = 'Colonial Rule & The 1857 Uprising';
+        } else if (/primary sector|secondary sector|tertiary sector|economic activity|development/i.test(qText)) {
+          lessonName = 'Economic Activities & Sectors of the Economy';
+        } else if (/mughal|sultanate|mansabdar|medieval/i.test(qText)) {
+          lessonName = 'Medieval India: The Delhi Sultanate & Mughal Empire';
+        // English
+        } else if (/reading comprehension|passage|inference|author|theme/i.test(qText)) {
+          lessonName = 'Reading Comprehension & Textual Inference';
+        } else if (/active voice|passive voice|tense|reported speech/i.test(qText)) {
+          lessonName = 'English Grammar: Tenses & Voice Transformations';
+        } else if (/subject-verb|concord|subordinate clause|relative clause/i.test(qText)) {
+          lessonName = 'Subject-Verb Concord & Sentence Clauses';
+        } else if (/literary device|metaphor|simile|personification|vocabulary/i.test(qText)) {
+          lessonName = 'Vocabulary & Figurative Literary Devices';
+        // Mathematics
         } else if (/linear equation|equation|solve for/i.test(qText)) {
           lessonName = 'Linear Equations in One Variable';
         } else if (/exponent|power/i.test(qText)) {
           lessonName = 'Exponents & Powers';
         } else if (/factoris|polynomial/i.test(qText)) {
           lessonName = 'Factorisation & Polynomials';
+        } else if (/mensuration|rectangle|pythagor/i.test(qText)) {
+          lessonName = 'Geometry & Mensuration';
+        } else if (/simple interest|compound interest/i.test(qText)) {
+          lessonName = 'Commercial Mathematics & Comparing Quantities';
         } else {
           lessonName = prompt.length > 5 && !prompt.startsWith('Question') ? prompt.slice(0, 50).trim() : effectiveSubject;
         }
