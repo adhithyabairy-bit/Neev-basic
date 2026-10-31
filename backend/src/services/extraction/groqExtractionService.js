@@ -98,37 +98,35 @@ export async function extractQuestionsFromQuestionPaper(rawText, subject = '') {
     return [];
   }
 
-  const systemPrompt = `You are an expert examination paper parser.
-Your task is to analyze raw text extracted from an examination question paper and output ONLY the genuine test questions with their assigned maximum marks.
+  const systemPrompt = `You are an expert examination question paper parser specialized in processing noisy, scanned OCR text.
+Your task is to analyze raw OCR text from a school exam question paper and extract all distinct questions with their assigned maximum marks.
 
-CRITICAL PARSING RULES:
-1. Filter out all non-question text:
-   - School / Academy name, examination title, class, subject, date, time allowed.
-   - Student name, roll number, section blanks.
-   - General instructions (e.g. "All questions are compulsory", "Read each question carefully").
-   - Section headers (e.g. "Section A", "Part 1").
-2. Extract each genuine question with:
-   - "questionNumber": "Q1", "Q2", "Q3", etc.
-   - "prompt": The clean question statement / problem text.
-   - "maxMarks": The numerical marks allocated for this question. If not explicitly specified, default to 3.
-3. Preserve mathematical expressions and formulas accurately in standard notation.
+CRITICAL OCR NOISE & RECONSTRUCTION RULES:
+1. The text originates from scanned handwriting or print with noisy OCR character misrecognitions:
+   - Question numbers may be corrupted by OCR: e.g. "Qe" or "Q1" -> Q1; "Ca" or "Q2" or "02" -> Q2; "Qs" or "Q3" or "03" -> Q3; "Qt" or "Q4" or "04" -> Q4; "8s" or "Q5" or "05" -> Q5.
+   - Detect every question even when question labels are mangled.
+   - Clean up noisy OCR typos in the question text (e.g. "scieabsls" -> "scientists", "tonplex Sykes" -> "complex systems", "Cawsidored Quesses" -> "considered guesses", "kmoti" -> "osmosis", "prokaplic el adegobic" -> "prokaryotic and eukaryotic", "ogenellas" -> "organelles") to reconstruct the authentic grammatical question statement.
+2. Filter out non-question headers and instructions:
+   - School name, class/grade, slip test title, chapter titles ("Exploration", "Cell: The Basic Block of Life"), general instructions ("All questions are compulsory").
+   - Extract the stated marks per question (e.g. if instructions say "Each question carries 3 marks", set maxMarks to 3 for each question). If not stated, default to 3.
+3. Do not combine multiple questions into one. Reconstruct each sequential question clearly.
 4. Output ONLY valid JSON matching this schema:
 {
   "questions": [
     {
       "questionNumber": "Q1",
-      "prompt": "Solve the linear equation: 5x - 3 = 3x + 7 and verify your answer.",
+      "prompt": "What are scientific models? Explain how they help scientists understand complex systems with a suitable example.",
       "maxMarks": 3
     }
   ]
 }`;
 
-  const userPrompt = `EXAM QUESTION PAPER RAW TEXT:
+  const userPrompt = `RAW OCR QUESTION PAPER TEXT:
 """
 ${rawText}
 """
 
-Extract all test questions with questionNumber, prompt, and maxMarks as JSON.`;
+Extract all test questions with questionNumber (e.g. Q1, Q2, ...), cleaned reconstructed prompt, and maxMarks as JSON.`;
 
   try {
     const result = await callGroqJson({ systemPrompt, userPrompt });
@@ -372,3 +370,4 @@ function fallbackExtractRubric(rawText, questionsList = []) {
     maxMarks: q.maxMarks,
   }));
 }
+

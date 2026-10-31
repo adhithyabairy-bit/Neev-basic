@@ -84,16 +84,43 @@ export default function ExtractPreview({
   const markingSchemeFile =
     uploadedFiles.find((f) => f.category === 'marking-scheme' || /marking|rubric|scheme/i.test(f.name || f.originalFileName));
 
-  // Default target answer sheet for OCR and persistence
+  // Default target answer sheet for OCR and persistence: strictly the student's answer sheet
   const targetSheet =
-    activeAnswerSheet ||
-    answerSheetFile?.rawSheet ||
-    (answerSheetFile?._id ? answerSheetFile : null) ||
-    uploadedFiles.find((f) => f.rawSheet)?.rawSheet ||
-    (uploadedFiles[0]?._id ? uploadedFiles[0] : null);
+    (activeAnswerSheet && activeAnswerSheet.category === 'answer-sheet' ? activeAnswerSheet : null) ||
+    (answerSheetFile?.rawSheet && answerSheetFile.rawSheet.category === 'answer-sheet' ? answerSheetFile.rawSheet : null) ||
+    (answerSheetFile?._id && answerSheetFile.category === 'answer-sheet' ? answerSheetFile : null) ||
+    uploadedFiles.find((f) => f.category === 'answer-sheet')?.rawSheet ||
+    uploadedFiles.find((f) => f.rawSheet && f.category !== 'question-paper' && f.category !== 'marking-scheme')?.rawSheet ||
+    activeAnswerSheet;
+
+  // Question paper questions
+  const questionPaperQuestions =
+    (questionPaperFile?.rawSheet?.answers && questionPaperFile.rawSheet.answers.length > 0)
+      ? questionPaperFile.rawSheet.answers
+      : (uploadedFiles.find((f) => f.category === 'question-paper')?.rawSheet?.answers || []);
+
+  // Marking scheme questions
+  const markingSchemeQuestions =
+    (markingSchemeFile?.rawSheet?.answers && markingSchemeFile.rawSheet.answers.length > 0)
+      ? markingSchemeFile.rawSheet.answers
+      : (uploadedFiles.find((f) => f.category === 'marking-scheme')?.rawSheet?.answers || []);
 
   // Active view tab for left panel: default to Question Paper if available
   const [activeDocType, setActiveDocType] = useState(() => (questionPaperFile ? 'question-paper' : 'answer-sheet'));
+
+  const displayedQpQuestions =
+    questionPaperQuestions.length > 0
+      ? questionPaperQuestions
+      : (activeAnswerSheet?.category === 'question-paper' && activeAnswerSheet.answers?.length > 0
+          ? activeAnswerSheet.answers
+          : []);
+
+  const displayedMsQuestions =
+    markingSchemeQuestions.length > 0
+      ? markingSchemeQuestions
+      : (activeAnswerSheet?.category === 'marking-scheme' && activeAnswerSheet.answers?.length > 0
+          ? activeAnswerSheet.answers
+          : []);
 
   // Compute total pages from extraction items or active sheet metadata
   const totalPages = Math.max(
@@ -634,12 +661,11 @@ export default function ExtractPreview({
                 </div>
 
                 {/* Show Document Questions / Scanned Content */}
-                {pageQuestions.length > 0 ? (
-                  pageQuestions.map((q, idx) => {
-                    const qNum = q.questionNumber || `Q${idx + 1}`;
-                    const displayPrompt = cleanDisplayPrompt(q.prompt, qNum);
-
-                    if (activeDocType === 'question-paper') {
+                {activeDocType === 'question-paper' ? (
+                  displayedQpQuestions.length > 0 ? (
+                    displayedQpQuestions.map((q, idx) => {
+                      const qNum = q.questionNumber || `Q${idx + 1}`;
+                      const promptText = q.prompt || q.rawExtractedText || '';
                       return (
                         <div
                           key={q._id || q.id || idx}
@@ -667,13 +693,20 @@ export default function ExtractPreview({
                             </span>
                           </div>
                           <p style={{ color: '#231B16', fontWeight: 'bold', fontSize: '13px', margin: 0, whiteSpace: 'pre-wrap' }}>
-                            {displayPrompt}
+                            {promptText}
                           </p>
                         </div>
                       );
-                    }
-
-                    if (activeDocType === 'marking-scheme') {
+                    })
+                  ) : (
+                    <div style={{ color: 'var(--secondary-text)', textAlign: 'center', padding: 'var(--space-8)' }}>
+                      No question paper questions found.
+                    </div>
+                  )
+                ) : activeDocType === 'marking-scheme' ? (
+                  displayedMsQuestions.length > 0 ? (
+                    displayedMsQuestions.map((q, idx) => {
+                      const qNum = q.questionNumber || `Q${idx + 1}`;
                       return (
                         <div
                           key={q._id || q.id || idx}
@@ -700,58 +733,70 @@ export default function ExtractPreview({
                               Marking Scheme Reference
                             </span>
                           </div>
-                          <p style={{ color: '#231B16', fontSize: '12px', fontStyle: 'italic', marginBottom: '6px' }}>
-                            {displayPrompt}
-                          </p>
+                          {q.prompt && (
+                            <p style={{ color: '#231B16', fontSize: '12px', fontStyle: 'italic', marginBottom: '6px' }}>
+                              {q.prompt}
+                            </p>
+                          )}
                           <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #D3F9D8', padding: '8px 10px', borderRadius: '4px', color: '#2B8A3E', whiteSpace: 'pre-wrap' }}>
-                            {q.referenceAnswer || q.expectedAnswer || 'Expected step-wise scoring criteria and final answer.'}
+                            {q.referenceAnswer || q.expectedAnswer || q.rawExtractedText || 'Expected step-wise scoring criteria and final answer.'}
                           </div>
                         </div>
                       );
-                    }
-
-                    // Student Answer Sheet View
-                    return (
-                      <div
-                        key={q._id || q.id || idx}
-                        style={{
-                          border: '1.5px dashed var(--primary-orange)',
-                          backgroundColor: 'rgba(242, 107, 29, 0.05)',
-                          padding: '12px',
-                          borderRadius: '6px',
-                          marginBottom: '14px',
-                        }}
-                      >
+                    })
+                  ) : (
+                    <div style={{ color: 'var(--secondary-text)', textAlign: 'center', padding: 'var(--space-8)' }}>
+                      No marking scheme items found.
+                    </div>
+                  )
+                ) : (
+                  /* Student Answer Sheet */
+                  pageQuestions.length > 0 ? (
+                    pageQuestions.map((q, idx) => {
+                      const qNum = q.questionNumber || `Q${idx + 1}`;
+                      const displayPrompt = cleanDisplayPrompt(q.prompt, qNum);
+                      return (
                         <div
+                          key={q._id || q.id || idx}
                           style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            marginBottom: '6px',
+                            border: '1.5px dashed var(--primary-orange)',
+                            backgroundColor: 'rgba(242, 107, 29, 0.05)',
+                            padding: '12px',
+                            borderRadius: '6px',
+                            marginBottom: '14px',
                           }}
                         >
-                          <span className="badge badge-orange">
-                            OCR Box: {qNum}
-                          </span>
-                          <span style={{ fontSize: '11px', color: 'var(--secondary-text)' }}>
-                            Confidence: {q.confidence !== null && q.confidence !== undefined ? `${q.confidence}%` : 'Direct Text'}
-                          </span>
-                        </div>
-                        {displayPrompt && (
-                          <p style={{ color: '#231B16', fontWeight: 'bold', marginBottom: '6px' }}>
-                            {displayPrompt}
+                          <div
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              marginBottom: '6px',
+                            }}
+                          >
+                            <span className="badge badge-orange">
+                              OCR Box: {qNum}
+                            </span>
+                            <span style={{ fontSize: '11px', color: 'var(--secondary-text)' }}>
+                              Confidence: {q.confidence !== null && q.confidence !== undefined ? `${q.confidence}%` : 'Direct Text'}
+                            </span>
+                          </div>
+                          {displayPrompt && (
+                            <p style={{ color: '#231B16', fontWeight: 'bold', marginBottom: '6px' }}>
+                              {displayPrompt}
+                            </p>
+                          )}
+                          <p style={{ color: '#8C5B14', whiteSpace: 'pre-wrap', margin: 0 }}>
+                            {q.correctedText || q.rawExtractedText || '(No text detected)'}
                           </p>
-                        )}
-                        <p style={{ color: '#8C5B14', whiteSpace: 'pre-wrap', margin: 0 }}>
-                          {q.correctedText || q.rawExtractedText || '(No text detected)'}
-                        </p>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div style={{ color: 'var(--secondary-text)', textAlign: 'center', padding: 'var(--space-8)' }}>
-                    No extracted questions found on Page {currentPage}.
-                  </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div style={{ color: 'var(--secondary-text)', textAlign: 'center', padding: 'var(--space-8)' }}>
+                      No extracted answers on Page {currentPage}.
+                    </div>
+                  )
                 )}
               </div>
             </div>
@@ -771,7 +816,29 @@ export default function ExtractPreview({
                 </h2>
               </div>
 
-              {pageQuestions.length === 0 ? (
+              {isProcessing ? (
+                <div
+                  className="card"
+                  style={{
+                    padding: 'var(--space-8)',
+                    textAlign: 'center',
+                    backgroundColor: '#FFFDF9',
+                    border: '1.5px solid var(--primary-orange)',
+                  }}
+                >
+                  <IconRefreshCw
+                    size={32}
+                    className="spin"
+                    style={{ color: 'var(--primary-orange)', margin: '0 auto 12px auto' }}
+                  />
+                  <h3 style={{ fontSize: '15px', color: 'var(--dark-orange)', margin: '0 0 6px 0' }}>
+                    Extracting Student Answers...
+                  </h3>
+                  <p style={{ fontSize: '13px', color: 'var(--secondary-text)', margin: 0 }}>
+                    Segmenting student handwritten answers question-by-question with verbatim fidelity.
+                  </p>
+                </div>
+              ) : pageQuestions.length === 0 ? (
                 <EmptyState
                   title="No questions match filter"
                   description="All questions on this page are either filtered or on another page."

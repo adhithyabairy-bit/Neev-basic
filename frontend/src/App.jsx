@@ -531,6 +531,9 @@ export default function App() {
             isDemoMode={isDemoMode}
             onSaveAssessment={handleSaveAssessment}
             onAnswerSheetLoaded={(sheet) => {
+              if (!sheet || sheet.category === 'marking-scheme' || sheet.category === 'question-paper') {
+                return;
+              }
               setActiveAnswerSheet(sheet);
               if (sheet?.answers && sheet.answers.length > 0) {
                 setExtractionData(sheet.answers);

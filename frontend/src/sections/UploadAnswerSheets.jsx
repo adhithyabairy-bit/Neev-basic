@@ -97,18 +97,25 @@ export default function UploadAnswerSheets({
             });
             onUpdateFiles(mapped);
 
-            // Populate studentProfile and extractionData from latest sheet if student name empty
-            const latest = sheets[0];
-            if (latest) {
+            // Populate studentProfile and extractionData strictly from the student answer sheet (never Marking Scheme or Question Paper)
+            const targetAnswerSheet =
+              sheets.find(
+                (s) =>
+                  s.category === 'answer-sheet' ||
+                  (!/marking|rubric|scheme/i.test(s.originalFileName) && !/question|qp|paper/i.test(s.originalFileName))
+              ) ||
+              sheets.find((s) => s.category !== 'marking-scheme' && s.category !== 'question-paper');
+
+            if (targetAnswerSheet) {
               if (onUpdateStudentProfile && !studentProfile?.name) {
                 onUpdateStudentProfile({
                   ...studentProfile,
-                  name: latest.studentName || '',
-                  rollNumber: latest.rollNumber || '',
+                  name: targetAnswerSheet.studentName || '',
+                  rollNumber: targetAnswerSheet.rollNumber || '',
                 });
               }
               if (onAnswerSheetLoaded) {
-                onAnswerSheetLoaded(latest);
+                onAnswerSheetLoaded(targetAnswerSheet);
               }
             }
           }
@@ -276,7 +283,7 @@ export default function UploadAnswerSheets({
           return [...filteredOld, ...newlyMapped];
         });
 
-        const firstAnswerSheet = newlyMapped.find((m) => m.category === 'answer-sheet') || newlyMapped[0];
+        const firstAnswerSheet = newlyMapped.find((m) => m.category === 'answer-sheet');
         if (onAnswerSheetLoaded && firstAnswerSheet?.rawSheet) {
           onAnswerSheetLoaded(firstAnswerSheet.rawSheet);
         }
@@ -286,8 +293,9 @@ export default function UploadAnswerSheets({
         );
         setTimeout(() => setUploadNotice(null), 5000);
 
-        // 2. Launch background extraction: process Question Paper first, then Answer Sheet
+        // 2. Launch background extraction: Question Paper first, Marking Scheme second, Answer Sheet third
         const qpToProcess = newlyMapped.filter((m) => m.category === 'question-paper');
+        const msToProcess = newlyMapped.filter((m) => m.category === 'marking-scheme');
         const answerSheetsToProcess = newlyMapped.filter(
           (m) => m.category === 'answer-sheet' && (!m.rawSheet?.answers || m.rawSheet.answers.length === 0)
         );
@@ -308,6 +316,24 @@ export default function UploadAnswerSheets({
               }
             } catch (qpErr) {
               console.warn('[UploadAnswerSheets] Background QP extraction notice:', qpErr.message);
+            }
+          }
+
+          for (const ms of msToProcess) {
+            try {
+              const processedMs = await processAnswerSheet(ms._id);
+              if (processedMs) {
+                onUpdateFiles((prev) => {
+                  const list = Array.isArray(prev) ? prev : [];
+                  return list.map((f) =>
+                    f._id === processedMs._id || f.id === processedMs._id
+                      ? { ...f, status: 'Ready for Review', rawSheet: processedMs }
+                      : f
+                  );
+                });
+              }
+            } catch (msErr) {
+              console.warn('[UploadAnswerSheets] Background MS extraction notice:', msErr.message);
             }
           }
 
