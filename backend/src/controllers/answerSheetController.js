@@ -317,8 +317,17 @@ export async function processAnswerSheet(req, res, next) {
       });
 
       if (qpDoc) {
-        // If question paper hasn't been extracted yet, extract its questions first
-        if (!qpDoc.answers || qpDoc.answers.length === 0) {
+        // If question paper hasn't been extracted yet or has invalid/blank dummy answers, extract its questions
+        const hasValidQpAnswers =
+          Array.isArray(qpDoc.answers) &&
+          qpDoc.answers.length > 0 &&
+          !qpDoc.answers.some((a) =>
+            a.prompt === 'Unreadable or blank answer sheet' ||
+            a.prompt === 'Extraction Incomplete' ||
+            !a.prompt
+          );
+
+        if (!hasValidQpAnswers) {
           try {
             const qpBuf = await storageService.getFileBuffer(qpDoc.storageKey);
             const qpExtraction = await processDocumentExtraction(qpBuf, qpDoc.mimeType, {
@@ -333,7 +342,21 @@ export async function processAnswerSheet(req, res, next) {
             console.warn('[ProcessAnswerSheet] Auto-extract question paper notice:', qpErr.message);
           }
         }
-        qpQuestions = qpDoc.answers || [];
+        qpQuestions = (qpDoc.answers || []).filter(
+          (a) => a.prompt !== 'Unreadable or blank answer sheet' && a.prompt !== 'Extraction Incomplete'
+        );
+      } else {
+        // Fallback: If no separate Question Paper was uploaded, check if Marking Scheme exists to provide questions
+        const msDoc = await AnswerSheet.findOne({
+          assessmentId: answerSheet.assessmentId,
+          teacherId,
+          category: 'marking-scheme',
+        });
+        if (msDoc && Array.isArray(msDoc.answers) && msDoc.answers.length > 0) {
+          qpQuestions = msDoc.answers.filter(
+            (a) => a.prompt !== 'Unreadable or blank answer sheet' && a.prompt !== 'Extraction Incomplete'
+          );
+        }
       }
     }
 

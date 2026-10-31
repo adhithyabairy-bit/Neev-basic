@@ -93,34 +93,71 @@ export default function ExtractPreview({
     uploadedFiles.find((f) => f.rawSheet && f.category !== 'question-paper' && f.category !== 'marking-scheme')?.rawSheet ||
     activeAnswerSheet;
 
-  // Question paper questions
+  // Question paper questions from uploadedFiles or local state
   const questionPaperQuestions =
     (questionPaperFile?.rawSheet?.answers && questionPaperFile.rawSheet.answers.length > 0)
       ? questionPaperFile.rawSheet.answers
       : (uploadedFiles.find((f) => f.category === 'question-paper')?.rawSheet?.answers || []);
 
-  // Marking scheme questions
+  // Marking scheme questions from uploadedFiles or local state
   const markingSchemeQuestions =
     (markingSchemeFile?.rawSheet?.answers && markingSchemeFile.rawSheet.answers.length > 0)
       ? markingSchemeFile.rawSheet.answers
       : (uploadedFiles.find((f) => f.category === 'marking-scheme')?.rawSheet?.answers || []);
 
+  const [localQpQuestions, setLocalQpQuestions] = useState(
+    () => (questionPaperQuestions.length > 0 ? questionPaperQuestions : [])
+  );
+  const [localMsQuestions, setLocalMsQuestions] = useState(
+    () => (markingSchemeQuestions.length > 0 ? markingSchemeQuestions : [])
+  );
+
+  // Synchronize local questions if uploadedFiles updates
+  useEffect(() => {
+    if (questionPaperQuestions.length > 0 && localQpQuestions.length === 0) {
+      setLocalQpQuestions(questionPaperQuestions);
+    }
+  }, [questionPaperQuestions]);
+
+  useEffect(() => {
+    if (markingSchemeQuestions.length > 0 && localMsQuestions.length === 0) {
+      setLocalMsQuestions(markingSchemeQuestions);
+    }
+  }, [markingSchemeQuestions]);
+
   // Active view tab for left panel: default to Question Paper if available
   const [activeDocType, setActiveDocType] = useState(() => (questionPaperFile ? 'question-paper' : 'answer-sheet'));
 
-  const displayedQpQuestions =
-    questionPaperQuestions.length > 0
-      ? questionPaperQuestions
-      : (activeAnswerSheet?.category === 'question-paper' && activeAnswerSheet.answers?.length > 0
-          ? activeAnswerSheet.answers
-          : []);
+  const hasDummyAnswer = (arr) =>
+    !Array.isArray(arr) ||
+    arr.length === 0 ||
+    arr.some(
+      (a) =>
+        a.prompt === 'Unreadable or blank answer sheet' ||
+        a.prompt === 'Extraction Incomplete' ||
+        a.rawExtractedText === 'Unreadable or blank answer sheet' ||
+        (!a.prompt && !a.rawExtractedText && !a.correctedText)
+    );
 
-  const displayedMsQuestions =
-    markingSchemeQuestions.length > 0
-      ? markingSchemeQuestions
-      : (activeAnswerSheet?.category === 'marking-scheme' && activeAnswerSheet.answers?.length > 0
+  const displayedQpQuestions = (
+    localQpQuestions.length > 0 && !hasDummyAnswer(localQpQuestions)
+      ? localQpQuestions
+      : questionPaperQuestions.length > 0 && !hasDummyAnswer(questionPaperQuestions)
+      ? questionPaperQuestions
+      : (activeAnswerSheet?.category === 'question-paper' && activeAnswerSheet.answers?.length > 0 && !hasDummyAnswer(activeAnswerSheet.answers)
           ? activeAnswerSheet.answers
-          : []);
+          : [])
+  ).filter((q) => q.prompt !== 'Unreadable or blank answer sheet' && q.prompt !== 'Extraction Incomplete');
+
+  const displayedMsQuestions = (
+    localMsQuestions.length > 0 && !hasDummyAnswer(localMsQuestions)
+      ? localMsQuestions
+      : markingSchemeQuestions.length > 0 && !hasDummyAnswer(markingSchemeQuestions)
+      ? markingSchemeQuestions
+      : (activeAnswerSheet?.category === 'marking-scheme' && activeAnswerSheet.answers?.length > 0 && !hasDummyAnswer(activeAnswerSheet.answers)
+          ? activeAnswerSheet.answers
+          : [])
+  ).filter((q) => q.prompt !== 'Unreadable or blank answer sheet' && q.prompt !== 'Extraction Incomplete');
 
   // Compute total pages from extraction items or active sheet metadata
   const totalPages = Math.max(
@@ -129,8 +166,8 @@ export default function ExtractPreview({
     ...extractionData.map((q) => q.pageNumber || q.page || 1)
   );
 
-  const handleTriggerOcr = async () => {
-    if (isDemoMode || !targetSheet?._id) {
+  const handleTriggerOcr = async (force = false) => {
+    if (isDemoMode || (!targetSheet?._id && !questionPaperFile?._id)) {
       setIsProcessing(true);
       setTimeout(() => {
         setIsProcessing(false);
@@ -145,30 +182,64 @@ export default function ExtractPreview({
     setProcessError(null);
 
     try {
-      // If question paper exists and hasn't been extracted, extract it first
-      if (
-        questionPaperFile?._id &&
-        (!questionPaperFile.rawSheet?.answers || questionPaperFile.rawSheet.answers.length === 0)
-      ) {
-        try {
-          const updatedQp = await processAnswerSheet(questionPaperFile._id);
-          if (updatedQp) {
-            questionPaperFile.rawSheet = updatedQp;
+      // 1. If question paper exists and needs extraction, extract it first
+      if (questionPaperFile?._id) {
+        const qpNeedsRun =
+          force ||
+          !Array.isArray(questionPaperFile.rawSheet?.answers) ||
+          questionPaperFile.rawSheet.answers.length === 0 ||
+          hasDummyAnswer(questionPaperFile.rawSheet.answers) ||
+          localQpQuestions.length === 0 ||
+          hasDummyAnswer(localQpQuestions);
+
+        if (qpNeedsRun) {
+          try {
+            const updatedQp = await processAnswerSheet(questionPaperFile._id);
+            if (updatedQp?.answers) {
+              questionPaperFile.rawSheet = updatedQp;
+              setLocalQpQuestions(updatedQp.answers);
+            }
+          } catch (qpErr) {
+            console.warn('[ExtractPreview] Auto-extract QP notice:', qpErr.message);
           }
-        } catch (qpErr) {
-          console.warn('[ExtractPreview] Auto-extract QP notice:', qpErr.message);
         }
       }
 
-      const updatedSheet = await processAnswerSheet(targetSheet._id);
-      if (updatedSheet?.answers) {
-        onUpdateExtraction(updatedSheet.answers);
-        if (onAnswerSheetUpdated) {
-          onAnswerSheetUpdated(updatedSheet);
+      // 2. If marking scheme exists and needs extraction, extract it
+      if (markingSchemeFile?._id) {
+        const msNeedsRun =
+          force ||
+          !Array.isArray(markingSchemeFile.rawSheet?.answers) ||
+          markingSchemeFile.rawSheet.answers.length === 0 ||
+          hasDummyAnswer(markingSchemeFile.rawSheet.answers) ||
+          localMsQuestions.length === 0 ||
+          hasDummyAnswer(localMsQuestions);
+
+        if (msNeedsRun) {
+          try {
+            const updatedMs = await processAnswerSheet(markingSchemeFile._id);
+            if (updatedMs?.answers) {
+              markingSchemeFile.rawSheet = updatedMs;
+              setLocalMsQuestions(updatedMs.answers);
+            }
+          } catch (msErr) {
+            console.warn('[ExtractPreview] Auto-extract MS notice:', msErr.message);
+          }
         }
-        setProcessNotice(
-          `Smart AI extraction complete! Extracted ${updatedSheet.answers.length} question(s) cleanly.`
-        );
+      }
+
+      // 3. Extract the student answer sheet
+      if (targetSheet?._id) {
+        const updatedSheet = await processAnswerSheet(targetSheet._id);
+        if (updatedSheet?.answers) {
+          onUpdateExtraction(updatedSheet.answers);
+          if (onAnswerSheetUpdated) {
+            onAnswerSheetUpdated(updatedSheet);
+          }
+          setProcessNotice(
+            `Smart AI extraction complete! Extracted ${updatedSheet.answers.length} question(s) cleanly.`
+          );
+        }
       }
     } catch (err) {
       console.error('[ExtractPreview] Extraction error:', err);
@@ -181,20 +252,30 @@ export default function ExtractPreview({
 
   const hasTriggeredRef = useRef(false);
 
-  // Auto-trigger OCR extraction if document was uploaded and has not been extracted yet
+  const isDummyError =
+    !extractionData ||
+    extractionData.length === 0 ||
+    hasDummyAnswer(extractionData) ||
+    extractionData.every((q) => !q.correctedText && !q.rawExtractedText);
+
+  const qpNeedsExtraction =
+    Boolean(questionPaperFile?._id) &&
+    (localQpQuestions.length === 0 || hasDummyAnswer(localQpQuestions)) &&
+    (!questionPaperQuestions || questionPaperQuestions.length === 0 || hasDummyAnswer(questionPaperQuestions));
+
+  // Auto-trigger OCR extraction if document has not been extracted yet or has a blank error
   useEffect(() => {
     if (
       !isDemoMode &&
-      targetSheet?._id &&
-      (!targetSheet.status || targetSheet.status === 'uploaded' || targetSheet.status === 'processing') &&
-      (!extractionData || extractionData.length === 0) &&
+      (targetSheet?._id || questionPaperFile?._id) &&
+      (isDummyError || qpNeedsExtraction) &&
       !isProcessing &&
       !hasTriggeredRef.current
     ) {
       hasTriggeredRef.current = true;
-      handleTriggerOcr();
+      handleTriggerOcr(false);
     }
-  }, [targetSheet?._id, isDemoMode]);
+  }, [targetSheet?._id, questionPaperFile?._id, isDummyError, qpNeedsExtraction, isDemoMode]);
 
   const handleToggleVerify = async (questionId) => {
     const item = extractionData.find((q) => (q._id || q.id) === questionId);
@@ -482,7 +563,10 @@ export default function ExtractPreview({
               <button
                 type="button"
                 className="btn btn-outline btn-sm"
-                onClick={handleTriggerOcr}
+                onClick={() => {
+                  hasTriggeredRef.current = false;
+                  handleTriggerOcr(true);
+                }}
                 disabled={isProcessing}
                 title="Re-run extraction on this answer sheet"
               >
@@ -722,6 +806,14 @@ export default function ExtractPreview({
                   displayedMsQuestions.length > 0 ? (
                     displayedMsQuestions.map((q, idx) => {
                       const qNum = q.questionNumber || `Q${idx + 1}`;
+                      const modelAnswer =
+                        q.referenceAnswer ||
+                        q.expectedAnswer ||
+                        q.rawExtractedText ||
+                        q.correctedText ||
+                        q.prompt ||
+                        'Expected step-wise scoring criteria and final answer.';
+
                       return (
                         <div
                           key={q._id || q.id || idx}
@@ -748,13 +840,16 @@ export default function ExtractPreview({
                               Marking Scheme Reference
                             </span>
                           </div>
-                          {q.prompt && (
-                            <p style={{ color: '#231B16', fontSize: '12px', fontStyle: 'italic', marginBottom: '6px' }}>
-                              {q.prompt}
-                            </p>
+                          {/* Never duplicate: only display prompt if it's a distinct question statement, not model answer */}
+                          {q.prompt &&
+                            !q.prompt.toLowerCase().startsWith('model answer') &&
+                            q.prompt.trim().toLowerCase() !== modelAnswer.trim().toLowerCase() && (
+                              <p style={{ color: '#231B16', fontSize: '12px', fontStyle: 'italic', marginBottom: '6px' }}>
+                                {q.prompt}
+                              </p>
                           )}
                           <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #D3F9D8', padding: '8px 10px', borderRadius: '4px', color: '#2B8A3E', whiteSpace: 'pre-wrap' }}>
-                            {q.referenceAnswer || q.expectedAnswer || q.rawExtractedText || 'Expected step-wise scoring criteria and final answer.'}
+                            {modelAnswer}
                           </div>
                         </div>
                       );
