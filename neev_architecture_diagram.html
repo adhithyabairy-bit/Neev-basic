@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Neev Platform — System Architecture Diagram</title>
+  <style>
+    :root {
+      --paper: #f8fafc;
+      --paper-card: #ffffff;
+      --ink: #1e293b;
+      --muted: #475569;
+      --soft: #64748b;
+      --rule: #e2e8f0;
+      --accent: #ea580c;
+      --accent-tint: rgba(234, 88, 12, 0.08);
+      --link: #2563eb;
+      --surface: #0f172a;
+    }
+
+    [data-theme="dark"] {
+      --paper: #0f172a;
+      --paper-card: #1e293b;
+      --ink: #f8fafc;
+      --muted: #94a3b8;
+      --soft: #64748b;
+      --rule: #334155;
+      --accent: #f97316;
+      --accent-tint: rgba(249, 115, 22, 0.12);
+      --link: #60a5fa;
+      --surface: #020617;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--paper);
+      color: var(--ink);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px;
+      transition: background 0.25s ease, color 0.25s ease;
+    }
+
+    header {
+      max-width: 1240px;
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding: 12px 20px;
+      background: var(--paper-card);
+      border: 1px solid var(--rule);
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+
+    .title-group h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: var(--accent-tint);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+    }
+
+    .title-group p {
+      font-size: 13px;
+      color: var(--soft);
+      margin-top: 4px;
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    button {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 1px solid var(--rule);
+      background: var(--paper-card);
+      color: var(--ink);
+      transition: all 0.2s ease;
+    }
+
+    button:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      transform: translateY(-1px);
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: #ffffff;
+      border-color: var(--accent);
+    }
+
+    button.primary:hover {
+      background: #c2410c;
+      color: #ffffff;
+    }
+
+    .canvas-container {
+      max-width: 1240px;
+      width: 100%;
+      background: var(--paper-card);
+      border: 1px solid var(--rule);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+      overflow-x: auto;
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-width: 1192px;
+      margin: 0 auto;
+    }
+
+    footer {
+      max-width: 1240px;
+      width: 100%;
+      margin-top: 16px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--soft);
+      padding: 0 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="title-group">
+      <h1>
+        Neev System Architecture
+        <span class="badge">Production V1.4</span>
+      </h1>
+      <p>Teacher-first diagnostic learning platform grounded in NCERT curricula with client-side binary PDF generation</p>
+    </div>
+    <div class="actions">
+      <button onclick="toggleTheme()" id="themeBtn">🌙 Dark Mode</button>
+      <button onclick="downloadSvg()" class="primary">⬇ Download SVG</button>
+      <button onclick="downloadPng()">🖼 Download PNG (2x HD)</button>
+    </div>
+  </header>
+
+  <div class="canvas-container">
+    <svg id="architecture-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 860" width="1200" height="860">
+      <defs>
+        <!-- Gradients -->
+        <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#ea580c"/>
+          <stop offset="100%" stop-color="#c2410c"/>
+        </linearGradient>
+        <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#2563eb"/>
+          <stop offset="100%" stop-color="#1d4ed8"/>
+        </linearGradient>
+        <linearGradient id="greenGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#059669"/>
+          <stop offset="100%" stop-color="#047857"/>
+        </linearGradient>
+        <linearGradient id="purpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#7c3aed"/>
+          <stop offset="100%" stop-color="#6d28d9"/>
+        </linearGradient>
+
+        <!-- Arrowhead Markers -->
+        <marker id="arrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#475569"/>
+        </marker>
+        <marker id="arrow-accent" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#ea580c"/>
+        </marker>
+        <marker id="arrow-blue" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#2563eb"/>
+        </marker>
+        <marker id="arrow-green" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#059669"/>
+        </marker>
+
+        <!-- Filter for soft node shadows -->
+        <filter id="nodeShadow" x="-5%" y="-5%" width="110%" height="115%" filterUnits="userSpaceOnUse">
+          <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0f172a" flood-opacity="0.06"/>
+        </filter>
+        <filter id="focalShadow" x="-8%" y="-8%" width="116%" height="120%" filterUnits="userSpaceOnUse">
+          <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#ea580c" flood-opacity="0.25"/>
+        </filter>
+      </defs>
+
+      <!-- DIAGRAM BACKGROUND -->
+      <rect width="1200" height="860" rx="12" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+
+      <!-- =================================================================== -->
+      <!-- ZONES / BOUNDARY REGIONS (Z-Order: Layer 1)                         -->
+      <!-- =================================================================== -->
+
+      <!-- ZONE 1: CLIENT TIER (Left) -->
+      <g id="zone-client">
+        <rect x="30" y="40" width="300" height="780" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.2" stroke-dasharray="5 4"/>
+        <rect x="45" y="32" width="180" height="18" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="135" y="45" fill="#475569" font-size="10" font-weight="700" font-family="sans-serif" text-anchor="middle" letter-spacing="0.1em">CLIENT TIER · BROWSER SPA</text>
+      </g>
+
+      <!-- ZONE 2: API & SERVERLESS GATEWAY (Center Top) -->
+      <g id="zone-api">
+        <rect x="360" y="40" width="370" height="310" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.2" stroke-dasharray="5 4"/>
+        <rect x="375" y="32" width="220" height="18" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="485" y="45" fill="#475569" font-size="10" font-weight="700" font-family="sans-serif" text-anchor="middle" letter-spacing="0.1em">API &amp; SERVERLESS GATEWAY</text>
+      </g>
+
+      <!-- ZONE 3: CURRICULUM AI & VISION ENGINES (Center Bottom) -->
+      <g id="zone-ai">
+        <rect x="360" y="380" width="370" height="440" rx="10" fill="#fff7ed" stroke="#fdba74" stroke-width="1.2" stroke-dasharray="5 4"/>
+        <rect x="375" y="372" width="240" height="18" rx="4" fill="#ffffff" stroke="#fdba74" stroke-width="1"/>
+        <text x="495" y="385" fill="#ea580c" font-size="10" font-weight="700" font-family="sans-serif" text-anchor="middle" letter-spacing="0.1em">PEDAGOGICAL AI &amp; OCR ENGINES</text>
+      </g>
+
+      <!-- ZONE 4: DATA & VECTOR PERSISTENCE (Right Top) -->
+      <g id="zone-data">
+        <rect x="760" y="40" width="410" height="420" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.2" stroke-dasharray="5 4"/>
+        <rect x="775" y="32" width="230" height="18" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="890" y="45" fill="#475569" font-size="10" font-weight="700" font-family="sans-serif" text-anchor="middle" letter-spacing="0.1em">DATA &amp; VECTOR PERSISTENCE TIER</text>
+      </g>
+
+      <!-- ZONE 5: NCERT MULTI-SUBJECT CORPUS (Right Bottom) -->
+      <g id="zone-curriculum">
+        <rect x="760" y="490" width="410" height="330" rx="10" fill="#f0fdf4" stroke="#86efac" stroke-width="1.2" stroke-dasharray="5 4"/>
+        <rect x="775" y="482" width="230" height="18" rx="4" fill="#ffffff" stroke="#86efac" stroke-width="1"/>
+        <text x="890" y="495" fill="#059669" font-size="10" font-weight="700" font-family="sans-serif" text-anchor="middle" letter-spacing="0.1em">NCERT CURRICULAR GRAPH (CLASS 6-10)</text>
+      </g>
+
+      <!-- =================================================================== -->
+      <!-- CONNECTOR PATHS (Z-Order: Layer 2 - Behind Nodes)                   -->
+      <!-- Orthogonal rounded right-angle connectors (r=8)                     -->
+      <!-- =================================================================== -->
+
+      <!-- C1: React App -> Vercel Serverless Gateway (HTTPS / REST) -->
+      <path d="M 300,105 H 325 Q 333,105 333,113 V 115 Q 333,123 341,123 H 380"
+            fill="none" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arrow-blue)"/>
+      <rect x="306" y="94" width="70" height="14" rx="3" fill="#ffffff" stroke="#e2e8f0" stroke-width="0.8"/>
+      <text x="341" y="104" fill="#2563eb" font-size="8" font-family="monospace" font-weight="600" text-anchor="middle">/api/v1/*</text>
+
+      <!-- C2: Upload Section -> Direct Presigned S3 PUT (Bypasses API Layer) -->
+      <path d="M 300,240 H 740 Q 748,240 748,248 V 345 Q 748,353 756,353 H 780"
+            fill="none" stroke="#059669" stroke-width="1.8" stroke-dasharray="6 3" marker-end="url(#arrow-green)"/>
+      <rect x="490" y="233" width="140" height="14" rx="3" fill="#ffffff" stroke="#86efac" stroke-width="0.8"/>
+      <text x="560" y="243" fill="#059669" font-size="8" font-family="sans-serif" font-weight="600" text-anchor="middle">Direct S3 PUT (&le; 200MB)</text>
+
+      <!-- C3: Express API -> MongoDB Atlas Mongoose Connection -->
+      <path d="M 690,125 H 730 Q 738,125 738,125 V 125 Q 738,125 746,125 H 780"
+            fill="none" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+      <!-- C4: Express API -> Groq Extraction Service (OCR) -->
+      <path d="M 535,260 V 390 Q 535,398 535,406 V 415"
+            fill="none" stroke="#ea580c" stroke-width="1.6" marker-end="url(#arrow-accent)"/>
+      <rect x="480" y="328" width="110" height="14" rx="3" fill="#ffffff" stroke="#fdba74" stroke-width="0.8"/>
+      <text x="535" y="338" fill="#ea580c" font-size="8" font-family="sans-serif" font-weight="600" text-anchor="middle">Multipart Scan Buffers</text>
+
+      <!-- C5: Groq Extraction -> Grok/Groq AI Evaluator -->
+      <path d="M 535,495 V 535"
+            fill="none" stroke="#ea580c" stroke-width="2" marker-end="url(#arrow-accent)"/>
+      <text x="548" y="518" fill="#64748b" font-size="8" font-family="sans-serif">Segmented Q&amp;A</text>
+
+      <!-- C6: AI Evaluator -> Vector Search Context Retrieval -->
+      <path d="M 690,580 H 730 Q 738,580 738,285 Q 738,277 746,277 H 780"
+            fill="none" stroke="#2563eb" stroke-width="1.6" marker-end="url(#arrow-blue)"/>
+      <rect x="702" y="420" width="72" height="14" rx="3" fill="#ffffff" stroke="#93c5fd" stroke-width="0.8"/>
+      <text x="738" y="430" fill="#2563eb" font-size="8" font-family="sans-serif" font-weight="600" text-anchor="middle">RAG Chunks</text>
+
+      <!-- C7: AI Evaluator -> Prerequisite Synthesizer -->
+      <path d="M 535,660 V 700"
+            fill="none" stroke="#ea580c" stroke-width="1.6" marker-end="url(#arrow-accent)"/>
+
+      <!-- C8: Prerequisite Synthesizer -> NCERT Curricular Graph -->
+      <path d="M 690,750 H 770"
+            fill="none" stroke="#059669" stroke-width="1.6" marker-end="url(#arrow-green)"/>
+      <rect x="696" y="741" width="68" height="14" rx="3" fill="#ffffff" stroke="#86efac" stroke-width="0.8"/>
+      <text x="730" y="751" fill="#059669" font-size="8" font-family="sans-serif" font-weight="600" text-anchor="middle">Prior Syllabus</text>
+
+      <!-- C9: Synthesizer & Evaluation -> Client Dual-Pane & PDF Engine -->
+      <path d="M 380,750 H 335 Q 327,750 327,720 V 670 Q 327,660 319,660 H 300"
+            fill="none" stroke="#ea580c" stroke-width="1.6" marker-end="url(#arrow-accent)"/>
+
+      <!-- =================================================================== -->
+      <!-- NODES / SYSTEM COMPONENTS (Z-Order: Layer 3)                        -->
+      <!-- =================================================================== -->
+
+      <!-- --- CLIENT TIER NODES --- -->
+      <!-- Node: React 19 Single Page App -->
+      <g id="node-react-app" transform="translate(50, 70)">
+        <rect width="250" height="70" rx="8" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2" filter="url(#nodeShadow)"/>
+        <rect x="12" y="12" width="24" height="24" rx="4" fill="#3b82f6"/>
+        <text x="24" y="28" fill="#ffffff" font-size="13" font-weight="bold" font-family="sans-serif" text-anchor="middle">⚛</text>
+        <text x="44" y="26" fill="#0f172a" font-size="13" font-weight="700" font-family="sans-serif">React 19 + Vite Frontend</text>
+        <text x="44" y="42" fill="#64748b" font-size="10" font-family="sans-serif">Teacher Dashboard &amp; Class Cohorts</text>
+        <text x="12" y="60" fill="#2563eb" font-size="9" font-family="monospace">https://neev-basic-seven.vercel.app</text>
+      </g>
+
+      <!-- Node: 9-Step Assessment Studio -->
+      <g id="node-workflow" transform="translate(50, 160)">
+        <rect width="250" height="190" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2" filter="url(#nodeShadow)"/>
+        <text x="16" y="24" fill="#0f172a" font-size="12" font-weight="700" font-family="sans-serif">9-Step Assessment Studio</text>
+        <line x1="16" y1="32" x2="234" y2="32" stroke="#e2e8f0" stroke-width="1"/>
+        
+        <!-- Workflow items -->
+        <circle cx="24" cy="48" r="4" fill="#ea580c"/>
+        <text x="36" y="51" fill="#334155" font-size="10" font-family="sans-serif">1. Class &amp; Syllabus Mapping</text>
+        
+        <circle cx="24" cy="70" r="4" fill="#ea580c"/>
+        <text x="36" y="73" fill="#334155" font-size="10" font-family="sans-serif">2. Multi-Paper Upload (QP, AS, MS)</text>
+        
+        <circle cx="24" cy="92" r="4" fill="#ea580c"/>
+        <text x="36" y="95" fill="#334155" font-size="10" font-family="sans-serif">3. Automated Scanner &amp; Preview</text>
+        
+        <circle cx="24" cy="114" r="4" fill="#ea580c"/>
+        <text x="36" y="117" fill="#334155" font-size="10" font-family="sans-serif">4. Teacher Side-by-Side Correction</text>
+        
+        <circle cx="24" cy="136" r="4" fill="#ea580c"/>
+        <text x="36" y="139" fill="#334155" font-size="10" font-family="sans-serif">5. AI Answer Analysis &amp; Rubrics</text>
+        
+        <circle cx="24" cy="158" r="4" fill="#ea580c"/>
+        <text x="36" y="161" fill="#334155" font-size="10" font-family="sans-serif">6. Prerequisite Knowledge Tracer</text>
+        
+        <circle cx="24" cy="180" r="4" fill="#ea580c"/>
+        <text x="36" y="183" fill="#334155" font-size="10" font-family="sans-serif">7-9. Roadmap, Retest &amp; PDF Export</text>
+      </g>
+
+      <!-- Node: Dual-Pane Document Inspection -->
+      <g id="node-dual-pane" transform="translate(50, 370)">
+        <rect width="250" height="90" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2" filter="url(#nodeShadow)"/>
+        <text x="16" y="24" fill="#0f172a" font-size="12" font-weight="700" font-family="sans-serif">Dual-Pane Inspection Studio</text>
+        <rect x="16" y="34" width="102" height="44" rx="4" fill="#f8fafc" stroke="#e2e8f0"/>
+        <text x="67" y="52" fill="#64748b" font-size="9" font-weight="600" text-anchor="middle">Original Scan</text>
+        <text x="67" y="66" fill="#94a3b8" font-size="8" text-anchor="middle">PDF / Image Page</text>
+
+        <rect x="132" y="34" width="102" height="44" rx="4" fill="#f8fafc" stroke="#e2e8f0"/>
+        <text x="183" y="52" fill="#64748b" font-size="9" font-weight="600" text-anchor="middle">Segmented Q&amp;A</text>
+        <text x="183" y="66" fill="#ea580c" font-size="8" font-weight="bold" text-anchor="middle">Verified &amp; Editable</text>
+      </g>
+
+      <!-- Node: Client Binary PDF 1.4 Engine (pdfGenerator.js) -->
+      <g id="node-pdf-engine" transform="translate(50, 480)">
+        <rect width="250" height="150" rx="8" fill="#ffffff" stroke="#ea580c" stroke-width="1.5" filter="url(#nodeShadow)"/>
+        <rect x="16" y="12" width="22" height="22" rx="4" fill="#ea580c"/>
+        <text x="27" y="27" fill="#ffffff" font-size="11" font-weight="bold" text-anchor="middle">PDF</text>
+        <text x="46" y="26" fill="#0f172a" font-size="12" font-weight="700" font-family="sans-serif">Client Binary PDF 1.4 Engine</text>
+        <text x="46" y="38" fill="#ea580c" font-size="9" font-family="monospace">pdfGenerator.js (Zero external libs)</text>
+        <line x1="16" y1="46" x2="234" y2="46" stroke="#fed7aa" stroke-width="1"/>
+
+        <text x="16" y="62" fill="#334155" font-size="9.5" font-family="sans-serif">&#10003; Strict ASCII Unicode Sanitization</text>
+        <text x="16" y="78" fill="#334155" font-size="9.5" font-family="sans-serif">&#10003; Margin Auto-Wrapping (&le; 64 chars)</text>
+        <text x="16" y="94" fill="#334155" font-size="9.5" font-family="sans-serif">&#10003; Dynamic Pagination &amp; Headers</text>
+        <text x="16" y="110" fill="#334155" font-size="9.5" font-family="sans-serif">&#10003; 5 Dedicated Deliverable Documents</text>
+        
+        <rect x="16" y="120" width="218" height="20" rx="4" fill="#fff7ed" stroke="#ffedd5"/>
+        <text x="125" y="134" fill="#ea580c" font-size="8.5" font-weight="600" text-anchor="middle">Native in Acrobat, Chrome, Preview</text>
+      </g>
+
+      <!-- Node: 5 PDF Reports List -->
+      <g id="node-pdf-reports" transform="translate(50, 650)">
+        <rect width="250" height="150" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2" filter="url(#nodeShadow)"/>
+        <text x="16" y="22" fill="#0f172a" font-size="11" font-weight="700" font-family="sans-serif">5 Export Deliverables</text>
+        <line x1="16" y1="28" x2="234" y2="28" stroke="#e2e8f0" stroke-width="1"/>
+        <text x="16" y="44" fill="#475569" font-size="9" font-family="monospace">1. [name]_gap.pdf</text>
+        <text x="24" y="56" fill="#64748b" font-size="8">Diagnostic gap analysis &amp; proof</text>
+        <text x="16" y="70" fill="#475569" font-size="9" font-family="monospace">2. [name]_roadmap.pdf</text>
+        <text x="24" y="82" fill="#64748b" font-size="8">Ordered remediation study plan</text>
+        <text x="16" y="96" fill="#475569" font-size="9" font-family="monospace">3. [name]_syllabus_continuity.pdf</text>
+        <text x="24" y="108" fill="#64748b" font-size="8">Prior chapters &amp; Class 10 Board risks</text>
+        <text x="16" y="122" fill="#475569" font-size="9" font-family="monospace">4. [name]_questions.pdf</text>
+        <text x="24" y="134" fill="#64748b" font-size="8">Diagnostic 2-mark retest with workspace</text>
+        <text x="16" y="146" fill="#475569" font-size="9" font-family="monospace">5. teacher_marking_key.pdf</text>
+      </g>
+
+      <!-- --- API & GATEWAY NODES --- -->
+      <!-- Node: Vercel Serverless Entry & Express.js -->
+      <g id="node-express-api" transform="translate(380, 70)">
+        <rect width="310" height="110" rx="8" fill="#ffffff" stroke="#2563eb" stroke-width="1.4" filter="url(#nodeShadow)"/>
+        <rect x="16" y="12" width="24" height="24" rx="4" fill="#2563eb"/>
+        <text x="28" y="28" fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle">JS</text>
+        <text x="48" y="26" fill="#0f172a" font-size="13" font-weight="700" font-family="sans-serif">Express.js REST Engine</text>
+        <text x="48" y="40" fill="#2563eb" font-size="9.5" font-family="monospace">api/index.js &middot; src/server.js</text>
+        
+        <text x="16" y="64" fill="#475569" font-size="9.5" font-family="sans-serif">&#8226; Controllers: Assessment, Syllabus, Class, Sheet</text>
+        <text x="16" y="80" fill="#475569" font-size="9.5" font-family="sans-serif">&#8226; Origin CORS Validation (Whitelist matching)</text>
+        <text x="16" y="96" fill="#475569" font-size="9.5" font-family="sans-serif">&#8226; Fail-Closed Storage Architecture</text>
+      </g>
+
+      <!-- Node: Firebase Auth & Tenant Isolation -->
+      <g id="node-firebase-auth" transform="translate(380, 200)">
+        <rect width="310" height="90" rx="8" fill="#ffffff" stroke="#f59e0b" stroke-width="1.2" filter="url(#nodeShadow)"/>
+        <rect x="16" y="12" width="24" height="24" rx="4" fill="#f59e0b"/>
+        <text x="28" y="28" fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle">&#128274;</text>
+        <text x="48" y="26" fill="#0f172a" font-size="12.5" font-weight="700" font-family="sans-serif">Firebase Auth &amp; Teacher Guard</text>
+        <text x="48" y="40" fill="#b45309" font-size="9.5" font-family="monospace">verifyFirebaseToken middleware</text>
+        <text x="16" y="62" fill="#475569" font-size="9.5" font-family="sans-serif">&#8226; Cryptographic JWT validation via Admin SDK</text>
+        <text x="16" y="78" fill="#475569" font-size="9.5" font-family="sans-serif">&#8226; Strict Tenant Isolation: scoped by <tspan font-family="monospace" fill="#b45309">teacherId</tspan></text>
+      </g>
+
+      <!-- --- AI & OCR PIPELINE NODES --- -->
+      <!-- Node: Automated Vision Scanner & OCR Segmentation -->
+      <g id="node-ocr-scanner" transform="translate(380, 415)">
+        <rect width="310" height="80" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2" filter="url(#nodeShadow)"/>
+        <text x="16" y="24" fill="#0f172a" font-size="12" font-weight="700" font-family="sans-serif">Automated Document Scanner</text>
+        <text x="16" y="40" fill="#ea580c" font-size="9.5" font-family="monospace">groqExtractionService.js</text>
+        <text x="16" y="58" fill="#475569" font-size="9.5" font-family="sans-serif">&#8226; Groq Cloud Vision (llama-3.3-70b / 3.1-8b)</text>
+        <text x="16" y="72" fill="#475569" font-size="9.5" font-family="sans-serif">&#8226; Regex Question Boundary &amp; Sub-part Segmenter</text>
+      </g>
+
+      <!-- FOCAL NODE 1: Curriculum AI Evaluation Engine -->
+      <g id="node-ai-evaluator" transform="translate(380, 535)">
+        <rect width="310" height="125" rx="8" fill="#fff7ed" stroke="#ea580c" stroke-width="2" filter="url(#focalShadow)"/>
+        <rect x="14" y="14" width="28" height="28" rx="6" fill="url(#accentGrad)"/>
+        <text x="28" y="33" fill="#ffffff" font-size="15" font-weight="bold" text-anchor="middle">&#9889;</text>
+        
+        <text x="50" y="26" fill="#c2410c" font-size="13" font-weight="800" font-family="sans-serif">Curriculum AI Evaluator [Focal]</text>
+        <text x="50" y="40" fill="#ea580c" font-size="9.5" font-family="monospace">grokService.js / Groq Pedagogical Model</text>
+        <line x1="14" y1="48" x2="296" y2="48" stroke="#fdba74" stroke-width="1"/>
+
+        <text x="16" y="66" fill="#7c2d12" font-size="9.5" font-family="sans-serif">&#10148; Evaluates against Marking Scheme &amp; Rubrics</text>
+        <text x="16" y="82" fill="#7c2d12" font-size="9.5" font-family="sans-serif">&#10148; Bounded scoring: 0 &le; suggestedMarks &le; maxMarks</text>
+        <text x="16" y="98" fill="#7c2d12" font-size="9.5" font-family="sans-serif">&#10148; Identifies specific student misconceptions</text>
+        <text x="16" y="114" fill="#7c2d12" font-size="9.5" font-family="sans-serif">&#10148; Extracts verbatim diagnostic evidence from work</text>
+      </g>
+
+      <!-- Node: Prerequisite Knowledge Gap Tracer -->
+      <g id="node-prereq-tracer" transform="translate(380, 700)">
+        <rect width="310" height="100" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2" filter="url(#nodeShadow)"/>
+        <text x="16" y="22" fill="#0f172a" font-size="12" font-weight="700" font-family="sans-serif">Prerequisite Knowledge Tracer</text>
+        <text x="16" y="38" fill="#059669" font-size="9.5" font-family="monospace">gapSynthesizer.js</text>
+        <text x="16" y="56" fill="#475569" font-size="9.5" font-family="sans-serif">&#8226; Traces student errors to foundational roots (Class 6-8)</text>
+        <text x="16" y="72" fill="#475569" font-size="9.5" font-family="sans-serif">&#8226; Computes downstream risk on Class 9 &amp; 10 Board exams</text>
+        <text x="16" y="88" fill="#475569" font-size="9.5" font-family="sans-serif">&#8226; Generates 2-mark diagnostic retest questions with rubrics</text>
+      </g>
+
+      <!-- --- DATA & STORAGE PERSISTENCE NODES --- -->
+      <!-- FOCAL NODE 2: MongoDB Atlas Database & Vector Search -->
+      <g id="node-mongodb-atlas" transform="translate(780, 70)">
+        <rect width="370" height="150" rx="8" fill="#f0fdf4" stroke="#059669" stroke-width="2" filter="url(#focalShadow)"/>
+        <rect x="16" y="14" width="28" height="28" rx="6" fill="url(#greenGrad)"/>
+        <text x="30" y="33" fill="#ffffff" font-size="15" font-weight="bold" text-anchor="middle">&#127811;</text>
+        
+        <text x="52" y="26" fill="#065f46" font-size="13" font-weight="800" font-family="sans-serif">MongoDB Atlas &amp; Vector Store [Focal]</text>
+        <text x="52" y="40" fill="#059669" font-size="9.5" font-family="monospace">Atlas Managed Cluster &amp; Vector Index</text>
+        <line x1="16" y1="48" x2="354" y2="48" stroke="#a7f3d0" stroke-width="1"/>
+
+        <text x="16" y="66" fill="#064e3b" font-size="9.5" font-family="sans-serif">&#10003; <tspan font-weight="bold">assessments</tspan>: Exams, rubrics, questions, status</text>
+        <text x="16" y="82" fill="#064e3b" font-size="9.5" font-family="sans-serif">&#10003; <tspan font-weight="bold">answersheets</tspan>: Raw OCR text, corrected marks, audit</text>
+        <text x="16" y="98" fill="#064e3b" font-size="9.5" font-family="sans-serif">&#10003; <tspan font-weight="bold">syllabuschunks</tspan>: 768d/1536d vector embeddings</text>
+        <text x="16" y="114" fill="#064e3b" font-size="9.5" font-family="sans-serif">&#10003; <tspan font-weight="bold">classes &amp; teachers</tspan>: Cohort tracking, Section A-D</text>
+        <text x="16" y="132" fill="#047857" font-size="8.5" font-family="monospace">SHA-256 fileHash prevents re-embedding duplicates</text>
+      </g>
+
+      <!-- Node: Direct Cloud Object Storage (Filebase / S3) -->
+      <g id="node-s3-storage" transform="translate(780, 240)">
+        <rect width="370" height="90" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2" filter="url(#nodeShadow)"/>
+        <rect x="16" y="12" width="24" height="24" rx="4" fill="#0284c7"/>
+        <text x="28" y="28" fill="#ffffff" font-size="13" font-weight="bold" text-anchor="middle">&#9729;</text>
+        <text x="48" y="26" fill="#0f172a" font-size="12.5" font-weight="700" font-family="sans-serif">Private Cloud Storage (Filebase S3 / R2)</text>
+        <text x="48" y="40" fill="#0284c7" font-size="9.5" font-family="monospace">storageService.js / Presigned S3 URLs</text>
+        <text x="16" y="60" fill="#475569" font-size="9.5" font-family="sans-serif">&#8226; Browser PUT direct upload (up to 200MB per textbook)</text>
+        <text x="16" y="76" fill="#475569" font-size="9.5" font-family="sans-serif">&#8226; Keys partitioned strictly by <tspan font-family="monospace">syllabus/${teacherId}/*</tspan></text>
+      </g>
+
+      <!-- Node: RAG Ingestion Worker -->
+      <g id="node-rag-worker" transform="translate(780, 350)">
+        <rect width="370" height="90" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2" filter="url(#nodeShadow)"/>
+        <text x="16" y="22" fill="#0f172a" font-size="12" font-weight="700" font-family="sans-serif">Asynchronous RAG Ingestion Pipeline</text>
+        <text x="16" y="38" fill="#64748b" font-size="9.5" font-family="monospace">ingestionWorker.js &middot; chunkingService.js</text>
+        <text x="16" y="56" fill="#475569" font-size="9.5" font-family="sans-serif">&#8226; Bounded semantic chunking: 750 chars / 120 overlap</text>
+        <text x="16" y="72" fill="#475569" font-size="9.5" font-family="sans-serif">&#8226; Gemini text-embedding-004 vector indexing</text>
+      </g>
+
+      <!-- --- NCERT MULTI-SUBJECT CURRICULUM NODES --- -->
+      <!-- 4 Subject Cards inside NCERT Zone -->
+      <g id="node-subject-math" transform="translate(780, 515)">
+        <rect width="175" height="135" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <rect x="8" y="8" width="18" height="18" rx="3" fill="#2563eb"/>
+        <text x="17" y="21" fill="#ffffff" font-size="10" font-weight="bold" text-anchor="middle">&sum;</text>
+        <text x="32" y="20" fill="#1e293b" font-size="11" font-weight="700">Mathematics</text>
+        <text x="8" y="40" fill="#475569" font-size="8.5">&#8226; Linear Equations (1 &amp; 2 var)</text>
+        <text x="8" y="56" fill="#475569" font-size="8.5">&#8226; Polynomials &amp; Factoring</text>
+        <text x="8" y="72" fill="#475569" font-size="8.5">&#8226; Exponents &amp; Powers</text>
+        <text x="8" y="88" fill="#475569" font-size="8.5">&#8226; Coordinate Geometry</text>
+        <text x="8" y="104" fill="#059669" font-size="8" font-weight="bold">Prereq: Class 7 Integers &amp; Eq</text>
+        <text x="8" y="120" fill="#ea580c" font-size="8" font-weight="bold">Future: Class 10 Board Algebra</text>
+      </g>
+
+      <g id="node-subject-science" transform="translate(975, 515)">
+        <rect width="175" height="135" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <rect x="8" y="8" width="18" height="18" rx="3" fill="#059669"/>
+        <text x="17" y="21" fill="#ffffff" font-size="10" font-weight="bold" text-anchor="middle">&#9883;</text>
+        <text x="32" y="20" fill="#1e293b" font-size="11" font-weight="700">Science</text>
+        <text x="8" y="40" fill="#475569" font-size="8.5">&#8226; Cell Biology &amp; Organelles</text>
+        <text x="8" y="56" fill="#475569" font-size="8.5">&#8226; Osmosis &amp; Diffusion</text>
+        <text x="8" y="72" fill="#475569" font-size="8.5">&#8226; Prokaryotes vs Eukaryotes</text>
+        <text x="8" y="88" fill="#475569" font-size="8.5">&#8226; Scientific Inquiry Models</text>
+        <text x="8" y="104" fill="#059669" font-size="8" font-weight="bold">Prereq: Class 8 Microorganisms</text>
+        <text x="8" y="120" fill="#ea580c" font-size="8" font-weight="bold">Future: Class 10 Life Processes</text>
+      </g>
+
+      <g id="node-subject-social" transform="translate(780, 665)">
+        <rect width="175" height="135" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <rect x="8" y="8" width="18" height="18" rx="3" fill="#d97706"/>
+        <text x="17" y="21" fill="#ffffff" font-size="10" font-weight="bold" text-anchor="middle">&#9878;</text>
+        <text x="32" y="20" fill="#1e293b" font-size="11" font-weight="700">Social Studies</text>
+        <text x="8" y="40" fill="#475569" font-size="8.5">&#8226; Indian Constitution &amp; Preamble</text>
+        <text x="8" y="56" fill="#475569" font-size="8.5">&#8226; Secularism &amp; Fundamental Rights</text>
+        <text x="8" y="72" fill="#475569" font-size="8.5">&#8226; Revolt of 1857 &amp; Freedom</text>
+        <text x="8" y="88" fill="#475569" font-size="8.5">&#8226; Resources &amp; Sustainability</text>
+        <text x="8" y="104" fill="#059669" font-size="8" font-weight="bold">Prereq: Class 8 Civics Ch 1</text>
+        <text x="8" y="120" fill="#ea580c" font-size="8" font-weight="bold">Future: Class 10 Power Sharing</text>
+      </g>
+
+      <g id="node-subject-english" transform="translate(975, 665)">
+        <rect width="175" height="135" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+        <rect x="8" y="8" width="18" height="18" rx="3" fill="#7c3aed"/>
+        <text x="17" y="21" fill="#ffffff" font-size="10" font-weight="bold" text-anchor="middle">&#128214;</text>
+        <text x="32" y="20" fill="#1e293b" font-size="11" font-weight="700">English Language</text>
+        <text x="8" y="40" fill="#475569" font-size="8.5">&#8226; Verb Tenses &amp; Time Frame</text>
+        <text x="8" y="56" fill="#475569" font-size="8.5">&#8226; Active &amp; Passive Voice</text>
+        <text x="8" y="72" fill="#475569" font-size="8.5">&#8226; Subject-Verb Concord</text>
+        <text x="8" y="88" fill="#475569" font-size="8.5">&#8226; Reading Comprehension</text>
+        <text x="8" y="104" fill="#059669" font-size="8" font-weight="bold">Prereq: Class 7-8 Grammar Rules</text>
+        <text x="8" y="120" fill="#ea580c" font-size="8" font-weight="bold">Future: Class 10 Board English</text>
+      </g>
+    </svg>
+  </div>
+
+  <footer>
+    <span>Neev Architecture Blueprint &middot; Compliant with Diagram-Design Editorial Standard</span>
+    <span>Generated for Antigravity IDE &middot; November 2026</span>
+  </footer>
+
+  <script>
+    function toggleTheme() {
+      const isDark = document.body.getAttribute('data-theme') === 'dark';
+      document.body.setAttribute('data-theme', isDark ? 'light' : 'dark');
+      document.getElementById('themeBtn').textContent = isDark ? '🌙 Dark Mode' : '☀️ Light Mode';
+    }
+
+    function downloadSvg() {
+      const svg = document.getElementById('architecture-diagram');
+      const serializer = new XMLSerializer();
+      let source = serializer.serializeToString(svg);
+      
+      // Add XML declaration and namespaces
+      if (!source.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)) {
+        source = source.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
+      }
+      source = '<?xml version="1.0" standalone="no"?>\r\n' + source;
+
+      const blob = new Blob([source], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'neev-architecture-diagram.svg';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
+    function downloadPng() {
+      const svg = document.getElementById('architecture-diagram');
+      const serializer = new XMLSerializer();
+      const svgStr = serializer.serializeToString(svg);
+      const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(svgBlob);
+
+      const image = new Image();
+      image.onload = function() {
+        const scale = 2; // 2x HD resolution
+        const canvas = document.createElement('canvas');
+        canvas.width = 1200 * scale;
+        canvas.height = 860 * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.scale(scale, scale);
+        ctx.drawImage(image, 0, 0);
+
+        URL.revokeObjectURL(url);
+        const pngUrl = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.href = pngUrl;
+        link.download = 'neev-architecture-diagram.png';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+      image.src = url;
+    }
+  </script>
+</body>
+</html>
