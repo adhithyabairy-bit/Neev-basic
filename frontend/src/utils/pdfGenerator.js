@@ -64,7 +64,7 @@ export function sanitizeForPdf(str) {
     .replace(/\u2080/g, '_0')
 
     // Filter out any other non-printable or non-ASCII characters to prevent mojibake
-    .replace(/[^\x20-\x7E\t]/g, '');
+    .replace(/[^\x20-\x7E\t\r\n]/g, '');
 }
 
 /**
@@ -82,25 +82,51 @@ function escapePdfText(str) {
 }
 
 /**
- * Wraps text into lines that fit within a maximum character count.
+ * Wraps text into lines that fit strictly within a maximum character count.
+ * Handles newlines, preserves word boundaries, and chunks ultra-long words to guarantee
+ * no single line ever clips past the page margin.
  */
-export function wrapText(text, maxChars = 75) {
+export function wrapText(text, maxChars = 64) {
   if (!text) return [];
   const sanitized = sanitizeForPdf(text);
-  const words = sanitized.split(' ');
+  const rawParagraphs = sanitized.split(/\r?\n/);
   const lines = [];
-  let currentLine = '';
 
-  words.forEach((word) => {
-    if ((currentLine + ' ' + word).trim().length <= maxChars) {
-      currentLine = (currentLine + ' ' + word).trim();
-    } else {
-      if (currentLine) lines.push(currentLine);
-      currentLine = word;
-    }
+  rawParagraphs.forEach((para) => {
+    const trimmedPara = para.trim();
+    if (!trimmedPara) return;
+
+    const words = trimmedPara.split(/\s+/);
+    let currentLine = '';
+
+    words.forEach((word) => {
+      // If a single word or identifier exceeds maxChars, safely chunk it
+      if (word.length > maxChars) {
+        if (currentLine) {
+          lines.push(currentLine);
+          currentLine = '';
+        }
+        let remaining = word;
+        while (remaining.length > maxChars) {
+          lines.push(remaining.slice(0, maxChars));
+          remaining = remaining.slice(maxChars);
+        }
+        currentLine = remaining;
+        return;
+      }
+
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      if (testLine.length <= maxChars) {
+        currentLine = testLine;
+      } else {
+        if (currentLine) lines.push(currentLine);
+        currentLine = word;
+      }
+    });
+
+    if (currentLine) lines.push(currentLine);
   });
 
-  if (currentLine) lines.push(currentLine);
   return lines;
 }
 
@@ -189,7 +215,8 @@ export function buildMultiPagePdfBlob(pagesItems = []) {
 
 /**
  * Robust Page Layout Manager for multi-page documents.
- * Ensures automatic page breaking when text exceeds vertical bounds.
+ * Ensures automatic line wrapping and page breaking so no text clips at the right margin
+ * or spills off the bottom.
  */
 class DocumentLayout {
   constructor(headerTitle, studentName, className) {
@@ -213,31 +240,53 @@ class DocumentLayout {
     this.y = 800;
 
     // Running sub-header on subsequent pages
+    const shortHeader = sanitizeForPdf(this.headerTitle).slice(0, 40);
     this.currentPage.push({
-      text: sanitizeForPdf(this.headerTitle),
+      text: shortHeader,
       x: 50,
       y: this.y,
-      size: 10,
+      size: 8.5,
       font: 'F2',
     });
+    const subMeta = `Student: ${sanitizeForPdf(this.studentName).slice(0, 20)}  |  ${sanitizeForPdf(this.className).slice(0, 15)}`;
     this.currentPage.push({
-      text: `Student: ${sanitizeForPdf(this.studentName)}   |   ${sanitizeForPdf(this.className)}`,
-      x: 360,
+      text: subMeta,
+      x: 340,
       y: this.y,
-      size: 8.5,
+      size: 8,
       font: 'F1',
     });
     this.y -= 26;
   }
 
+  /**
+   * Adds text with defensive line wrapping. If the string exceeds the physical printable
+   * width from the starting x coordinate, it delegates automatically to addWrappedText.
+   */
   addText(text, x, size = 10, font = 'F1', lineSpacing = 14) {
+    const sanitized = sanitizeForPdf(text);
+    // Standard A4 width is 595. Target right margin limit is 540 pt.
+    // Helvetica-Bold (F2) is ~0.68em; Helvetica regular (F1) is ~0.58em.
+    const charWidth = font === 'F2' ? size * 0.68 : size * 0.58;
+    const maxChars = Math.max(20, Math.floor((540 - x) / charWidth));
+
+    if (sanitized.length > maxChars) {
+      this.addWrappedText(sanitized, x, maxChars, size, font, lineSpacing);
+      return;
+    }
+
     this.ensureSpace(lineSpacing);
-    this.currentPage.push({ text: sanitizeForPdf(text), x, y: this.y, size, font });
+    this.currentPage.push({ text: sanitized, x, y: this.y, size, font });
     this.y -= lineSpacing;
   }
 
-  addWrappedText(text, x, maxChars = 75, size = 9, font = 'F1', lineSpacing = 12) {
-    const lines = wrapText(text, maxChars);
+  /**
+   * Wraps text and writes each line safely within the printable margins.
+   */
+  addWrappedText(text, x, maxChars = 64, size = 9, font = 'F1', lineSpacing = 12) {
+    const charWidth = font === 'F2' ? size * 0.68 : size * 0.58;
+    const safeMaxChars = Math.min(maxChars, Math.max(20, Math.floor((540 - x) / charWidth)));
+    const lines = wrapText(text, safeMaxChars);
     lines.forEach((line) => {
       this.ensureSpace(lineSpacing);
       this.currentPage.push({ text: line, x, y: this.y, size, font });
@@ -248,7 +297,7 @@ class DocumentLayout {
   addDivider(lineSpacing = 16) {
     this.ensureSpace(lineSpacing);
     this.currentPage.push({
-      text: '---------------------------------------------------------------------------------------------------------',
+      text: '--------------------------------------------------------------------',
       x: 50,
       y: this.y,
       size: 7.5,
@@ -266,9 +315,11 @@ class DocumentLayout {
     }
     const total = this.pages.length;
     this.pages.forEach((pageItems, idx) => {
+      const shortStudent = sanitizeForPdf(this.studentName).slice(0, 20);
+      const shortClass = sanitizeForPdf(this.className).slice(0, 12);
       pageItems.push({
-        text: sanitizeForPdf(`${footerLabel}  --  ${this.studentName} (${this.className})  --  Page ${idx + 1} of ${total}`),
-        x: 60,
+        text: sanitizeForPdf(`${footerLabel}  |  ${shortStudent} (${shortClass})  |  Page ${idx + 1} of ${total}`),
+        x: 50,
         y: 35,
         size: 8,
         font: 'F1',
@@ -291,13 +342,13 @@ export function generateGapReportPdfBlob({
   const doc = new DocumentLayout('NEEV - STUDENT LEARNING GAP ANALYSIS REPORT', studentName, className);
 
   // Document Title Header
-  doc.addText('NEEV - STUDENT LEARNING GAP ANALYSIS REPORT', 50, 13, 'F2', 18);
-  doc.addText(`Student Name: ${studentName}`, 50, 10, 'F2', 14);
-  doc.addText(`Date: ${new Date().toLocaleDateString()}   |   Target Assessment: ${examName}`, 50, 9.5, 'F1', 14);
-  doc.addText(`Enrolled Class: ${className}   |   Subject: ${subject}`, 50, 9.5, 'F1', 20);
+  doc.addText('NEEV - STUDENT LEARNING GAP ANALYSIS REPORT', 50, 12, 'F2', 16);
+  doc.addText(`Student Name: ${studentName}`, 50, 9.5, 'F2', 13);
+  doc.addWrappedText(`Date: ${new Date().toLocaleDateString()}   |   Target Assessment: ${examName}`, 50, 64, 9, 'F1', 13);
+  doc.addText(`Enrolled Class: ${className}   |   Subject: ${subject}`, 50, 9, 'F1', 18);
 
   // Executive Diagnostic Summary
-  doc.addText('EXECUTIVE DIAGNOSTIC SUMMARY', 50, 11, 'F2', 14);
+  doc.addText('EXECUTIVE DIAGNOSTIC SUMMARY', 50, 10.5, 'F2', 14);
   const validGaps = (gapsData || []).filter((g) => {
     if (!g) return false;
     const clean = String(g.topicName || '').toLowerCase();
@@ -312,58 +363,53 @@ export function generateGapReportPdfBlob({
   doc.addWrappedText(
     `This report provides pedagogical evidence of prerequisite conceptual gaps diagnosed from student answer sheets in ${subject}. Foundational remediation is sequenced to rebuild essential competencies before advancing in the curriculum.`,
     50,
-    78,
+    64,
     9,
     'F1',
     12
   );
-  doc.addText(`Total Foundational Gaps Diagnosed: ${validGaps.length}`, 50, 9.5, 'F2', 16);
+  doc.addText(`Total Foundational Gaps Diagnosed: ${validGaps.length}`, 50, 9.5, 'F2', 15);
   doc.addDivider(14);
 
   // Section 1: Detailed Prerequisite Gaps
-  doc.addText('1. DETAILED PREREQUISITE GAP DIAGNOSTICS & EVIDENCE', 50, 11, 'F2', 16);
+  doc.addText('1. DETAILED PREREQUISITE GAP DIAGNOSTICS & EVIDENCE', 50, 10.5, 'F2', 15);
 
   if (validGaps.length === 0) {
-    doc.addText('No critical prerequisite gaps identified. The student demonstrates solid curriculum mastery.', 60, 9.5, 'F1', 16);
+    doc.addWrappedText('No critical prerequisite gaps identified. The student demonstrates solid curriculum mastery.', 60, 62, 9, 'F1', 14);
   } else {
     validGaps.forEach((gap, idx) => {
       doc.ensureSpace(70);
-      doc.addText(
-        `Gap #${idx + 1}: ${gap.topicName} [${gap.grade || 'Foundational Prerequisite'}]`,
-        55,
-        10,
-        'F2',
-        14
-      );
+      const gapTitle = `Gap #${idx + 1}: ${gap.topicName} [${gap.grade || 'Foundational Prerequisite'}]`;
+      doc.addWrappedText(gapTitle, 55, 62, 9.5, 'F2', 13);
 
       if (gap.questionNumber) {
-        doc.addText(`Evaluated Question: Question ${gap.questionNumber}   |   Status: ${gap.status || 'Verified from Answer Evidence'}`, 65, 8.5, 'F1', 12);
+        doc.addWrappedText(`Evaluated Question: Question ${gap.questionNumber}   |   Status: ${gap.status || 'Verified from Answer Evidence'}`, 65, 62, 8.5, 'F1', 12);
       }
 
       if (gap.evidence) {
-        doc.addWrappedText(`Diagnostic Student Work Evidence: ${gap.evidence}`, 65, 74, 8.5, 'F1', 11);
+        doc.addWrappedText(`Diagnostic Student Work Evidence: ${gap.evidence}`, 65, 62, 8.5, 'F1', 11);
       }
 
       if (gap.misconception) {
-        doc.addWrappedText(`Conceptual Misconception: ${gap.misconception}`, 65, 74, 8.5, 'F2', 11);
+        doc.addWrappedText(`Conceptual Misconception: ${gap.misconception}`, 65, 62, 8.5, 'F2', 11);
       }
 
       if (gap.dependentTopics && gap.dependentTopics.length > 0) {
-        doc.addWrappedText(`Impacted Syllabus Competencies: ${gap.dependentTopics.join(', ')}`, 65, 74, 8.5, 'F1', 12);
+        doc.addWrappedText(`Impacted Syllabus Competencies: ${gap.dependentTopics.join(', ')}`, 65, 62, 8.5, 'F1', 12);
       }
 
-      doc.y -= 6;
+      doc.y -= 4;
     });
   }
 
-  doc.addDivider(16);
+  doc.addDivider(15);
 
   // Section 2: Pedagogical Recommendations for Teachers & Parents
-  doc.addText('2. RECOMMENDED TEACHER INTERVENTIONS & STUDY FOCUS', 50, 11, 'F2', 16);
+  doc.addText('2. RECOMMENDED TEACHER INTERVENTIONS & STUDY FOCUS', 50, 10.5, 'F2', 15);
   doc.addWrappedText(
     '1. Concrete Modeling: Revisit foundational concepts using concrete number lines and inverse operation balance scales.',
     60,
-    76,
+    64,
     9,
     'F1',
     13
@@ -371,7 +417,7 @@ export function generateGapReportPdfBlob({
   doc.addWrappedText(
     '2. Error Dissection: Work through 2 contrasting examples illustrating the student slip versus the correct mathematical transformation.',
     60,
-    76,
+    64,
     9,
     'F1',
     13
@@ -379,19 +425,19 @@ export function generateGapReportPdfBlob({
   doc.addWrappedText(
     '3. Retest Readiness: Complete the accompanying 2-mark diagnostic practice questions to verify conceptual retention.',
     60,
-    76,
+    64,
     9,
     'F1',
-    18
+    16
   );
 
   // Section 3: Teacher Verification Sign-off
   doc.ensureSpace(50);
-  doc.addText('3. TEACHER VERIFICATION & ACKNOWLEDGEMENT', 50, 11, 'F2', 16);
-  doc.addText('Evaluated By: ___________________________        Teacher Signature: _______________________', 60, 9, 'F1', 16);
-  doc.addText('Date Approved: __________________________        Review Checkpoint: _______________________', 60, 9, 'F1', 16);
+  doc.addText('3. TEACHER VERIFICATION & ACKNOWLEDGEMENT', 50, 10.5, 'F2', 15);
+  doc.addText('Evaluated By: _______________    Teacher Signature: _______________', 55, 9, 'F1', 15);
+  doc.addText('Date Approved: ______________    Review Checkpoint: _______________', 55, 9, 'F1', 15);
 
-  return doc.finish('Neev Student Learning Gap Analysis Report');
+  return doc.finish('Student Gap Report');
 }
 
 // ============================================================================
@@ -407,10 +453,10 @@ export function generateRoadmapPdfBlob({
   const doc = new DocumentLayout('NEEV - PERSONALIZED REMEDIATION LEARNING ROADMAP', studentName, className);
 
   // Header Banner
-  doc.addText('NEEV - PERSONALIZED REMEDIATION LEARNING ROADMAP', 50, 13, 'F2', 18);
-  doc.addText(`Student Name: ${studentName}`, 50, 10, 'F2', 14);
-  doc.addText(`Date: ${new Date().toLocaleDateString()}   |   Assessment Target: ${examName}`, 50, 9.5, 'F1', 14);
-  doc.addText(`Class: ${className}   |   Subject: ${subject}   |   Ordering: Prerequisite-First Sequential`, 50, 9.5, 'F1', 20);
+  doc.addText('NEEV - PERSONALIZED REMEDIATION LEARNING ROADMAP', 50, 12, 'F2', 16);
+  doc.addText(`Student Name: ${studentName}`, 50, 9.5, 'F2', 13);
+  doc.addWrappedText(`Date: ${new Date().toLocaleDateString()}   |   Assessment Target: ${examName}`, 50, 64, 9, 'F1', 13);
+  doc.addWrappedText(`Class: ${className}   |   Subject: ${subject}   |   Ordering: Prerequisite-First Sequential`, 50, 64, 9, 'F1', 18);
 
   // Roadmap Overview
   const validRoadmap = (roadmapData || []).filter((rm) => {
@@ -427,18 +473,19 @@ export function generateRoadmapPdfBlob({
   const totalMinutes = validRoadmap.reduce((sum, item) => sum + (item.estimatedMinutes || 25), 0);
   const totalPractice = validRoadmap.reduce((sum, item) => sum + (item.practiceQuestions || 4), 0);
 
-  doc.addText('REMEDIATION OVERVIEW & STUDY PLAN', 50, 11, 'F2', 14);
-  doc.addText(
+  doc.addText('REMEDIATION OVERVIEW & STUDY PLAN', 50, 10.5, 'F2', 14);
+  doc.addWrappedText(
     `Total Milestones: ${validRoadmap.length} Sequenced Steps   |   Total Practice: ${totalPractice} Problems   |   Estimated Duration: ~${totalMinutes} Mins`,
     50,
+    64,
     9.5,
     'F2',
-    14
+    13
   );
   doc.addWrappedText(
     'This roadmap sequences remediation starting from foundational roots before progressing to dependent multi-step skills. Follow milestones in exact order for optimal mastery.',
     50,
-    78,
+    64,
     9,
     'F1',
     14
@@ -446,59 +493,55 @@ export function generateRoadmapPdfBlob({
   doc.addDivider(14);
 
   // Section 1: Sequenced Milestones
-  doc.addText('1. ORDERED REMEDIATION MILESTONES', 50, 11, 'F2', 16);
+  doc.addText('1. ORDERED REMEDIATION MILESTONES', 50, 10.5, 'F2', 15);
 
   if (validRoadmap.length === 0) {
-    doc.addText('All remediation milestones are currently completed.', 60, 9.5, 'F1', 16);
+    doc.addWrappedText('All remediation milestones are currently completed.', 60, 62, 9, 'F1', 14);
   } else {
     validRoadmap.forEach((item, idx) => {
       doc.ensureSpace(80);
-      doc.addText(
-        `Step ${item.rank || idx + 1}: ${item.topic} [${item.grade || 'Remediation Step'}]`,
-        55,
-        10,
-        'F2',
-        14
-      );
+      const stepHeader = `Step ${item.rank || idx + 1}: ${item.topic} [${item.grade || 'Remediation Step'}]`;
+      doc.addWrappedText(stepHeader, 55, 62, 9.5, 'F2', 13);
 
       if (item.prereqChain) {
-        doc.addText(`Prerequisite Dependency: ${item.prereqChain}`, 65, 8.5, 'F1', 12);
+        doc.addWrappedText(`Prerequisite Dependency: ${item.prereqChain}`, 65, 62, 8.5, 'F1', 12);
       }
 
       if (item.recommendedActivity) {
-        doc.addWrappedText(`Recommended Study Activity: ${item.recommendedActivity}`, 65, 74, 8.5, 'F1', 11);
+        doc.addWrappedText(`Recommended Study Activity: ${item.recommendedActivity}`, 65, 62, 8.5, 'F1', 11);
       }
 
       if (item.workedExamples) {
-        doc.addWrappedText(`Worked Examples & Instruction: ${item.workedExamples}`, 65, 74, 8.5, 'F1', 11);
+        doc.addWrappedText(`Worked Examples & Instruction: ${item.workedExamples}`, 65, 62, 8.5, 'F1', 11);
       }
 
-      doc.addText(
+      doc.addWrappedText(
         `Practice Assignment: ${item.practiceQuestions || 4} Targeted Problems   |   Time: ~${item.estimatedMinutes || 25} Mins`,
         65,
+        62,
         8.5,
         'F2',
         12
       );
 
       doc.addText(
-        'Progress Check:  [  ] Not Started        [  ] In Progress        [  ] Mastered',
+        'Progress Check:  [ ] Not Started   [ ] In Progress   [ ] Mastered',
         65,
         8.5,
         'F1',
-        16
+        15
       );
     });
   }
 
-  doc.addDivider(16);
+  doc.addDivider(15);
 
   // Section 2: Structured Weekly Study Plan
-  doc.addText('2. STRUCTURED TIMELINE & RETEST READINESS', 50, 11, 'F2', 16);
+  doc.addText('2. STRUCTURED TIMELINE & RETEST READINESS', 50, 10.5, 'F2', 15);
   doc.addWrappedText(
     'Phase 1 (Days 1 - 3): Review prerequisite chapters and complete guided worked examples for Step 1.',
     60,
-    76,
+    64,
     9,
     'F1',
     13
@@ -506,7 +549,7 @@ export function generateRoadmapPdfBlob({
   doc.addWrappedText(
     'Phase 2 (Days 4 - 6): Practice targeted independent problem sets for remaining milestones.',
     60,
-    76,
+    64,
     9,
     'F1',
     13
@@ -514,19 +557,19 @@ export function generateRoadmapPdfBlob({
   doc.addWrappedText(
     'Phase 3 (Day 7): Complete the Diagnostic Gap-Based Retest Paper (2 marks each) under teacher supervision.',
     60,
-    76,
+    64,
     9,
     'F1',
-    18
+    16
   );
 
   // Section 3: Signatures
   doc.ensureSpace(50);
-  doc.addText('3. ROADMAP COMPLETION COMMITMENT', 50, 11, 'F2', 16);
-  doc.addText('Student Signature: _______________________        Parent Signature: _______________________', 60, 9, 'F1', 16);
-  doc.addText('Teacher Supervisor: _____________________        Completion Target: _____________________', 60, 9, 'F1', 16);
+  doc.addText('3. ROADMAP COMPLETION COMMITMENT', 50, 10.5, 'F2', 15);
+  doc.addText('Student Signature: ______________    Parent Signature: ______________', 55, 9, 'F1', 15);
+  doc.addText('Teacher Supervisor: _____________    Completion Target: _____________', 55, 9, 'F1', 15);
 
-  return doc.finish('Neev Personalized Learning Roadmap');
+  return doc.finish('Learning Roadmap');
 }
 
 // ============================================================================
@@ -548,18 +591,18 @@ export function generateSyllabusContinuityPdfBlob({
     className.toLowerCase().includes('grade 10');
 
   // Header Banner
-  doc.addText('NEEV - SYLLABUS CONTINUITY & PREREQUISITE GAP REPORT', 50, 13, 'F2', 18);
-  doc.addText(`Student Name: ${studentName}`, 50, 10, 'F2', 14);
-  doc.addText(`Date: ${new Date().toLocaleDateString()}   |   Subject: ${subject}`, 50, 9.5, 'F1', 14);
-  doc.addText(`Enrolled Class: ${className}   |   Examination Scope: ${examName}`, 50, 9.5, 'F1', 20);
+  doc.addText('NEEV - SYLLABUS CONTINUITY & PREREQUISITE GAP REPORT', 50, 12, 'F2', 16);
+  doc.addText(`Student Name: ${studentName}`, 50, 9.5, 'F2', 13);
+  doc.addWrappedText(`Date: ${new Date().toLocaleDateString()}   |   Subject: ${subject}`, 50, 64, 9, 'F1', 13);
+  doc.addWrappedText(`Enrolled Class: ${className}   |   Examination Scope: ${examName}`, 50, 64, 9, 'F1', 18);
 
   // Section 1: Previous Class Delayed Chapters
-  doc.addText('1. PREVIOUS CLASS PREREQUISITE CHAPTERS REQUIRING REVISION', 50, 11, 'F2', 16);
+  doc.addText('1. PREVIOUS CLASS PREREQUISITE CHAPTERS REQUIRING REVISION', 50, 10.5, 'F2', 15);
 
   const validGaps = (gapsData || []).filter((g) => g.prerequisiteLesson);
 
   if (validGaps.length === 0) {
-    doc.addText('No delayed prerequisite curriculum topics identified from previous grades.', 60, 9.5, 'F1', 16);
+    doc.addWrappedText('No delayed prerequisite curriculum topics identified from previous grades.', 60, 62, 9, 'F1', 14);
   } else {
     validGaps.forEach((gap, idx) => {
       doc.ensureSpace(65);
@@ -567,39 +610,34 @@ export function generateSyllabusContinuityPdfBlob({
       const gradeText = p.grade || 'Previous Grade';
       const chNum = p.chapterNumber || (idx + 1);
 
-      doc.addText(
-        `Item ${idx + 1}: ${gradeText} -- Chapter ${chNum}: ${p.chapterName}`,
-        55,
-        10,
-        'F2',
-        14
-      );
+      const itemHeader = `Item ${idx + 1}: ${gradeText} -- Chapter ${chNum}: ${p.chapterName}`;
+      doc.addWrappedText(itemHeader, 55, 62, 9.5, 'F2', 13);
 
-      doc.addWrappedText(`Core Delayed Concept: ${p.concept || gap.topicName}`, 65, 74, 8.5, 'F1', 11);
+      doc.addWrappedText(`Core Delayed Concept: ${p.concept || gap.topicName}`, 65, 62, 8.5, 'F1', 11);
 
       if (p.pdfFileName || p.fileName) {
-        doc.addText(`NCERT Textbook Reference: ${p.pdfFileName || p.fileName}`, 65, 8.5, 'F2', 11);
+        doc.addWrappedText(`NCERT Textbook Reference: ${p.pdfFileName || p.fileName}`, 65, 62, 8.5, 'F2', 11);
       }
 
       if (p.studyTip) {
-        doc.addWrappedText(`Study & Remediation Tip: ${p.studyTip}`, 65, 74, 8, 'F1', 11);
+        doc.addWrappedText(`Study & Remediation Tip: ${p.studyTip}`, 65, 62, 8, 'F1', 11);
       }
 
       doc.y -= 4;
     });
   }
 
-  doc.addDivider(16);
+  doc.addDivider(15);
 
   // Section 2: Future Affecting Chapters up to Class 10
-  doc.addText('2. DOWNSTREAM CHAPTERS AFFECTED IN FUTURE GRADES (UP TO CLASS 10)', 50, 11, 'F2', 16);
+  doc.addText('2. DOWNSTREAM CHAPTERS AFFECTED IN FUTURE GRADES (UP TO CLASS 10)', 50, 10.5, 'F2', 15);
 
   if (isClass10) {
     doc.addText('* Class 10 Board Examination Impact:', 60, 9.5, 'F2', 13);
     doc.addWrappedText(
       'Direct risk of mark loss in CBSE / State Board Examination questions and internal assessments.',
       70,
-      74,
+      62,
       8.5,
       'F1',
       12
@@ -609,10 +647,10 @@ export function generateSyllabusContinuityPdfBlob({
     doc.addWrappedText(
       'Conceptual gaps will impact Higher Secondary STEM, Commerce with Math, and calculus coursework. (Detailed Class 11 and Class 12 chapters are not mapped as curriculum branches into elective streams). Focus immediately on Class 10 Board exam syllabus resolution.',
       70,
-      74,
+      62,
       8.5,
       'F1',
-      16
+      15
     );
   } else {
     const futureLessonsMap = new Map();
@@ -630,25 +668,25 @@ export function generateSyllabusContinuityPdfBlob({
     const futureLessons = Array.from(futureLessonsMap.values());
 
     if (futureLessons.length === 0) {
-      doc.addText('Class 9 and Class 10 core chapters protected with proactive foundational remediation.', 60, 9.5, 'F1', 16);
+      doc.addWrappedText('Class 9 and Class 10 core chapters protected with proactive foundational remediation.', 60, 62, 9, 'F1', 14);
     } else {
       futureLessons.forEach((f) => {
         doc.ensureSpace(35);
-        doc.addText(`* ${f.grade}: ${f.lessonName}`, 60, 9.5, 'F2', 13);
-        doc.addWrappedText(`Curriculum Dependency Risk: ${f.risk || 'Essential foundation for multi-step problems.'}`, 70, 74, 8, 'F1', 11);
+        doc.addWrappedText(`* ${f.grade}: ${f.lessonName}`, 60, 62, 9.5, 'F2', 13);
+        doc.addWrappedText(`Curriculum Dependency Risk: ${f.risk || 'Essential foundation for multi-step problems.'}`, 70, 60, 8, 'F1', 11);
       });
     }
   }
 
-  doc.addDivider(16);
+  doc.addDivider(15);
 
   // Section 3: Curriculum Continuity Sign-off
   doc.ensureSpace(50);
-  doc.addText('3. CURRICULUM CONTINUITY APPROVAL', 50, 11, 'F2', 16);
-  doc.addText('Evaluated By: ___________________________        Teacher Signature: _______________________', 60, 9, 'F1', 16);
-  doc.addText('Academic Coordinator: ____________________        Date: ___________________________________', 60, 9, 'F1', 16);
+  doc.addText('3. CURRICULUM CONTINUITY APPROVAL', 50, 10.5, 'F2', 15);
+  doc.addText('Evaluated By: _______________    Teacher Signature: _______________', 55, 9, 'F1', 15);
+  doc.addText('Academic Coordinator: _______    Date: ____________________________', 55, 9, 'F1', 15);
 
-  return doc.finish('Neev Syllabus Continuity Plan');
+  return doc.finish('Syllabus Continuity');
 }
 
 // ============================================================================
@@ -669,38 +707,38 @@ export function generateQuestionsPdfBlob({
   const totalMarks = totalQuestions * 2;
 
   // Header Banner
-  doc.addText('NEEV - DIAGNOSTIC GAP-BASED PRACTICE QUESTIONS PAPER', 50, 13, 'F2', 18);
-  doc.addText(`Student Name: ${studentName}`, 50, 10, 'F2', 14);
-  doc.addText(`Date: ${new Date().toLocaleDateString()}   |   Time Allowed: ~30 Minutes`, 50, 9.5, 'F1', 14);
-  doc.addText(`Class: ${className}   |   Subject: ${subject}   |   Total Marks: ${totalMarks} (${totalQuestions} Questions @ 2 Marks Each)`, 50, 9.5, 'F2', 20);
+  doc.addText('NEEV - DIAGNOSTIC GAP-BASED PRACTICE QUESTIONS PAPER', 50, 12, 'F2', 16);
+  doc.addText(`Student Name: ${studentName}`, 50, 9.5, 'F2', 13);
+  doc.addWrappedText(`Date: ${new Date().toLocaleDateString()}   |   Time Allowed: ~30 Minutes`, 50, 64, 9, 'F1', 13);
+  doc.addWrappedText(`Class: ${className}   |   Subject: ${subject}   |   Total Marks: ${totalMarks} (${totalQuestions} Questions @ 2 Marks Each)`, 50, 64, 9.5, 'F2', 18);
 
   // Student Instructions
   doc.addText('GENERAL INSTRUCTIONS FOR STUDENTS:', 50, 10.5, 'F2', 14);
   doc.addText('1. Answer all questions in the space provided below each question.', 60, 9, 'F1', 12);
   doc.addText('2. Each question carries strictly 2 marks.', 60, 9, 'F1', 12);
-  doc.addText('3. Show complete step-by-step mathematical reasoning. Rough work must not be erased.', 60, 9, 'F1', 16);
+  doc.addWrappedText('3. Show complete step-by-step reasoning. Rough work must not be erased.', 60, 64, 9, 'F1', 15);
   doc.addDivider(14);
 
   // Questions with student workspace
   safeQuestions.forEach((q, idx) => {
     doc.ensureSpace(120);
 
-    doc.addText(`Question ${idx + 1} (2 Marks) [${q.type || 'Short Answer'}]`, 50, 10.5, 'F2', 14);
-    doc.addWrappedText(q.prompt, 60, 78, 10, 'F1', 13);
+    doc.addWrappedText(`Question ${idx + 1} (2 Marks) [${q.type || 'Short Answer'}]`, 50, 64, 10.5, 'F2', 14);
+    doc.addWrappedText(q.prompt, 60, 62, 9.5, 'F1', 13);
 
     if (q.targetConcept) {
-      doc.addText(`Remediation Focus: ${q.targetConcept}`, 60, 8.5, 'F1', 13);
+      doc.addWrappedText(`Remediation Focus: ${q.targetConcept}`, 60, 62, 8.5, 'F1', 13);
     }
 
     // Student Workspace: Clear lines for working out the problem
     doc.addText('[ Workspace / Show your working below ]', 60, 8, 'F2', 12);
-    doc.addText('_________________________________________________________________________________________', 60, 8, 'F1', 18);
-    doc.addText('_________________________________________________________________________________________', 60, 8, 'F1', 18);
-    doc.addText('_________________________________________________________________________________________', 60, 8, 'F1', 18);
-    doc.addText('Final Answer: ________________________________________      [ Marks Awarded: _____ / 2 ]', 60, 8.5, 'F2', 24);
+    doc.addText('____________________________________________________________________', 60, 8, 'F1', 18);
+    doc.addText('____________________________________________________________________', 60, 8, 'F1', 18);
+    doc.addText('____________________________________________________________________', 60, 8, 'F1', 18);
+    doc.addText('Final Answer: ___________________________   [ Marks Awarded: _____ / 2 ]', 60, 8.5, 'F2', 24);
   });
 
-  return doc.finish('Neev Student Practice Paper');
+  return doc.finish('Student Practice Paper');
 }
 
 // ============================================================================
@@ -721,27 +759,27 @@ export function generateAnswerKeyPdfBlob({
   const totalMarks = totalQuestions * 2;
 
   // Header Banner
-  doc.addText('NEEV - TEACHER ANSWER KEY & MARKING GUIDE', 50, 13, 'F2', 16);
-  doc.addText('CONFIDENTIAL - STRICTLY FOR TEACHER / EVALUATOR REFERENCE ONLY', 50, 9.5, 'F2', 16);
-  doc.addText(`Target Student: ${studentName}   |   Date: ${new Date().toLocaleDateString()}`, 50, 9.5, 'F1', 14);
-  doc.addText(`Class: ${className}   |   Subject: ${subject}   |   Total Marks: ${totalMarks} (${totalQuestions} Questions @ 2 Marks Each)`, 50, 9.5, 'F2', 20);
+  doc.addText('NEEV - TEACHER ANSWER KEY & MARKING GUIDE', 50, 12, 'F2', 15);
+  doc.addText('CONFIDENTIAL - STRICTLY FOR TEACHER / EVALUATOR REFERENCE ONLY', 50, 9, 'F2', 15);
+  doc.addWrappedText(`Target Student: ${studentName}   |   Date: ${new Date().toLocaleDateString()}`, 50, 64, 9, 'F1', 13);
+  doc.addWrappedText(`Class: ${className}   |   Subject: ${subject}   |   Total Marks: ${totalMarks} (${totalQuestions} Questions @ 2 Marks Each)`, 50, 64, 9.5, 'F2', 18);
 
   // Evaluation Philosophy
   doc.addText('TEACHER SCORING RUBRIC & EVALUATION PRINCIPLES:', 50, 10.5, 'F2', 14);
-  doc.addText('1. Standard Allocation: 1 Mark for correct method / algebraic setup; 1 Mark for accurate final value.', 60, 9, 'F1', 12);
-  doc.addText('2. Partial Credit Policy: If student sets up correct equation but makes an arithmetic slip, award 1 Mark.', 60, 9, 'F1', 12);
-  doc.addText('3. Misconception Verification: Note whether the student exhibits the anticipated misconception listed below.', 60, 9, 'F1', 16);
+  doc.addWrappedText('1. Standard Allocation: 1 Mark for correct method / concept; 1 Mark for accurate final value / statement.', 60, 64, 9, 'F1', 12);
+  doc.addWrappedText('2. Partial Credit Policy: If student demonstrates conceptual understanding with minor arithmetic slip, award 1 Mark.', 60, 64, 9, 'F1', 12);
+  doc.addWrappedText('3. Misconception Verification: Note whether the student exhibits the anticipated misconception listed below.', 60, 64, 9, 'F1', 15);
   doc.addDivider(14);
 
   // Questions with Model Solutions & Mark Allocations
   safeQuestions.forEach((q, idx) => {
     doc.ensureSpace(120);
 
-    doc.addText(`Question ${idx + 1} (2 Marks) -- TEACHER MARKING KEY`, 50, 10.5, 'F2', 14);
-    doc.addWrappedText(`Question Prompt: ${q.prompt}`, 60, 78, 9.5, 'F1', 13);
+    doc.addWrappedText(`Question ${idx + 1} (2 Marks) -- TEACHER MARKING KEY`, 50, 64, 10.5, 'F2', 14);
+    doc.addWrappedText(`Question Prompt: ${q.prompt}`, 60, 62, 9.5, 'F1', 13);
 
     if (q.targetConcept) {
-      doc.addText(`Target Prerequisite Skill: ${q.targetConcept}`, 60, 8.5, 'F1', 12);
+      doc.addWrappedText(`Target Prerequisite Skill: ${q.targetConcept}`, 60, 62, 8.5, 'F1', 12);
     }
 
     // Step-by-step Model Solution
@@ -751,37 +789,38 @@ export function generateAnswerKeyPdfBlob({
         : synthesizeModelSolution(q.prompt);
 
     doc.addText('Model Step-by-Step Solution:', 60, 9, 'F2', 12);
-    doc.addWrappedText(solutionText, 65, 76, 9, 'F1', 12);
+    doc.addWrappedText(solutionText, 65, 62, 9, 'F1', 12);
 
     // Marks Breakdown
     doc.addText('Mark Breakdown (2 Marks Total):', 60, 8.5, 'F2', 11);
-    doc.addText('  * Step 1 (1 Mark): Correct method, transposition, or formula substitution.', 65, 8.5, 'F1', 11);
-    doc.addText('  * Step 2 (1 Mark): Accurate final computation, unit, and statement.', 65, 8.5, 'F1', 12);
+    doc.addWrappedText('  * Step 1 (1 Mark): Correct method, setup, or formula substitution.', 65, 62, 8.5, 'F1', 11);
+    doc.addWrappedText('  * Step 2 (1 Mark): Accurate final computation, unit, and statement.', 65, 62, 8.5, 'F1', 12);
 
     // Misconception Alert
     const warning = synthesizeMisconceptionWarning(q.prompt, q.targetConcept);
-    doc.addWrappedText(`Misconception Alert: ${warning}`, 60, 76, 8.5, 'F2', 12);
+    doc.addWrappedText(`Misconception Alert: ${warning}`, 60, 62, 8.5, 'F2', 12);
 
     if (q.prerequisiteChapter || q.syllabusTopic) {
-      doc.addText(`NCERT Anchor: ${q.prerequisiteChapter || q.syllabusTopic}`, 60, 8, 'F1', 16);
+      doc.addWrappedText(`NCERT Anchor: ${q.prerequisiteChapter || q.syllabusTopic}`, 60, 62, 8, 'F1', 15);
     } else {
       doc.y -= 4;
     }
   });
 
-  doc.addDivider(16);
+  doc.addDivider(15);
 
   // Evaluator Sign-off
-  doc.ensureSpace(50);
-  doc.addText('TEACHER DIAGNOSTIC CONFIRMATION', 50, 11, 'F2', 16);
-  doc.addText('Total Marks Awarded: _____ / ' + totalMarks + '        Retest Status: [  ] Passed (Gap Resolved)    [  ] Further Practice Needed', 60, 9, 'F2', 16);
-  doc.addText('Teacher Signature: _______________________        Evaluation Date: _______________________', 60, 9, 'F1', 16);
+  doc.ensureSpace(55);
+  doc.addText('TEACHER DIAGNOSTIC CONFIRMATION', 50, 10.5, 'F2', 15);
+  doc.addText(`Total Marks Awarded: _____ / ${totalMarks}`, 60, 9.5, 'F2', 14);
+  doc.addText('Retest Status:  [ ] Passed (Gap Resolved)    [ ] Practice Needed', 60, 9, 'F1', 15);
+  doc.addText('Teacher Signature: ______________    Evaluation Date: ______________', 60, 9, 'F1', 15);
 
-  return doc.finish('Neev Teacher Reference Key - CONFIDENTIAL');
+  return doc.finish('Teacher Marking Key');
 }
 
 /**
- * Helper to ensure a concrete mathematical model solution is always available.
+ * Helper to ensure a concrete model solution is always available.
  */
 function synthesizeModelSolution(prompt = '') {
   const p = prompt.toLowerCase();
@@ -806,7 +845,7 @@ function synthesizeModelSolution(prompt = '') {
   if (p.includes('5x - 3 = 3x + 7')) {
     return 'Step 1: 5x - 3x = 7 + 3 => 2x = 10 [1 Mark]\nStep 2: x = 5; Verification: LHS = 22, RHS = 22 [1 Mark]';
   }
-  return 'Step 1: Apply appropriate algebraic transformation or formula [1 Mark]\nStep 2: Execute arithmetic computation accurately to obtain the final value [1 Mark]';
+  return 'Step 1: Apply appropriate foundational principle, law, or formula setup [1 Mark]\nStep 2: Execute reasoning or computation accurately to obtain the final result [1 Mark]';
 }
 
 /**
@@ -826,7 +865,7 @@ function synthesizeMisconceptionWarning(prompt = '', concept = '') {
   if (p.includes('transpos') || p.includes('equation')) {
     return 'Student may move a term across the equals sign without reversing its arithmetic sign (e.g. + to -).';
   }
-  return 'Verify that the student shows complete algebraic steps and does not jump directly to an unverified guess.';
+  return 'Verify that the student shows complete reasoning steps and does not rely on an unverified guess.';
 }
 
 export default {
