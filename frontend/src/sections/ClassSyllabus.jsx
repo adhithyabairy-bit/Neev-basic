@@ -61,7 +61,7 @@ export default function ClassSyllabus({
     setSaveError(null);
     try {
       const saved = await onSaveAssessment(syllabusData);
-      setSuccessBanner(`Assessment '${saved.title}' saved successfully in MongoDB Atlas.`);
+      setSuccessBanner(`Assessment '${saved.title}' saved successfully.`);
       setTimeout(() => setSuccessBanner(null), 5000);
     } catch (err) {
       setSaveError(err.message || 'Failed to save assessment.');
@@ -210,7 +210,7 @@ export default function ClassSyllabus({
             {assessmentId && (
               <span className="badge badge-success" style={{ fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                 <IconCheck size={12} />
-                <span>Persisted in MongoDB</span>
+                <span>Saved in System</span>
               </span>
             )}
             {!isDemoMode && onSaveAssessment && (
@@ -219,7 +219,7 @@ export default function ClassSyllabus({
                 className="btn btn-primary btn-sm"
                 onClick={handleManualSave}
                 disabled={isSavingAssessment}
-                title="Persist this assessment in your MongoDB database"
+                title="Save this assessment to your records"
               >
                 <IconCheck size={14} />
                 <span>{isSavingAssessment ? 'Saving...' : assessmentId ? 'Update Assessment' : 'Save Assessment'}</span>

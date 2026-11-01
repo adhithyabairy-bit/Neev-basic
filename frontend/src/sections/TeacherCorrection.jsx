@@ -154,7 +154,7 @@ export default function TeacherCorrection({
         if (onAnswerSheetUpdated) {
           onAnswerSheetUpdated(updated);
         }
-        setStatusMessage('Answer sheet verified and persisted as ground truth in MongoDB.');
+        setStatusMessage('Answer sheet verified and saved successfully.');
       } catch (err) {
         console.error('[TeacherCorrection] Verification failed:', err);
         setStatusMessage(`Verification failed: ${err.message}`);
@@ -329,7 +329,7 @@ export default function TeacherCorrection({
               id={`student-answer-${currentQ._id || currentQ.id || activeQuestionIndex}`}
               label="Student's Answer (Editable Transcription)"
               required
-              hint="Correct any OCR misreadings or illegible handwriting."
+              hint="Review and edit the student's handwritten response if needed."
               error={activeErrors.extractedAnswer}
             >
               <textarea
@@ -423,7 +423,7 @@ export default function TeacherCorrection({
           <div className="card" style={{ backgroundColor: 'var(--surface-bg)' }}>
             <div className="card-header">
               <h2 className="card-title" style={{ fontSize: 'var(--font-size-md)' }}>
-                Original Raw OCR &bull; {currentQ.questionNumber || currentQ.number || `Q${activeQuestionIndex + 1}`}
+                Original Scanned Text &bull; {currentQ.questionNumber || currentQ.number || `Q${activeQuestionIndex + 1}`}
               </h2>
               <span className="badge badge-neutral">Page {currentQ.pageNumber || currentQ.page || 1}</span>
             </div>
@@ -442,7 +442,7 @@ export default function TeacherCorrection({
               }}
             >
               <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '6px', marginBottom: '12px', color: 'var(--muted-text)', fontSize: '11px' }}>
-                RAW UNEDITED OCR OUTPUT &bull; IMMUTABLE GROUND TRUTH
+                ORIGINAL SCANNED TEXT &bull; IMMUTABLE RECORD
               </div>
 
               <div style={{ backgroundColor: '#FFFDF9', border: '1px dashed #D5560B', padding: '14px', borderRadius: '4px' }}>
@@ -462,7 +462,7 @@ export default function TeacherCorrection({
               )}
 
               <p style={{ fontSize: '12px', color: 'var(--secondary-text)', marginTop: '12px' }}>
-                Note: Editing the student's answer above saves your correction while preserving this original raw OCR text unchanged.
+                Note: Editing the student's answer above saves your correction while preserving this original scanned text unchanged.
               </p>
             </div>
           </div>

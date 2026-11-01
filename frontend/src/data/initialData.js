@@ -6,7 +6,7 @@
 export const WORKFLOW_STEPS = [
   { id: 1, title: 'Class & Syllabus', desc: 'Configure exam & map topics' },
   { id: 2, title: 'Upload Answer Sheets', desc: 'Add scans & reference papers' },
-  { id: 3, title: 'Extract & Preview', desc: 'Inspect OCR answers & confidence' },
+  { id: 3, title: 'Extract & Preview', desc: 'Inspect scanned answers & text' },
   { id: 4, title: 'Teacher Correction', desc: 'Verify marks & student work' },
   { id: 5, title: 'AI Answer Analysis', desc: 'Observed errors & hypotheses' },
   { id: 6, title: 'Prerequisite Gaps', desc: 'Trace errors to foundational roots' },

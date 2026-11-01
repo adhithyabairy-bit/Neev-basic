@@ -86,7 +86,7 @@ export default function UploadAnswerSheets({
                   : (sheet.status === 'review_required' || hasAnswers)
                     ? 'Ready for Review'
                     : sheet.status === 'processing'
-                      ? 'Processing OCR'
+                      ? 'Processing Scan'
                       : sheet.status === 'processing_failed'
                         ? 'Processing Failed'
                         : category === 'answer-sheet' ? 'Uploaded' : 'Ready for Review',
@@ -129,12 +129,12 @@ export default function UploadAnswerSheets({
     }
   }, [syllabusData?.assessmentId, isDemoMode]);
 
-  // Continuously poll background extraction status if any file is in 'Processing OCR'
+  // Continuously poll background extraction status if any file is in 'Processing Scan'
   useEffect(() => {
     if (isDemoMode || !syllabusData?.assessmentId) return;
 
     const hasProcessing = (uploadedFiles || []).some(
-      (f) => f.status === 'Processing OCR' || f.rawSheet?.status === 'processing'
+      (f) => f.status === 'Processing Scan' || f.status === 'Processing OCR' || f.rawSheet?.status === 'processing'
     );
 
     if (!hasProcessing) return;
@@ -154,7 +154,7 @@ export default function UploadAnswerSheets({
                   : remote.status === 'review_required' || hasAnswers
                   ? 'Ready for Review'
                   : remote.status === 'processing'
-                  ? 'Processing OCR'
+                  ? 'Processing Scan'
                   : 'Ready for Review';
 
               if (newStatus !== file.status) {
@@ -325,7 +325,7 @@ export default function UploadAnswerSheets({
               : sheet.status === 'review_required' || (sheet.answers && sheet.answers.length > 0)
                 ? 'Ready for Review'
                 : isAnswerSheet
-                  ? 'Processing OCR'
+                  ? 'Processing Scan'
                   : 'Ready for Review',
             pages: sheet.pageCount || 1,
             studentName: sheet.studentName || activeStudentName,
@@ -418,7 +418,7 @@ export default function UploadAnswerSheets({
                   );
                 });
                 setUploadNotice(
-                  `✓ OCR extraction complete for "${sheetItem.name}" (${count} question(s) identified)! Ready for review in Step 3.`
+                  `✓ Document scanning complete for "${sheetItem.name}" (${count} question(s) identified)! Ready for review in Step 3.`
                 );
                 setTimeout(() => setUploadNotice(null), 5000);
               }
@@ -524,7 +524,7 @@ export default function UploadAnswerSheets({
           <div>
             <strong>Secure Teacher Upload: </strong>
             <span>
-              Files are verified, saved in private server storage, and processed with real OCR. Metadata and extracted answers persist in MongoDB.
+              Files are verified, saved securely in private storage, and digitized automatically. All questions and student responses are securely saved.
             </span>
           </div>
         </div>

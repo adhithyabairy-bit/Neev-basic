@@ -583,3 +583,4 @@ chapters.forEach((ch) => {
 });
 
 console.log(`\nSuccessfully created all ${generated} Social Studies curriculum PDFs in frontend/public/curriculum/`);
+

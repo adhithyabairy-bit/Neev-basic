@@ -159,7 +159,7 @@ export default function TeacherDashboard({
       setIsAddClassModalOpen(false);
       setNewClassName('');
       setNewClassSection('Section A');
-      setActionNotice({ type: 'success', message: `Class '${created.name}' created successfully in MongoDB.` });
+      setActionNotice({ type: 'success', message: `Class '${created.name}' created successfully.` });
       setTimeout(() => setActionNotice(null), 4000);
     } catch (err) {
       setModalError(err.message || 'Failed to create class.');
@@ -330,7 +330,7 @@ export default function TeacherDashboard({
                 </span>
               ) : (
                 <span className="badge badge-success" style={{ fontSize: '10px', padding: '1px 6px' }}>
-                  Live Atlas
+                  Active
                 </span>
               )}
             </div>
@@ -359,7 +359,7 @@ export default function TeacherDashboard({
               <p className="welcome-subtitle">
                 {isDemoMode
                   ? 'Exploring Neev in interactive demo mode. You can test workflow steps, diagnose gaps, and simulate teacher actions.'
-                  : 'Connected to MongoDB Atlas. Manage your classroom sections, assess student work, and sequence foundational learning gap remediation.'}
+                  : 'Manage your classroom sections, assess student work, and sequence foundational learning gap remediation.'}
               </p>
             </div>
 
@@ -466,7 +466,7 @@ export default function TeacherDashboard({
                   {isDemoMode ? totalCompletedTeachings : realAssessments.length}
                 </div>
                 <div className="dash-metric-subtext">
-                  {isDemoMode ? `Foundational topics revised • ${totalCompletedPriorities} this session` : 'Persisted in MongoDB database'}
+                  {isDemoMode ? `Foundational topics revised • ${totalCompletedPriorities} this session` : 'Saved across all classes'}
                 </div>
               </div>
 
@@ -512,12 +512,12 @@ export default function TeacherDashboard({
                   <h3 id="my-classes-heading" className="card-title">My Classes</h3>
                   {!isDemoMode && (
                     <span className="badge badge-success" style={{ fontSize: '11px' }}>
-                      MongoDB Live Data
+                      Active Classes
                     </span>
                   )}
                   {isDemoMode && (
                     <span className="badge badge-neutral" style={{ fontSize: '11px' }}>
-                      Demo Mode (Sample Fixtures)
+                      Sample Classes
                     </span>
                   )}
                 </div>
@@ -603,7 +603,7 @@ export default function TeacherDashboard({
               <div style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
                 <div className="animate-spin" style={{ display: 'inline-block', width: '28px', height: '28px', border: '3px solid var(--border-color)', borderTopColor: 'var(--primary-orange)', borderRadius: '50%' }} />
                 <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--secondary-text)', marginTop: 'var(--space-3)' }}>
-                  Loading your classes from MongoDB Atlas...
+                  Loading your classes...
                 </p>
               </div>
             ) : filteredClasses.length === 0 ? (
@@ -939,7 +939,7 @@ export default function TeacherDashboard({
                   <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--secondary-text)', marginTop: '2px' }}>
                     {isDemoMode
                       ? 'Displaying the 10 most recent evaluations and reports.'
-                      : 'Displaying the 10 most recent classroom evaluations from MongoDB.'}
+                      : 'Displaying the 10 most recent classroom evaluations.'}
                   </p>
                 </div>
                 <span className="badge badge-neutral" style={{ fontSize: '10px' }}>

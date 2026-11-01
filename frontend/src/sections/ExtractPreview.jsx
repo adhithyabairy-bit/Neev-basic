@@ -171,7 +171,7 @@ export default function ExtractPreview({
       setIsProcessing(true);
       setTimeout(() => {
         setIsProcessing(false);
-        setProcessNotice('Simulated OCR re-scan completed.');
+        setProcessNotice('Document re-scan completed.');
         setTimeout(() => setProcessNotice(null), 3000);
       }, 800);
       return;
@@ -425,7 +425,7 @@ export default function ExtractPreview({
     <ErrorBoundary onReset={() => window.location.reload()}>
       <div className="section-container" aria-label="Extract and Preview Section">
       <PageHeader
-        title="Extract & Preview OCR Answers"
+        title="Extract & Preview Answers"
         subtitle="Inspect automated handwritten answer transcription, confidence scores, and uncertain steps."
         badgeText="Inspection Phase"
       />
@@ -433,11 +433,11 @@ export default function ExtractPreview({
       <div className="alert alert-notice" role="status">
         <IconInfo size={18} style={{ flexShrink: 0 }} />
         <div>
-          <strong>AI OCR Pipeline: </strong>
+          <strong>Automated Scanner: </strong>
           <span>
             {isDemoMode
-              ? 'Displaying high-fidelity demonstration extraction data. In production, Neev uses computer vision and OCR to parse handwriting.'
-              : 'Smart OCR pipeline active. Filters examiner rubrics and guidelines, preserves questions and marking schemes.'}
+              ? 'Displaying high-fidelity demonstration extraction data. In production, Neev uses computer vision to parse handwriting.'
+              : 'Smart document scanner active. Automatically identifies questions and preserves student answers.'}
           </span>
         </div>
       </div>
@@ -467,7 +467,7 @@ export default function ExtractPreview({
           <EmptyState
             icon={<IconEye size={28} />}
             title="Extraction Ready to Process"
-            description="Answer sheet is stored and ready for text extraction. Click below to initiate OCR."
+            description="Answer sheet is stored and ready for text extraction. Click below to scan document."
           />
           <button
             type="button"
@@ -476,7 +476,7 @@ export default function ExtractPreview({
             onClick={handleTriggerOcr}
             disabled={isProcessing}
           >
-            {isProcessing ? 'Processing Document...' : 'Run OCR Extraction'}
+            {isProcessing ? 'Processing Document...' : 'Run Document Scan'}
           </button>
         </div>
       ) : (
@@ -571,7 +571,7 @@ export default function ExtractPreview({
                 title="Re-run extraction on this answer sheet"
               >
                 <IconRefreshCw size={15} />
-                <span>{isProcessing ? 'Extracting...' : 'Re-process OCR'}</span>
+                <span>{isProcessing ? 'Extracting...' : 'Re-scan Document'}</span>
               </button>
             </div>
           </div>
@@ -877,7 +877,7 @@ export default function ExtractPreview({
                             }}
                           >
                             <span className="badge badge-orange">
-                              OCR Box: {qNum}
+                              Question Area: {qNum}
                             </span>
                             <span style={{ fontSize: '11px', color: 'var(--secondary-text)' }}>
                               Confidence: {q.confidence !== null && q.confidence !== undefined ? `${q.confidence}%` : 'Direct Text'}
@@ -1136,7 +1136,7 @@ export default function ExtractPreview({
                           >
                             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
                               <span className="badge badge-neutral">
-                                OCR: {q.confidence !== null && q.confidence !== undefined ? `${q.confidence}%` : 'Direct Text'}
+                                Scan Quality: {q.confidence !== null && q.confidence !== undefined ? `${q.confidence}%` : 'High'}
                               </span>
                               <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                                 <span>Max Marks:</span>

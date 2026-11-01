@@ -314,7 +314,7 @@ export default function AIAnswerAnalysis({
       <PageHeader
         title="AI Answer Analysis & Misconception Detection"
         subtitle="Evaluates verified student answers against syllabus content, extracting conceptual hypotheses and requiring explicit teacher score approval."
-        badgeText="Syllabus RAG + AI Evaluator"
+        badgeText="Curriculum AI Evaluation"
       />
 
       {/* Disclaimers & Methodology Banner */}
@@ -767,7 +767,7 @@ export default function AIAnswerAnalysis({
                       color: 'var(--secondary-text)',
                     }}
                   >
-                    <em>Syllabus vector reference: Standard curriculum criteria applied.</em>
+                    <em>Curriculum reference: Standard curriculum criteria applied.</em>
                   </div>
                 )}
               </div>
