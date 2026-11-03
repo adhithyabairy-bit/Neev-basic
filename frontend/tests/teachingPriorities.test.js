@@ -206,4 +206,38 @@ describe('Phase 2 & 9: Frontend Teaching Priorities Tests', () => {
     assert.strictEqual(pAll[0].category, 'PREVIOUS_CLASS_GAP');
     assert.strictEqual(pAll[1].category, 'CURRENT_CLASS_GAP');
   });
+
+  it('matches assessments correctly when classId is a populated Mongoose object ({ _id: "..." })', () => {
+    const cls = { _id: 'class-populated-1', grade: 'Class 9', subject: 'Science' };
+    const allAssessments = [
+      {
+        _id: 'asm-pop-1',
+        classId: { _id: 'class-populated-1', name: 'Class 9 - Science', grade: 'Class 9' },
+        title: 'Populated Assessment Test',
+      },
+    ];
+
+    const gapOverviewByAssessment = {
+      'asm-pop-1': {
+        hasEvaluatedData: true,
+        allPriorities: [
+          {
+            conceptKey: 'osmosis_transport',
+            topicName: 'Cell Membrane and Osmosis',
+            category: 'PREVIOUS_CLASS_GAP',
+            grade: 'Class 7 Prerequisite',
+            averageMastery: 40,
+            affectedStudentsCount: 5,
+            totalEvaluatedCount: 10,
+          },
+        ],
+      },
+    };
+
+    const priorities = getTeachingPrioritiesForClass(cls, allAssessments, gapOverviewByAssessment);
+    assert.strictEqual(priorities.length, 1);
+    assert.strictEqual(priorities[0].conceptKey, 'osmosis_transport');
+    assert.strictEqual(priorities[0].category, 'PREVIOUS_CLASS_GAP');
+    assert.strictEqual(priorities[0].rank, 1);
+  });
 });

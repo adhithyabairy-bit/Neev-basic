@@ -463,7 +463,11 @@ export async function getAssessmentGapOverview(req, res, next) {
     }
 
     // Verify assessment ownership
-    const assessment = await Assessment.findOne({ _id: assessmentId, teacherId });
+    let assessmentQuery = Assessment.findOne({ _id: assessmentId, teacherId });
+    if (assessmentQuery && typeof assessmentQuery.populate === 'function') {
+      assessmentQuery = assessmentQuery.populate('classId', 'name grade subject board');
+    }
+    const assessment = await assessmentQuery;
     if (!assessment) {
       return res.status(404).json({
         success: false,

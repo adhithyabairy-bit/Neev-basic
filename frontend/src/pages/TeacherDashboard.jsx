@@ -288,7 +288,7 @@ export default function TeacherDashboard({
   // All assessments belonging to the active selected class
   const selectedClassAssessments = selectedClass
     ? realAssessments.filter((a) => {
-        const aClassId = String(a.classId || a.class?._id || a.class || '');
+        const aClassId = String(a.classId?._id || a.classId?.id || a.classId || a.class?._id || a.class || '');
         const cId = String(selectedClass._id || selectedClass.id || '');
         return aClassId === cId;
       })

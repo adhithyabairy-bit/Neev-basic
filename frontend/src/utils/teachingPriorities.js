@@ -258,7 +258,7 @@ export function getTeachingPrioritiesForClass(
   // Filter assessments that belong strictly to this class
   const classAssessments = (allAssessments || [])
     .filter((a) => {
-      const aClassId = String(a.classId || a.class?._id || a.class || '');
+      const aClassId = String(a.classId?._id || a.classId?.id || a.classId || a.class?._id || a.class || '');
       return aClassId === classId;
     })
     .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
