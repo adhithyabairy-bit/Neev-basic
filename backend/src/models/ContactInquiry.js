@@ -59,3 +59,4 @@ const ContactInquiry =
   mongoose.model('ContactInquiry', contactInquirySchema);
 
 export default ContactInquiry;
+

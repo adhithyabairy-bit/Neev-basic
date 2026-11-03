@@ -26,3 +26,4 @@ const contactRateLimiter = rateLimit({
 router.post('/', contactRateLimiter, submitContactInquiry);
 
 export default router;
+

@@ -132,21 +132,31 @@ Reply-To: ${email}
   `.trim();
 
   try {
-    const resend = new Resend(apiKey);
-    const { data, error } = await resend.emails.send({
+    const payload = {
       from: senderEmail,
       to: [receiverEmail],
-      replyTo: email,
+      reply_to: email,
       subject: subject,
       html: htmlContent,
       text: textContent,
+    };
+
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
     });
 
-    if (error) {
-      console.error('[Resend Email] Provider error:', error);
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      console.error('[Resend Email] Provider error:', data);
       return {
         success: false,
-        error: error.message || 'Resend API returned an error',
+        error: data.message || `Resend API returned HTTP ${response.status}`,
       };
     }
 
@@ -163,3 +173,4 @@ Reply-To: ${email}
     };
   }
 }
+
