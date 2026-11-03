@@ -72,158 +72,286 @@ export async function fetchAssessmentGapOverview(assessmentId) {
 
 /**
  * Verified NCERT prerequisite metadata lookup fallback for frontend
+ * Strictly subject-aware: Prevents cross-subject hallucinations (e.g. Maths chapters in Science)
+ * Strictly adheres to rule: If unverified or undetermined, never invent a chapter or grade.
  */
 export function resolvePrerequisiteMetadata(topicName = '', subject = 'Mathematics', grade = 'Grade 8') {
   const cleanTopic = String(topicName).toLowerCase();
   const cleanSubject = String(subject).toLowerCase();
   const currentGradeNum = parseGradeNumber(grade);
 
-  // 1. Science - Osmosis / Cell Biology
-  if (cleanTopic.includes('cell') || cleanTopic.includes('osmosis') || cleanTopic.includes('diffusion')) {
+  // =========================================================================
+  // 1. SCIENCE / PHYSICS / CHEMISTRY / BIOLOGY
+  // =========================================================================
+  if (
+    cleanSubject.includes('science') ||
+    cleanSubject.includes('physic') ||
+    cleanSubject.includes('chem') ||
+    cleanSubject.includes('bio')
+  ) {
+    // A. Osmosis / Diffusion / Membrane Transport
+    if (cleanTopic.includes('osmosis') || cleanTopic.includes('diffusion') || cleanTopic.includes('membrane')) {
+      return {
+        category: currentGradeNum > 7 ? 'PREVIOUS_CLASS_GAP' : 'CURRENT_CLASS_GAP',
+        categoryGroup: currentGradeNum > 7 ? 1 : 2,
+        grade: 'Class 7 Prerequisite',
+        chapterName: 'Chapter 2: Exploring Living Processes & Cellular Transport',
+        pdfFileName: 'Class 7 Science Chapter 2.pdf',
+        missingConcept: 'Cell Membrane & Osmotic Transport',
+        suggestedActivity: '15-minute hands-on diagrammatic comparison and structured cell component matching.',
+        estimatedMinutes: 35,
+        severity: 'High',
+      };
+    }
+
+    // B. Cell Organelles & Division of Labor
+    if (
+      cleanTopic.includes('organelle') ||
+      cleanTopic.includes('nucleus') ||
+      cleanTopic.includes('mitochondria') ||
+      cleanTopic.includes('golgi') ||
+      cleanTopic.includes('cell structure') ||
+      cleanTopic.includes('prokaryot') ||
+      cleanTopic.includes('eukaryot') ||
+      cleanTopic.includes('cell organization')
+    ) {
+      return {
+        category: currentGradeNum > 8 ? 'PREVIOUS_CLASS_GAP' : 'CURRENT_CLASS_GAP',
+        categoryGroup: currentGradeNum > 8 ? 1 : 2,
+        grade: 'Class 8 Prerequisite',
+        chapterName: 'Chapter 2: The Invisible Living World: Beyond Our Naked Eye',
+        pdfFileName: 'Class 8 Science Chapter 2.pdf',
+        missingConcept: 'Cell Organelle Specialization & Division of Labor',
+        suggestedActivity: 'Organelle flashcard metabolic function mapping and comparative cell diagramming.',
+        estimatedMinutes: 35,
+        severity: 'Medium',
+      };
+    }
+
+    // C. Kinematics (Speed vs Velocity)
+    if (cleanTopic.includes('speed') && (cleanTopic.includes('velocity') || cleanTopic.includes('direction') || cleanTopic.includes('scalar') || cleanTopic.includes('vector'))) {
+      return {
+        category: 'CURRENT_CLASS_GAP',
+        categoryGroup: 2,
+        grade: 'Class 9 Core',
+        chapterName: 'Chapter 8: Motion (Kinematics)',
+        pdfFileName: 'Class 9 Science Chapter 8.pdf',
+        missingConcept: 'Distinction between Speed (Scalar) and Velocity (Vector)',
+        suggestedActivity: 'Vector displacement mapping on a 2D grid distinguishing total distance from net displacement.',
+        estimatedMinutes: 40,
+        severity: 'High',
+      };
+    }
+
+    // D. Newton's Laws of Motion
+    if (cleanTopic.includes('newton') || cleanTopic.includes('inertia') || cleanTopic.includes('law of motion')) {
+      return {
+        category: 'CURRENT_CLASS_GAP',
+        categoryGroup: 2,
+        grade: 'Class 9 Core',
+        chapterName: 'Chapter 9: Force and Laws of Motion',
+        pdfFileName: 'Class 9 Science Chapter 9.pdf',
+        missingConcept: "Newton's Laws of Motion & Inertia",
+        suggestedActivity: 'Inertia trolley demonstration and dynamic spring balance action-reaction verification.',
+        estimatedMinutes: 45,
+        severity: 'High',
+      };
+    }
+
+    // E. Physics Numericals / Fractions Cross-Disciplinary Prerequisite
+    if (cleanTopic.includes('numerical') || cleanTopic.includes('physics formula')) {
+      return {
+        category: currentGradeNum > 7 ? 'PREVIOUS_CLASS_GAP' : 'CURRENT_CLASS_GAP',
+        categoryGroup: currentGradeNum > 7 ? 1 : 2,
+        grade: 'Class 7 Prerequisite (Mathematics)',
+        chapterName: 'Class 7 Maths Chapter 2: Fractions & Ratios',
+        pdfFileName: 'Class 7 Maths Chapter 2.pdf',
+        missingConcept: 'Fraction & Ratio Manipulation in Physics Formulas',
+        suggestedActivity: 'Step-by-step unit fraction clearing before numerical substitution in physics formulas.',
+        estimatedMinutes: 35,
+        severity: 'High',
+      };
+    }
+
+    // If Science topic is unverified or undetermined, do NOT invent a chapter!
     return {
-      category: currentGradeNum > 7 ? 'PREVIOUS_CLASS_GAP' : 'CURRENT_CLASS_GAP',
-      categoryGroup: currentGradeNum > 7 ? 1 : 2,
-      grade: 'Class 7 Prerequisite',
-      chapterName: 'Chapter 2: Exploring Living Processes & Cellular Transport',
-      pdfFileName: 'Class 7 Science Chapter 2.pdf',
-      missingConcept: 'Cell Membrane & Osmotic Transport',
-      suggestedActivity: '15-minute hands-on diagrammatic comparison and structured cell component matching.',
-      estimatedMinutes: 35,
-      severity: 'High',
+      category: 'UNDETERMINED',
+      categoryGroup: 3,
+      grade: 'Unverified Grade',
+      chapterName: null,
+      pdfFileName: null,
+      missingConcept: 'Root Cause Undetermined',
+      suggestedActivity: 'Conduct targeted diagnostic questioning to determine whether gap stems from earlier grades or current instruction.',
+      estimatedMinutes: 20,
+      severity: 'Low',
     };
   }
 
-  // 2. Science - Kinematics (Speed vs Velocity)
-  if (cleanTopic.includes('speed') && (cleanTopic.includes('velocity') || cleanTopic.includes('direction'))) {
+  // =========================================================================
+  // 2. ENGLISH LANGUAGE
+  // =========================================================================
+  if (cleanSubject.includes('english')) {
+    if (cleanTopic.includes('tense') || cleanTopic.includes('verb') || cleanTopic.includes('concord') || cleanTopic.includes('grammar')) {
+      return {
+        category: currentGradeNum > 7 ? 'PREVIOUS_CLASS_GAP' : 'CURRENT_CLASS_GAP',
+        categoryGroup: currentGradeNum > 7 ? 1 : 2,
+        grade: 'Class 7 Prerequisite',
+        chapterName: 'Chapter 3: Verb Forms, Concord & Active/Passive Voice',
+        pdfFileName: 'Class 7 English Chapter 3.pdf',
+        missingConcept: 'Verb Forms, Tense Continuity & Subject-Verb Concord',
+        suggestedActivity: '20-minute guided sentence transformation drills with teacher feedback.',
+        estimatedMinutes: 30,
+        severity: 'Medium',
+      };
+    }
+
     return {
-      category: 'CURRENT_CLASS_GAP',
-      categoryGroup: 2,
-      grade: 'Class 9 Core',
-      chapterName: 'Chapter 8: Motion (Kinematics)',
-      pdfFileName: 'Class 9 Science Chapter 8.pdf',
-      missingConcept: 'Distinction between Speed (Scalar) and Velocity (Vector)',
-      suggestedActivity: 'Vector displacement mapping on a 2D grid distinguishing total distance from net displacement.',
-      estimatedMinutes: 40,
-      severity: 'High',
+      category: 'UNDETERMINED',
+      categoryGroup: 3,
+      grade: 'Unverified Grade',
+      chapterName: null,
+      pdfFileName: null,
+      missingConcept: 'Root Cause Undetermined',
+      suggestedActivity: 'Conduct targeted diagnostic questioning to determine whether gap stems from earlier grades or current instruction.',
+      estimatedMinutes: 20,
+      severity: 'Low',
     };
   }
 
-  // 3. Science - Newton's Laws
-  if (cleanTopic.includes('newton') || cleanTopic.includes('inertia') || cleanTopic.includes('law of motion')) {
+  // =========================================================================
+  // 3. SOCIAL STUDIES
+  // =========================================================================
+  if (cleanSubject.includes('social') || cleanSubject.includes('history') || cleanSubject.includes('civic') || cleanSubject.includes('geograph')) {
+    if (cleanTopic.includes('constitution') || cleanTopic.includes('governance') || cleanTopic.includes('democracy') || cleanTopic.includes('rights')) {
+      return {
+        category: currentGradeNum > 7 ? 'PREVIOUS_CLASS_GAP' : 'CURRENT_CLASS_GAP',
+        categoryGroup: currentGradeNum > 7 ? 1 : 2,
+        grade: 'Class 7 Prerequisite',
+        chapterName: 'Chapter 1: Our Environment & Medieval Foundations',
+        pdfFileName: 'Class 7 Social Studies Chapter 1.pdf',
+        missingConcept: 'Constitutional Values, Democracy & Institutional Framework',
+        suggestedActivity: 'Timeline graphic organizer mapping cause-and-effect relationships.',
+        estimatedMinutes: 40,
+        severity: 'Medium',
+      };
+    }
+
     return {
-      category: 'CURRENT_CLASS_GAP',
-      categoryGroup: 2,
-      grade: 'Class 9 Core',
-      chapterName: 'Chapter 9: Force and Laws of Motion',
-      pdfFileName: 'Class 9 Science Chapter 9.pdf',
-      missingConcept: "Newton's Laws of Motion & Inertia",
-      suggestedActivity: 'Inertia trolley demonstration and dynamic spring balance action-reaction verification.',
-      estimatedMinutes: 45,
-      severity: 'High',
+      category: 'UNDETERMINED',
+      categoryGroup: 3,
+      grade: 'Unverified Grade',
+      chapterName: null,
+      pdfFileName: null,
+      missingConcept: 'Root Cause Undetermined',
+      suggestedActivity: 'Conduct targeted diagnostic questioning to determine whether gap stems from earlier grades or current instruction.',
+      estimatedMinutes: 20,
+      severity: 'Low',
     };
   }
 
-  // 4. Science - Physics Numericals / Fractions
-  if (cleanTopic.includes('numerical') || cleanTopic.includes('physics formula')) {
+  // =========================================================================
+  // 4. MATHEMATICS
+  // =========================================================================
+  if (cleanSubject.includes('math')) {
+    // A. Signed Integers & BODMAS
+    if (cleanTopic.includes('sign') || cleanTopic.includes('integer') || cleanTopic.includes('bodmas')) {
+      return {
+        category: currentGradeNum > 6 ? 'PREVIOUS_CLASS_GAP' : 'CURRENT_CLASS_GAP',
+        categoryGroup: currentGradeNum > 6 ? 1 : 2,
+        grade: 'Class 6 Prerequisite',
+        chapterName: 'Chapter 3: Number Play & Arithmetic Operations',
+        pdfFileName: 'Class 6 Maths Chapter 3.pdf',
+        missingConcept: 'Signed Integer Operations & Operational Precedence',
+        suggestedActivity: 'Number line directional walking simulation paired with opposite-sign chip exercises.',
+        estimatedMinutes: 35,
+        severity: 'Medium',
+      };
+    }
+
+    // B. Fractions & Rational Numbers
+    if (cleanTopic.includes('fraction') || cleanTopic.includes('rational') || cleanTopic.includes('ratio')) {
+      return {
+        category: currentGradeNum > 7 ? 'PREVIOUS_CLASS_GAP' : 'CURRENT_CLASS_GAP',
+        categoryGroup: currentGradeNum > 7 ? 1 : 2,
+        grade: 'Class 7 Prerequisite',
+        chapterName: 'Chapter 2: Fractions and Rational Numbers',
+        pdfFileName: 'Class 7 Maths Chapter 2.pdf',
+        missingConcept: 'Fractions, Decimals & Proportional Ratios',
+        suggestedActivity: 'Fraction bar manipulatives and clearing denominators drills before transposing.',
+        estimatedMinutes: 40,
+        severity: 'High',
+      };
+    }
+
+    // C. Exponents & Powers
+    if (cleanTopic.includes('exponent') || cleanTopic.includes('power') || cleanTopic.includes('index')) {
+      return {
+        category: currentGradeNum > 8 ? 'PREVIOUS_CLASS_GAP' : 'CURRENT_CLASS_GAP',
+        categoryGroup: currentGradeNum > 8 ? 1 : 2,
+        grade: 'Class 8 Prerequisite',
+        chapterName: 'Chapter 2: Power Play (Exponents & Powers)',
+        pdfFileName: 'Class 8 Maths Chapter 2.pdf',
+        missingConcept: 'Laws of Exponents & Integral Powers',
+        suggestedActivity: 'Index law transformation drills converting negative exponents into positive unit fractions.',
+        estimatedMinutes: 35,
+        severity: 'High',
+      };
+    }
+
+    // D. Geometry & Angles
+    if (cleanTopic.includes('angle') || cleanTopic.includes('triangle') || cleanTopic.includes('geometry') || cleanTopic.includes('transversal')) {
+      return {
+        category: currentGradeNum > 7 ? 'PREVIOUS_CLASS_GAP' : 'CURRENT_CLASS_GAP',
+        categoryGroup: currentGradeNum > 7 ? 1 : 2,
+        grade: 'Class 7 Prerequisite',
+        chapterName: 'Chapter 4: Angles and Triangles',
+        pdfFileName: 'Class 7 Maths Chapter 4.pdf',
+        missingConcept: 'Basic Geometric Properties & Angle Relationships',
+        suggestedActivity: 'Hands-on protractor measurement and dynamic angle pair discovery using intersecting lines.',
+        estimatedMinutes: 35,
+        severity: 'High',
+      };
+    }
+
+    // E. Linear Equations & Transposition
+    if (cleanTopic.includes('linear') || cleanTopic.includes('equation') || cleanTopic.includes('transpos') || cleanTopic.includes('algebra') || cleanTopic.includes('variable')) {
+      return {
+        category: currentGradeNum > 7 ? 'PREVIOUS_CLASS_GAP' : 'CURRENT_CLASS_GAP',
+        categoryGroup: currentGradeNum > 7 ? 1 : 2,
+        grade: 'Class 7 Prerequisite',
+        chapterName: 'Chapter 2: Simple Expressions and Equations',
+        pdfFileName: 'Class 7 Maths Chapter 2.pdf',
+        missingConcept: 'Equation Balancing & Variable Transposition',
+        suggestedActivity: '15-minute balance scale demonstration maintaining identical algebraic operations on both sides.',
+        estimatedMinutes: 40,
+        severity: 'High',
+      };
+    }
+
     return {
-      category: currentGradeNum > 7 ? 'PREVIOUS_CLASS_GAP' : 'CURRENT_CLASS_GAP',
-      categoryGroup: currentGradeNum > 7 ? 1 : 2,
-      grade: 'Class 7 Prerequisite (Mathematics)',
-      chapterName: 'Class 7 Maths Chapter 2: Fractions & Ratios',
-      pdfFileName: 'Class 7 Maths Chapter 2.pdf',
-      missingConcept: 'Fraction & Ratio Manipulation in Physics Formulas',
-      suggestedActivity: 'Step-by-step unit fraction clearing before numerical substitution in physics formulas.',
-      estimatedMinutes: 35,
-      severity: 'High',
+      category: 'UNDETERMINED',
+      categoryGroup: 3,
+      grade: 'Unverified Grade',
+      chapterName: null,
+      pdfFileName: null,
+      missingConcept: 'Root Cause Undetermined',
+      suggestedActivity: 'Conduct targeted diagnostic questioning to determine whether gap stems from earlier grades or current instruction.',
+      estimatedMinutes: 20,
+      severity: 'Low',
     };
   }
 
-  // 5. English - Grammar, Tenses & Concord
-  if (cleanSubject.includes('english') || cleanTopic.includes('tense') || cleanTopic.includes('verb') || cleanTopic.includes('concord')) {
-    return {
-      category: currentGradeNum > 7 ? 'PREVIOUS_CLASS_GAP' : 'CURRENT_CLASS_GAP',
-      categoryGroup: currentGradeNum > 7 ? 1 : 2,
-      grade: 'Class 7 Prerequisite',
-      chapterName: 'Chapter 3: Verb Forms, Concord & Active/Passive Voice',
-      pdfFileName: 'Class 7 English Chapter 3.pdf',
-      missingConcept: 'Verb Forms, Tense Continuity & Subject-Verb Concord',
-      suggestedActivity: '20-minute guided sentence transformation drills with teacher feedback.',
-      estimatedMinutes: 30,
-      severity: 'Medium',
-    };
-  }
-
-  // 6. Social Studies - Constitution & Governance
-  if (cleanSubject.includes('social') || cleanTopic.includes('constitution') || cleanTopic.includes('governance')) {
-    return {
-      category: currentGradeNum > 7 ? 'PREVIOUS_CLASS_GAP' : 'CURRENT_CLASS_GAP',
-      categoryGroup: currentGradeNum > 7 ? 1 : 2,
-      grade: 'Class 7 Prerequisite',
-      chapterName: 'Chapter 1: Our Environment & Medieval Foundations',
-      pdfFileName: 'Class 7 Social Studies Chapter 1.pdf',
-      missingConcept: 'Constitutional Values, Democracy & Institutional Framework',
-      suggestedActivity: 'Timeline graphic organizer mapping cause-and-effect relationships.',
-      estimatedMinutes: 40,
-      severity: 'Medium',
-    };
-  }
-
-  // 7. Mathematics - Signed Integers / BODMAS
-  if (cleanTopic.includes('sign') || cleanTopic.includes('integer') || cleanTopic.includes('bodmas')) {
-    return {
-      category: currentGradeNum > 6 ? 'PREVIOUS_CLASS_GAP' : 'CURRENT_CLASS_GAP',
-      categoryGroup: currentGradeNum > 6 ? 1 : 2,
-      grade: 'Class 6 Prerequisite',
-      chapterName: 'Chapter 3: Number Play & Arithmetic Operations',
-      pdfFileName: 'Class 6 Maths Chapter 3.pdf',
-      missingConcept: 'Signed Integer Operations & Operational Precedence',
-      suggestedActivity: 'Number line directional walking simulation paired with opposite-sign chip exercises.',
-      estimatedMinutes: 35,
-      severity: 'Medium',
-    };
-  }
-
-  // 8. Mathematics - Fractions & Rational Numbers
-  if (cleanTopic.includes('fraction') || cleanTopic.includes('rational')) {
-    return {
-      category: currentGradeNum > 7 ? 'PREVIOUS_CLASS_GAP' : 'CURRENT_CLASS_GAP',
-      categoryGroup: currentGradeNum > 7 ? 1 : 2,
-      grade: 'Class 7 Prerequisite',
-      chapterName: 'Chapter 2: Fractions and Rational Numbers',
-      pdfFileName: 'Class 7 Maths Chapter 2.pdf',
-      missingConcept: 'Fractions, Decimals & Proportional Ratios',
-      suggestedActivity: 'Fraction bar manipulatives and clearing denominators drills before transposing.',
-      estimatedMinutes: 40,
-      severity: 'High',
-    };
-  }
-
-  // 9. Mathematics - Exponents & Powers
-  if (cleanTopic.includes('exponent') || cleanTopic.includes('power') || cleanTopic.includes('index')) {
-    return {
-      category: currentGradeNum > 8 ? 'PREVIOUS_CLASS_GAP' : 'CURRENT_CLASS_GAP',
-      categoryGroup: currentGradeNum > 8 ? 1 : 2,
-      grade: 'Class 8 Prerequisite',
-      chapterName: 'Chapter 2: Power Play (Exponents & Powers)',
-      pdfFileName: 'Class 8 Maths Chapter 2.pdf',
-      missingConcept: 'Laws of Exponents & Integral Powers',
-      suggestedActivity: 'Index law transformation drills converting negative exponents into positive unit fractions.',
-      estimatedMinutes: 35,
-      severity: 'High',
-    };
-  }
-
-  // 10. Default: Linear Equations & Transposition
+  // Universal Fallback for any unknown subject / unverified gap: NEVER invent a chapter!
   return {
-    category: currentGradeNum > 7 ? 'PREVIOUS_CLASS_GAP' : 'CURRENT_CLASS_GAP',
-    categoryGroup: currentGradeNum > 7 ? 1 : 2,
-    grade: 'Class 7 Prerequisite',
-    chapterName: 'Chapter 2: Simple Expressions and Equations',
-    pdfFileName: 'Class 7 Maths Chapter 2.pdf',
-    missingConcept: 'Equation Balancing & Variable Transposition',
-    suggestedActivity: '15-minute balance scale demonstration maintaining identical algebraic operations on both sides.',
-    estimatedMinutes: 40,
-    severity: 'High',
+    category: 'UNDETERMINED',
+    categoryGroup: 3,
+    grade: 'Unverified Grade',
+    chapterName: null,
+    pdfFileName: null,
+    missingConcept: 'Root Cause Undetermined',
+    suggestedActivity: 'Conduct targeted diagnostic questioning to determine whether gap stems from earlier grades or current instruction.',
+    estimatedMinutes: 20,
+    severity: 'Low',
   };
 }
 
@@ -338,8 +466,25 @@ export function getTeachingPrioritiesForClass(
       const meta = resolvePrerequisiteMetadata(topicName, cls.subject || 'Mathematics', cls.grade || 'Grade 8');
 
       const conceptKey = raw.conceptKey || topicName;
-      const category = raw.category || meta.category || 'PREVIOUS_CLASS_GAP';
+      const category = raw.category || meta.category || 'UNDETERMINED';
       const categoryGroup = raw.categoryGroup || meta.categoryGroup || (category === 'PREVIOUS_CLASS_GAP' ? 1 : category === 'CURRENT_CLASS_GAP' ? 2 : 3);
+      const isUndetermined = category === 'UNDETERMINED' || raw.category === 'UNDETERMINED';
+
+      const finalChapterName = isUndetermined
+        ? null
+        : (raw.chapterName !== undefined && raw.chapterName !== null ? raw.chapterName : (meta.chapterName || null));
+
+      const finalPdfFileName = isUndetermined
+        ? null
+        : (raw.pdfFileName !== undefined && raw.pdfFileName !== null ? raw.pdfFileName : (meta.pdfFileName || null));
+
+      const finalGrade = isUndetermined
+        ? 'Unverified Grade'
+        : (raw.grade || meta.grade || 'Current Grade');
+
+      const finalMissingConcept = isUndetermined
+        ? (raw.missingConcept || 'Root Cause Undetermined')
+        : (raw.missingConcept || meta.missingConcept || topicName);
 
       const itemMastery = raw.averageMastery !== undefined
         ? raw.averageMastery
@@ -355,15 +500,15 @@ export function getTeachingPrioritiesForClass(
           id: `priority-${classId}-${conceptKey.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
           conceptKey,
           topicName,
-          missingConcept: raw.missingConcept || meta.missingConcept || topicName,
+          missingConcept: finalMissingConcept,
           category,
           categoryGroup,
-          grade: raw.grade || meta.grade,
-          chapterName: raw.chapterName || meta.chapterName,
-          pdfFileName: raw.pdfFileName || meta.pdfFileName,
+          grade: finalGrade,
+          chapterName: finalChapterName,
+          pdfFileName: finalPdfFileName,
           suggestedActivity: raw.recommendedActivity || raw.suggestedActivity || meta.suggestedActivity,
-          estimatedMinutes: raw.estimatedMinutes || meta.estimatedMinutes || 35,
-          severity: raw.severity || meta.severity || 'Medium',
+          estimatedMinutes: raw.estimatedMinutes || meta.estimatedMinutes || (isUndetermined ? 20 : 35),
+          severity: raw.severity || meta.severity || (isUndetermined ? 'Low' : 'Medium'),
           averageMastery: itemMastery,
           masteryCount: 1,
           affectedStudentsCount: affectedCount,

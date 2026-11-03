@@ -986,14 +986,26 @@ export default function TeacherDashboard({
                               </div>
                             )}
 
-                            {/* Prerequisite Chapter */}
-                            {item.chapterName && (
+                            {/* Prerequisite Chapter (strictly for verified curriculum gaps) */}
+                            {item.chapterName && !isUndetermined && (
                               <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                                 <span style={{ fontSize: '11px', fontWeight: '600', color: isPrevClass ? 'var(--primary-orange)' : 'var(--main-text)' }}>
                                   {isPrevClass ? 'NCERT Prerequisite Chapter:' : 'NCERT Core Chapter:'}
                                 </span>
                                 <span style={{ fontSize: '11px', color: 'var(--main-text)' }}>
                                   {item.chapterName} {item.pdfFileName ? `(${item.pdfFileName})` : ''}
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Diagnostic Status for Undetermined Root Cause Gaps */}
+                            {isUndetermined && (
+                              <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                <span style={{ fontSize: '11px', fontWeight: '600', color: '#B7791F' }}>
+                                  Diagnostic Status:
+                                </span>
+                                <span style={{ fontSize: '11px', color: 'var(--secondary-text)' }}>
+                                  Root cause undetermined &bull; Requires targeted diagnostic questioning before curriculum assignment
                                 </span>
                               </div>
                             )}
@@ -1064,85 +1076,100 @@ export default function TeacherDashboard({
                     return (
                       <>
                         {/* PRIORITY GROUP 1: PREVIOUS-CLASS FOUNDATIONAL GAPS */}
-                        {previousClassGaps.length > 0 && (
-                          <div className="priority-group-container">
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', paddingBottom: '6px', borderBottom: '2px solid var(--primary-orange)' }}>
-                              <div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                  <h4 style={{ fontSize: '13px', fontWeight: '700', color: 'var(--primary-orange)', margin: 0 }}>
-                                    1. Previous-Class Foundational Gaps
-                                  </h4>
-                                  <span className="badge badge-orange" style={{ fontSize: '9.5px', fontWeight: '600' }}>
-                                    Priority Group 1 &bull; Address First
-                                  </span>
-                                </div>
-                                <p style={{ fontSize: '11px', color: 'var(--secondary-text)', margin: '2px 0 0 0' }}>
-                                  Concepts from earlier grades that students need to revise before progressing.
-                                </p>
+                        <div className="priority-group-container">
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', paddingBottom: '6px', borderBottom: '2px solid var(--primary-orange)' }}>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <h4 style={{ fontSize: '13px', fontWeight: '700', color: 'var(--primary-orange)', margin: 0 }}>
+                                  1. Previous-Class Foundational Gaps
+                                </h4>
+                                <span className="badge badge-orange" style={{ fontSize: '9.5px', fontWeight: '600' }}>
+                                  Priority Group 1 &bull; Address First
+                                </span>
                               </div>
-                              <span className="badge badge-neutral" style={{ fontSize: '10.5px' }}>
-                                {previousClassGaps.length} {previousClassGaps.length === 1 ? 'Gap' : 'Gaps'}
-                              </span>
+                              <p style={{ fontSize: '11px', color: 'var(--secondary-text)', margin: '2px 0 0 0' }}>
+                                Concepts from earlier grades that students need to revise before progressing.
+                              </p>
                             </div>
+                            <span className="badge badge-neutral" style={{ fontSize: '10.5px' }}>
+                              {previousClassGaps.length} {previousClassGaps.length === 1 ? 'Gap' : 'Gaps'}
+                            </span>
+                          </div>
+                          {previousClassGaps.length > 0 ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                               {previousClassGaps.map(renderCard)}
                             </div>
-                          </div>
-                        )}
+                          ) : (
+                            <div style={{ padding: '10px 14px', background: 'var(--surface-bg)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--border-color)', fontSize: '11.5px', color: 'var(--secondary-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <IconCheckCircle size={15} color="var(--success)" />
+                              <span>0 Gaps Diagnosed &bull; No foundational prerequisite gaps from earlier grades detected.</span>
+                            </div>
+                          )}
+                        </div>
 
                         {/* PRIORITY GROUP 2: CURRENT-CLASS LEARNING GAPS */}
-                        {currentClassGaps.length > 0 && (
-                          <div className="priority-group-container" style={{ marginTop: previousClassGaps.length > 0 ? 'var(--space-3)' : 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', paddingBottom: '6px', borderBottom: '2px solid var(--border-color)' }}>
-                              <div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                  <h4 style={{ fontSize: '13px', fontWeight: '700', color: 'var(--main-text)', margin: 0 }}>
-                                    2. Current-Class Learning Gaps
-                                  </h4>
-                                  <span className="badge badge-neutral" style={{ fontSize: '9.5px' }}>
-                                    Priority Group 2 &bull; Address Second
-                                  </span>
-                                </div>
-                                <p style={{ fontSize: '11px', color: 'var(--secondary-text)', margin: '2px 0 0 0' }}>
-                                  Current-grade concepts that need additional teaching.
-                                </p>
+                        <div className="priority-group-container" style={{ marginTop: 'var(--space-4)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', paddingBottom: '6px', borderBottom: '2px solid var(--border-color)' }}>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <h4 style={{ fontSize: '13px', fontWeight: '700', color: 'var(--main-text)', margin: 0 }}>
+                                  2. Current-Class Learning Gaps
+                                </h4>
+                                <span className="badge badge-neutral" style={{ fontSize: '9.5px' }}>
+                                  Priority Group 2 &bull; Address Second
+                                </span>
                               </div>
-                              <span className="badge badge-neutral" style={{ fontSize: '10.5px' }}>
-                                {currentClassGaps.length} {currentClassGaps.length === 1 ? 'Gap' : 'Gaps'}
-                              </span>
+                              <p style={{ fontSize: '11px', color: 'var(--secondary-text)', margin: '2px 0 0 0' }}>
+                                Current-grade concepts that need additional teaching.
+                              </p>
                             </div>
+                            <span className="badge badge-neutral" style={{ fontSize: '10.5px' }}>
+                              {currentClassGaps.length} {currentClassGaps.length === 1 ? 'Gap' : 'Gaps'}
+                            </span>
+                          </div>
+                          {currentClassGaps.length > 0 ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                               {currentClassGaps.map(renderCard)}
                             </div>
-                          </div>
-                        )}
+                          ) : (
+                            <div style={{ padding: '10px 14px', background: 'var(--surface-bg)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--border-color)', fontSize: '11.5px', color: 'var(--secondary-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <IconCheckCircle size={15} color="var(--success)" />
+                              <span>0 Gaps Diagnosed &bull; All evaluated current-grade concepts demonstrated satisfactory student mastery.</span>
+                            </div>
+                          )}
+                        </div>
 
                         {/* PRIORITY GROUP 3: UNDETERMINED LEARNING GAPS */}
-                        {undeterminedGaps.length > 0 && (
-                          <div className="priority-group-container" style={{ marginTop: 'var(--space-3)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', paddingBottom: '6px', borderBottom: '2px solid rgba(224, 159, 62, 0.5)' }}>
-                              <div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                  <h4 style={{ fontSize: '13px', fontWeight: '700', color: '#B7791F', margin: 0 }}>
-                                    3. Undetermined Learning Gaps
-                                  </h4>
-                                  <span className="badge badge-neutral" style={{ fontSize: '9.5px', background: 'rgba(224, 159, 62, 0.15)', color: '#B7791F' }}>
-                                    Priority Group 3 &bull; Further Diagnosis Required
-                                  </span>
-                                </div>
-                                <p style={{ fontSize: '11px', color: 'var(--secondary-text)', margin: '2px 0 0 0' }}>
-                                  Mistakes where the root cause requires further diagnosis.
-                                </p>
+                        <div className="priority-group-container" style={{ marginTop: 'var(--space-4)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', paddingBottom: '6px', borderBottom: '2px solid rgba(224, 159, 62, 0.5)' }}>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <h4 style={{ fontSize: '13px', fontWeight: '700', color: '#B7791F', margin: 0 }}>
+                                  3. Undetermined Learning Gaps
+                                </h4>
+                                <span className="badge badge-neutral" style={{ fontSize: '9.5px', background: 'rgba(224, 159, 62, 0.15)', color: '#B7791F' }}>
+                                  Priority Group 3 &bull; Further Diagnosis Required
+                                </span>
                               </div>
-                              <span className="badge badge-neutral" style={{ fontSize: '10.5px' }}>
-                                {undeterminedGaps.length} {undeterminedGaps.length === 1 ? 'Gap' : 'Gaps'}
-                              </span>
+                              <p style={{ fontSize: '11px', color: 'var(--secondary-text)', margin: '2px 0 0 0' }}>
+                                Mistakes where the root cause requires further diagnosis.
+                              </p>
                             </div>
+                            <span className="badge badge-neutral" style={{ fontSize: '10.5px' }}>
+                              {undeterminedGaps.length} {undeterminedGaps.length === 1 ? 'Gap' : 'Gaps'}
+                            </span>
+                          </div>
+                          {undeterminedGaps.length > 0 ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                               {undeterminedGaps.map(renderCard)}
                             </div>
-                          </div>
-                        )}
+                          ) : (
+                            <div style={{ padding: '10px 14px', background: 'var(--surface-bg)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--border-color)', fontSize: '11.5px', color: 'var(--secondary-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <IconCheckCircle size={15} color="var(--success)" />
+                              <span>0 Gaps &bull; All diagnosed learning gaps have verified curriculum root causes.</span>
+                            </div>
+                          )}
+                        </div>
 
                         {/* RESOLVED GAPS (PHASE 7) */}
                         {resolvedGaps.length > 0 && (
