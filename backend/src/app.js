@@ -11,6 +11,7 @@ import assessmentRoutes from './routes/assessment.routes.js';
 import answerSheetRoutes from './routes/answerSheet.routes.js';
 import syllabusRoutes from './routes/syllabus.routes.js';
 import evaluationRoutes from './routes/evaluation.routes.js';
+import contactRoutes from './routes/contact.routes.js';
 
 // Middlewares
 import errorHandler from './middleware/errorHandler.js';
@@ -118,6 +119,10 @@ app.use('/answer-sheets', answerSheetRoutes);
 
 app.use('/api/syllabus', syllabusRoutes);
 app.use('/syllabus', syllabusRoutes);
+
+// Public Contact Form
+app.use('/api/contact', contactRoutes);
+app.use('/contact', contactRoutes);
 
 app.use('/api', evaluationRoutes);
 app.use('/', evaluationRoutes);

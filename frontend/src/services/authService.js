@@ -67,7 +67,12 @@ function mapFirebaseError(rawError) {
   if (message.includes('EMAIL_NOT_FOUND')) {
     return 'No teacher account found with this email address. Please register first.';
   }
-  if (message.includes('INVALID_PASSWORD') || message.includes('INVALID_LOGIN_CREDENTIALS')) {
+  if (
+    message.includes('INVALID_PASSWORD') ||
+    message.includes('INVALID_LOGIN_CREDENTIALS') ||
+    message.includes('INVALID_CREDENTIAL') ||
+    message.includes('auth/invalid-credential')
+  ) {
     return 'Incorrect email or password. Please verify your credentials.';
   }
   if (message.includes('EMAIL_EXISTS')) {

@@ -75,7 +75,7 @@ export default function PublicPrivacyPage({ onNavigate, onLaunchApp, currentUser
             5. Contact for Privacy Inquiries
           </h2>
           <p style={{ color: 'var(--pub-slate)', fontSize: '14.5px', lineHeight: 1.7 }}>
-            If you have questions regarding our data privacy practices or institutional data processing agreements, please email our data protection officer at <strong>privacy@neev-basic-seven.vercel.app</strong>.
+            If you have questions regarding our data privacy practices or institutional data processing agreements, please email our data protection officer at <a href="mailto:adhithyabairy@gmail.com" style={{ color: 'var(--pub-navy)', fontWeight: 600 }}>adhithyabairy@gmail.com</a>.
           </p>
         </div>
       </div>

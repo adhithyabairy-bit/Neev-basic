@@ -34,7 +34,7 @@ export default function PublicHomePage({ onNavigate, onLaunchApp, currentUser = 
       currentUser={currentUser}
     >
       <section className="pub-hero">
-        <div className="pub-hero-badge">NCERT &amp; State Board Aligned &bull; Grades 6 - 10</div>
+        <div className="pub-hero-badge">NCERT-Aligned &bull; Grades 6 - 10</div>
         <h1 className="pub-hero-title">
           Diagnose Root Learning Gaps from <span>Handwritten Student Work</span>
         </h1>

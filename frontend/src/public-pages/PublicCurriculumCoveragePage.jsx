@@ -5,14 +5,14 @@ export default function PublicCurriculumCoveragePage({ onNavigate, onLaunchApp, 
   const structuredData = {
     '@context': 'https://schema.org',
     '@type': 'WebPage',
-    name: 'Neev Curriculum Coverage — CBSE & State Board Syllabus',
-    description: 'Detailed coverage of NCERT CBSE and State Board curriculum for Mathematics, Science, English, and Social Studies across Grades 6 to 10.',
+    name: 'Neev Curriculum Coverage — NCERT-Aligned Syllabus',
+    description: 'Detailed coverage of NCERT-aligned curriculum for Mathematics, Science, English, and Social Studies across Grades 6 to 10.',
     url: 'https://neev-basic-seven.vercel.app/curriculum-coverage',
   };
 
   return (
     <PublicLayout
-      title="Curriculum Coverage — NCERT, CBSE & State Board Syllabus (Grades 6 - 10)"
+      title="Curriculum Coverage — NCERT-Aligned Syllabus (Grades 6 - 10)"
       description="Inspect Neev's multi-subject curriculum coverage: Mathematics, Science, English Language, and Social Studies from Grade 6 to Grade 10 with prerequisite mapping."
       canonicalUrl="https://neev-basic-seven.vercel.app/curriculum-coverage"
       structuredData={structuredData}
@@ -23,7 +23,7 @@ export default function PublicCurriculumCoveragePage({ onNavigate, onLaunchApp, 
     >
       <div className="pub-container">
         <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-          <div className="pub-hero-badge">Curriculum &bull; NCERT &amp; State Boards</div>
+          <div className="pub-hero-badge">Curriculum &bull; NCERT-Aligned</div>
           <h1 style={{ fontSize: '36px', fontWeight: '800', letterSpacing: '-0.5px', marginBottom: '12px' }}>
             Multi-Subject Prerequisite Mapping
           </h1>

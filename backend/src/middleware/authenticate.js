@@ -1,5 +1,9 @@
 import mongoose from 'mongoose';
-import { admin, isFirebaseAdminConfigured } from '../config/firebaseAdmin.js';
+import {
+  admin,
+  isFirebaseAdminConfigured,
+  hasServiceAccountCredentials,
+} from '../config/firebaseAdmin.js';
 import Teacher from '../models/Teacher.js';
 import { getDBStatus, connectDB } from '../config/db.js';
 
@@ -39,8 +43,17 @@ export async function authenticate(req, res, next) {
   if (!isFirebaseAdminConfigured()) {
     return res.status(503).json({
       success: false,
-      error: 'Service Unavailable: Firebase Admin SDK is not configured. Please define GOOGLE_APPLICATION_CREDENTIALS or FIREBASE_PROJECT_ID in backend/.env.',
+      error: 'Service Unavailable: Firebase Admin SDK is not initialized. Please check server configuration.',
       code: 'FIREBASE_NOT_CONFIGURED',
+    });
+  }
+
+  // Diagnostic check: Token revocation check requires service account credentials
+  if (!hasServiceAccountCredentials()) {
+    return res.status(503).json({
+      success: false,
+      error: 'Service Unavailable: Firebase Admin is running without service account credentials (FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY, or FIREBASE_SERVICE_ACCOUNT). Token revocation status cannot be verified without service account credentials.',
+      code: 'FIREBASE_CREDENTIALS_MISSING',
     });
   }
 
@@ -102,6 +115,26 @@ export async function authenticate(req, res, next) {
           success: false,
           error: 'Unauthorized: Invalid Firebase ID token.',
           code: 'INVALID_TOKEN',
+        });
+      }
+
+      // Check if the error is due to missing or invalid credentials
+      const lowerMessage = (err.message || '').toLowerCase();
+      if (
+        lowerMessage.includes('credential') ||
+        lowerMessage.includes('private key') ||
+        lowerMessage.includes('pem') ||
+        lowerMessage.includes('default credentials')
+      ) {
+        console.error('[Authenticate Middleware] Service account credential error:', {
+          code: err.code || 'CREDENTIAL_ERROR',
+          message: err.message,
+        });
+
+        return res.status(503).json({
+          success: false,
+          error: 'Service Unavailable: Firebase service account credentials could not be validated on the server.',
+          code: 'FIREBASE_CREDENTIALS_INVALID',
         });
       }
 

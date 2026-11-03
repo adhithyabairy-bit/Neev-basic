@@ -28,6 +28,7 @@
     "multer": "^2.5.0",
     "pdf-parse": "^2.4.5",
     "pdfjs-dist": "5.4.296",
+    "resend": "^6.37.0",
     "tesseract.js": "^7.0.0"
   }
 }

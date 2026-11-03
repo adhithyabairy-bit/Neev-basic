@@ -1,6 +1,6 @@
 # Neev — Foundational Learning Gap Analysis & Remediation Platform
 
-> Neev is an educational assessment platform designed for K-12 teachers and schools in India. It diagnoses foundational conceptual learning gaps from physical handwritten student answer sheets, grounds diagnostics in standard NCERT/State Board curriculum knowledge bases, and synthesizes sequenced personalized remediation roadmaps.
+> Neev is an educational assessment platform designed for K-12 teachers and schools in India. It diagnoses foundational conceptual learning gaps from physical handwritten student answer sheets, grounds diagnostics in standard NCERT-aligned curriculum knowledge bases, and synthesizes sequenced personalized remediation roadmaps.
 
 ## Core Capabilities
 - **Multimodal Handwriting Extraction**: Transcribes student examination answer sheets directly using vision and OCR with verbatim fidelity.

@@ -29,7 +29,7 @@ export default function PublicFaqPage({ onNavigate, onLaunchApp, currentUser = n
     },
     {
       q: 'What curriculum and grades are supported?',
-      a: 'Neev supports CBSE and State Board curriculum for Mathematics, Science, English Language, and Social Studies across Grades 6 through 10, with downstream risk mapping up to Class 10 Board exams.',
+      a: 'Neev is NCERT-aligned across Mathematics, Science, English Language, and Social Studies for Grades 6 through 10, with downstream risk mapping up to Class 10 Board exams.',
     },
   ];
 

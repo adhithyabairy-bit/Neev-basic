@@ -1,6 +1,6 @@
-import { describe, it } from 'node:test';
+import { describe, it, beforeEach, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { admin } from '../src/config/firebaseAdmin.js';
+import { admin, setHasServiceAccountForTest } from '../src/config/firebaseAdmin.js';
 import { verifyFirebaseToken } from '../src/middleware/verifyFirebaseToken.js';
 
 function createMockResponse() {
@@ -20,6 +20,14 @@ function createMockResponse() {
 }
 
 describe('Phase 3: Firebase Token Verification & Revocation Gating', () => {
+  beforeEach(() => {
+    setHasServiceAccountForTest(true);
+  });
+
+  after(() => {
+    setHasServiceAccountForTest(null);
+  });
+
   it('rejects missing Authorization header with 401', async () => {
     const req = { headers: {} };
     const res = createMockResponse();
@@ -54,6 +62,47 @@ describe('Phase 3: Firebase Token Verification & Revocation Gating', () => {
     assert.equal(res.statusCode, 401);
     assert.equal(res.data.success, false);
     assert.equal(nextCalled, false);
+  });
+
+  it('fails with 503 and FIREBASE_CREDENTIALS_MISSING when service account is not configured', async () => {
+    setHasServiceAccountForTest(false);
+
+    const req = { headers: { authorization: 'Bearer valid-looking-token' } };
+    const res = createMockResponse();
+    let nextCalled = false;
+
+    await verifyFirebaseToken(req, res, () => { nextCalled = true; });
+
+    assert.equal(res.statusCode, 503);
+    assert.equal(res.data.success, false);
+    assert.equal(res.data.code, 'FIREBASE_CREDENTIALS_MISSING');
+    assert.match(res.data.error, /service account credentials/i);
+    assert.equal(nextCalled, false);
+  });
+
+  it('fails with 503 and FIREBASE_CREDENTIALS_INVALID when service account credential error occurs', async () => {
+    const authInstance = admin.auth();
+    const origVerify = authInstance.verifyIdToken;
+    authInstance.verifyIdToken = async () => {
+      const err = new Error('Could not load the default credentials or invalid private key PEM');
+      err.code = 'ERR_OSSL_PEM_BAD_BASE64_DECODE';
+      throw err;
+    };
+
+    try {
+      const req = { headers: { authorization: 'Bearer token-with-bad-creds' } };
+      const res = createMockResponse();
+      let nextCalled = false;
+
+      await verifyFirebaseToken(req, res, () => { nextCalled = true; });
+
+      assert.equal(res.statusCode, 503);
+      assert.equal(res.data.success, false);
+      assert.equal(res.data.code, 'FIREBASE_CREDENTIALS_INVALID');
+      assert.equal(nextCalled, false);
+    } finally {
+      authInstance.verifyIdToken = origVerify;
+    }
   });
 
   it('handles expired token (auth/id-token-expired) with 401 and TOKEN_EXPIRED code', async () => {

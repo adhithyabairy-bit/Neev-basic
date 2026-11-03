@@ -47,7 +47,7 @@ export default function PublicFooter({ onNavigate, onLaunchApp }) {
       <div className="pub-footer-bottom">
         <div>&copy; {new Date().getFullYear()} Neev Educational Technologies. All rights reserved.</div>
         <div style={{ display: 'flex', gap: '16px' }}>
-          <span>CBSE &amp; State Board Aligned</span>
+          <span>NCERT-Aligned</span>
           <span>&bull;</span>
           <span>Zero Student Data Sharing</span>
         </div>
