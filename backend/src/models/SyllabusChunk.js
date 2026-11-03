@@ -19,6 +19,11 @@ const syllabusChunkSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    isShared: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
     classId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Class',

@@ -579,9 +579,7 @@ export async function processDocumentExtraction(buffer, mimeType, options = {}) 
 
   // 1. OPTIMAL FAST MULTIMODAL EXTRACTION PIPELINE (Google Gemini 2.5 Flash Vision)
   // Processes arbitrary scanned PDFs, handwriting, and images directly in 2-5 seconds
-  const geminiKey =
-    process.env.GEMINI_API_KEY ||
-    Buffer.from('QVEuQWI4Uk42SWI4ajJjeW5rZ3l0VFVGNmNpZk05LUU2MUExaG82X29rNDRORGdYMEUyS3c=', 'base64').toString('utf8');
+  const geminiKey = process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim();
   if (geminiKey && buffer && buffer.length > 0) {
     try {
       if (category === 'question-paper') {

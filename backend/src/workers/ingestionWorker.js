@@ -200,6 +200,8 @@ export async function processJob(job, workerId = WORKER_ID) {
             ...rest,
             chunkId: `${document._id}_chunk_${c.chunkIndex}`,
             documentId: document._id,
+            teacherId: document.teacherId,
+            isShared: Boolean(document.isShared),
             sourceFileName: document.fileName,
           };
         });
@@ -299,6 +301,7 @@ export async function processJob(job, workerId = WORKER_ID) {
           chunkId,
           documentId: document._id,
           teacherId: document.teacherId,
+          isShared: Boolean(document.isShared),
           classId: document.classId,
           grade: document.grade || '',
           subject: document.subject || '',

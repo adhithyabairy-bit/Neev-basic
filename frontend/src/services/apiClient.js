@@ -4,7 +4,7 @@
  * Sends HTTP requests to Express backend with verified Firebase ID token in Authorization header.
  * Automatically handles JSON responses, errors, and authentication state without bypassing security.
  */
-import { getCurrentTeacherSession, refreshIdToken, API_BASE_URL } from './authService';
+import { getCurrentTeacherSession, refreshIdToken, API_BASE_URL } from './authService.js';
 
 /**
  * Builds standard request headers with current Firebase ID token.

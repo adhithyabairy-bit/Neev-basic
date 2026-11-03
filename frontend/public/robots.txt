@@ -1,0 +1,20 @@
+# robots.txt for Neev Platform
+User-agent: *
+Allow: /
+Allow: /features
+Allow: /how-it-works
+Allow: /curriculum-coverage
+Allow: /faq
+Allow: /about
+Allow: /contact
+Allow: /privacy
+Allow: /llms.txt
+Disallow: /app
+Disallow: /app/
+Disallow: /api/
+Disallow: /dashboard/
+Disallow: /assessments/
+Disallow: /student/
+
+# Sitemaps
+Sitemap: https://neev.app/sitemap.xml

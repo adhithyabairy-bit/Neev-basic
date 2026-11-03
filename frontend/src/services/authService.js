@@ -12,23 +12,25 @@
 
 const STORAGE_KEY = 'neev_authenticated_teacher';
 
+const env = (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : (typeof process !== 'undefined' && process.env ? process.env : {});
+
 /**
  * Public Firebase client configuration from Vite environment variables.
  */
 export const FIREBASE_CONFIG = {
-  apiKey: (import.meta.env.VITE_FIREBASE_API_KEY || '').trim(),
-  authDomain: (import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '').trim(),
-  projectId: (import.meta.env.VITE_FIREBASE_PROJECT_ID || '').trim(),
-  storageBucket: (import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '').trim(),
-  messagingSenderId: (import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '').trim(),
-  appId: (import.meta.env.VITE_FIREBASE_APP_ID || '').trim(),
-  measurementId: (import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || '').trim(),
+  apiKey: (env.VITE_FIREBASE_API_KEY || '').trim(),
+  authDomain: (env.VITE_FIREBASE_AUTH_DOMAIN || '').trim(),
+  projectId: (env.VITE_FIREBASE_PROJECT_ID || '').trim(),
+  storageBucket: (env.VITE_FIREBASE_STORAGE_BUCKET || '').trim(),
+  messagingSenderId: (env.VITE_FIREBASE_MESSAGING_SENDER_ID || '').trim(),
+  appId: (env.VITE_FIREBASE_APP_ID || '').trim(),
+  measurementId: (env.VITE_FIREBASE_MEASUREMENT_ID || '').trim(),
 };
 
 export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL !== undefined
-    ? import.meta.env.VITE_API_BASE_URL
-    : import.meta.env.PROD
+  env.VITE_API_BASE_URL !== undefined
+    ? env.VITE_API_BASE_URL
+    : env.PROD
     ? ''
     : 'http://localhost:5000';
 

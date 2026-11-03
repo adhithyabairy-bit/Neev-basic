@@ -11,85 +11,105 @@
 const GEMINI_API_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
 function getGeminiApiKey() {
-  return (
-    process.env.GEMINI_API_KEY ||
-    Buffer.from('QVEuQWI4Uk42SWI4ajJjeW5rZ3l0VFVGNmNpZk05LUU2MUExaG82X29rNDRORGdYMEUyS3c=', 'base64').toString('utf8')
-  );
+  const key = process.env.GEMINI_API_KEY;
+  if (!key || typeof key !== 'string' || !key.trim()) {
+    throw new Error(
+      'CONFIG_ERROR: GEMINI_API_KEY environment variable is missing. Gemini extraction requires a valid GEMINI_API_KEY configured in environment variables.'
+    );
+  }
+  return key.trim();
 }
 
 /**
  * Helper to call Gemini 2.5 Flash with multimodal binary payload (PDF or Image) and structured JSON output.
  */
-async function callGeminiVisionJson({ buffer, mimeType, systemPrompt, userPrompt, timeoutMs = 25000 }) {
+async function callGeminiVisionJson({ buffer, mimeType, systemPrompt, userPrompt, timeoutMs = 25000, maxRetries = 2 }) {
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
-    throw new Error('GEMINI_API_KEY_NOT_CONFIGURED');
+    throw new Error('CONFIG_ERROR: GEMINI_API_KEY environment variable is missing.');
   }
 
   const base64Data = Buffer.isBuffer(buffer) ? buffer.toString('base64') : buffer;
   const effectiveMimeType = mimeType === 'application/pdf' ? 'application/pdf' : (mimeType || 'image/jpeg');
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
   const url = `${GEMINI_API_ENDPOINT}?key=${apiKey}`;
 
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                inline_data: {
-                  mime_type: effectiveMimeType,
-                  data: base64Data,
-                },
-              },
-              { text: userPrompt },
-            ],
-          },
-        ],
-        systemInstruction: {
-          parts: [{ text: systemPrompt }],
-        },
-        generationConfig: {
-          responseMimeType: 'application/json',
-          temperature: 0.1,
-          thinkingConfig: { thinkingBudget: 0 },
-        },
-      }),
-      signal: controller.signal,
-    });
+  let lastError = null;
 
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => '');
-      throw new Error(`Gemini API HTTP ${response.status}: ${errorText}`);
-    }
-
-    const data = await response.json();
-    const rawContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!rawContent) {
-      throw new Error('Empty response from Gemini API');
-    }
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      return JSON.parse(rawContent);
-    } catch {
-      const match = rawContent.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
-      if (match) {
-        return JSON.parse(match[0]);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  inline_data: {
+                    mime_type: effectiveMimeType,
+                    data: base64Data,
+                  },
+                },
+                { text: userPrompt },
+              ],
+            },
+          ],
+          systemInstruction: {
+            parts: [{ text: systemPrompt }],
+          },
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.1,
+            thinkingConfig: { thinkingBudget: 0 },
+          },
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        // Retry on 429 (rate limit) or 503/500 (service unavailable)
+        if ((response.status === 429 || response.status === 503 || response.status === 500) && attempt < maxRetries) {
+          console.warn(`[GeminiVision] HTTP ${response.status} on attempt ${attempt + 1}. Retrying in ${(attempt + 1) * 1000}ms...`);
+          await new Promise((res) => setTimeout(res, (attempt + 1) * 1000));
+          continue;
+        }
+        throw new Error(`Gemini API HTTP ${response.status}: ${errorText}`);
       }
-      throw new Error('Could not parse Gemini JSON output');
+
+      const data = await response.json();
+      const rawContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!rawContent) {
+        throw new Error('Empty response from Gemini API');
+      }
+
+      try {
+        return JSON.parse(rawContent);
+      } catch {
+        const match = rawContent.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+        if (match) {
+          return JSON.parse(match[0]);
+        }
+        throw new Error('Could not parse Gemini JSON output');
+      }
+    } catch (err) {
+      clearTimeout(timeoutId);
+      lastError = err;
+      if (attempt < maxRetries && (err.name === 'AbortError' || err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT')) {
+        console.warn(`[GeminiVision] Transient error (${err.message}) on attempt ${attempt + 1}. Retrying...`);
+        await new Promise((res) => setTimeout(res, (attempt + 1) * 1000));
+        continue;
+      }
+      throw err;
     }
-  } catch (err) {
-    clearTimeout(timeoutId);
-    throw err;
   }
+
+  throw lastError;
 }
 
 /**

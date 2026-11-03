@@ -18,7 +18,11 @@ import {
 } from '../components/Icons';
 import { fetchClasses, createClass, deleteClass } from '../services/classService';
 import { fetchAssessments } from '../services/assessmentService';
-import { getSectionDisplay, getTeachingPrioritiesForClass } from '../utils/teachingPriorities';
+import {
+  getSectionDisplay,
+  getTeachingPrioritiesForClass,
+  fetchAssessmentGapOverview,
+} from '../utils/teachingPriorities';
 
 export default function TeacherDashboard({
   currentUser,
@@ -32,6 +36,7 @@ export default function TeacherDashboard({
   const [realAssessments, setRealAssessments] = useState([]);
   const [isLoadingBackend, setIsLoadingBackend] = useState(!isDemoMode);
   const [backendError, setBackendError] = useState(null);
+  const [gapOverviews, setGapOverviews] = useState({});
 
   // Filter controls
   const [gradeFilter, setGradeFilter] = useState('all');
@@ -113,6 +118,24 @@ export default function TeacherDashboard({
 
       setRealClasses(classesData || []);
       setRealAssessments(assessmentsData || []);
+
+      if (assessmentsData && assessmentsData.length > 0) {
+        // Asynchronously fetch gap overviews for all assessments
+        const overviewMap = {};
+        Promise.all(
+          assessmentsData.map(async (a) => {
+            const aId = a._id || a.id;
+            if (aId) {
+              const overview = await fetchAssessmentGapOverview(aId);
+              if (overview && overview.hasEvaluatedData) {
+                overviewMap[aId] = overview;
+              }
+            }
+          })
+        ).then(() => {
+          setGapOverviews(overviewMap);
+        }).catch(() => {});
+      }
 
       if (classesData && classesData.length > 0) {
         setSelectedClassId((prev) => {
@@ -247,9 +270,9 @@ export default function TeacherDashboard({
 
   // Dynamic Teaching Priorities Metrics across all teacher classes
   const allClassPriorities = rawClasses.flatMap((cls) =>
-    getTeachingPrioritiesForClass(cls, realAssessments)
+    getTeachingPrioritiesForClass(cls, realAssessments, gapOverviews)
   );
-  const totalPrioritiesPool = Math.max(rawClasses.length * 3, allClassPriorities.length);
+  const totalPrioritiesPool = allClassPriorities.length;
   const totalCompletedPriorities = completedPriorities.size;
   const pendingPrioritiesCount = Math.max(0, totalPrioritiesPool - totalCompletedPriorities);
 
@@ -263,7 +286,7 @@ export default function TeacherDashboard({
 
   // Teaching priorities items: tailored specifically to selectedClass (grade + section)
   const currentClassPriorities = selectedClass
-    ? getTeachingPrioritiesForClass(selectedClass, realAssessments)
+    ? getTeachingPrioritiesForClass(selectedClass, realAssessments, gapOverviews)
     : [];
 
   const classCompletedCount = currentClassPriorities.filter((p) =>
@@ -706,7 +729,7 @@ export default function TeacherDashboard({
                         <span>
                           {cls.topGaps && cls.topGaps.length > 0
                             ? cls.topGaps.join(', ')
-                            : (getTeachingPrioritiesForClass(cls, realAssessments)[0]?.topicName || 'Foundational Algebra & Transposition')}
+                            : (getTeachingPrioritiesForClass(cls, realAssessments, gapOverviews)[0]?.topicName || 'None diagnosed yet')}
                         </span>
                       </div>
 

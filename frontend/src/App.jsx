@@ -15,6 +15,16 @@ import ForgotPassword from './pages/ForgotPassword';
 import TeacherDashboard from './pages/TeacherDashboard';
 import { getCurrentTeacherSession, logout, subscribeToAuth } from './services/authService';
 
+// Public Marketing & SEO Pages
+import PublicHomePage from './public-pages/PublicHomePage';
+import PublicFeaturesPage from './public-pages/PublicFeaturesPage';
+import PublicHowItWorksPage from './public-pages/PublicHowItWorksPage';
+import PublicCurriculumCoveragePage from './public-pages/PublicCurriculumCoveragePage';
+import PublicFaqPage from './public-pages/PublicFaqPage';
+import PublicAboutPage from './public-pages/PublicAboutPage';
+import PublicContactPage from './public-pages/PublicContactPage';
+import PublicPrivacyPage from './public-pages/PublicPrivacyPage';
+
 // Nine Workflow Sections
 import ClassSyllabus from './sections/ClassSyllabus';
 import UploadAnswerSheets from './sections/UploadAnswerSheets';
@@ -26,19 +36,9 @@ import LearningRoadmap from './sections/LearningRoadmap';
 import GapBasedTest from './sections/GapBasedTest';
 import ExportFollowUp from './sections/ExportFollowUp';
 
-// Initial Demonstration Reference Data
+// Workflow steps and business logic
+import { WORKFLOW_STEPS } from './data/initialData';
 import { deriveGapsAndRemediation } from './utils/gapSynthesizer';
-import {
-  WORKFLOW_STEPS,
-  INITIAL_SYLLABUS,
-  INITIAL_UPLOADED_FILES,
-  INITIAL_EXTRACTION_DATA,
-  INITIAL_AI_ANALYSIS,
-  INITIAL_PREREQUISITE_GAPS,
-  INITIAL_ROADMAP,
-  INITIAL_GAP_TEST,
-} from './data/initialData';
-
 import { fetchClasses, createClass } from './services/classService';
 import { createAssessment, updateAssessment } from './services/assessmentService';
 import { verifyAnswerSheet } from './services/answerSheetService';
@@ -62,6 +62,14 @@ const EMPTY_STUDENT_PROFILE = {
 };
 
 export default function App() {
+  // Routing State for Public Marketing and App
+  const [currentPath, setCurrentPath] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.location.pathname || '/';
+    }
+    return '/';
+  });
+
   // Authentication & Session State
   const [currentUser, setCurrentUser] = useState(() => getCurrentTeacherSession());
   const [authView, setAuthView] = useState('login'); // 'login' | 'register' | 'forgot-password'
@@ -73,73 +81,56 @@ export default function App() {
 
   // Navigation & Step Tracking State
   const [currentStep, setCurrentStep] = useState(1);
-  const [completedSteps, setCompletedSteps] = useState(() => (isDemoMode ? [1, 2, 3, 4, 5, 6, 7, 8] : []));
+  const [completedSteps, setCompletedSteps] = useState([]);
 
-  // Section 1 State: Syllabus & Exam (Clean empty state for real teacher, demo fixture in demo mode)
-  const [syllabusData, setSyllabusData] = useState(() =>
-    isDemoMode ? INITIAL_SYLLABUS : EMPTY_SYLLABUS
-  );
+  // Section 1 State: Syllabus & Exam
+  const [syllabusData, setSyllabusData] = useState(EMPTY_SYLLABUS);
 
   // Student Profile State (Shared across workflow)
-  const [studentProfile, setStudentProfile] = useState(() =>
-    isDemoMode ? { name: 'Aarav Sharma', rollNumber: '2025-08-42', section: 'Section A' } : EMPTY_STUDENT_PROFILE
-  );
+  const [studentProfile, setStudentProfile] = useState(EMPTY_STUDENT_PROFILE);
 
   // Section 2 State: Uploaded Documents & Active Backend AnswerSheet Record
-  const [uploadedFiles, setUploadedFiles] = useState(() =>
-    isDemoMode ? INITIAL_UPLOADED_FILES : []
-  );
+  const [uploadedFiles, setUploadedFiles] = useState([]);
   const [activeAnswerSheet, setActiveAnswerSheet] = useState(null);
 
   // Section 3 & 4 State: Extracted OCR & Corrections
-  const [extractionData, setExtractionData] = useState(() =>
-    isDemoMode ? INITIAL_EXTRACTION_DATA : []
-  );
-  const [isTeacherConfirmed, setIsTeacherConfirmed] = useState(() =>
-    isDemoMode ? true : false
-  );
+  const [extractionData, setExtractionData] = useState([]);
+  const [isTeacherConfirmed, setIsTeacherConfirmed] = useState(false);
 
   // Section 5 State: AI Analysis Findings
-  const [analysisData, setAnalysisData] = useState(() =>
-    isDemoMode ? INITIAL_AI_ANALYSIS : []
-  );
+  const [analysisData, setAnalysisData] = useState([]);
 
   // Section 6 State: Prerequisite Gaps
-  const [gapsData, setGapsData] = useState(() =>
-    isDemoMode ? INITIAL_PREREQUISITE_GAPS : []
-  );
+  const [gapsData, setGapsData] = useState([]);
 
   // Section 7 State: Learning Remediation Roadmap
-  const [roadmapData, setRoadmapData] = useState(() =>
-    isDemoMode ? INITIAL_ROADMAP : []
-  );
+  const [roadmapData, setRoadmapData] = useState([]);
 
   // Section 8 State: Diagnostic Gap Test Questions
-  const [testQuestions, setTestQuestions] = useState(() =>
-    isDemoMode ? INITIAL_GAP_TEST : []
-  );
+  const [testQuestions, setTestQuestions] = useState([]);
 
-  // Helper to load full demonstration dataset
-  const loadDemoData = () => {
-    setIsDemoMode(true);
-    setActiveAnswerSheet(null);
-    setSyllabusData(INITIAL_SYLLABUS);
-    setStudentProfile({
-      name: 'Aarav Sharma',
-      rollNumber: '2025-08-42',
-      section: 'Section A',
-    });
-    setUploadedFiles(INITIAL_UPLOADED_FILES);
-    setExtractionData(INITIAL_EXTRACTION_DATA);
-    setIsTeacherConfirmed(true);
-    setAnalysisData(INITIAL_AI_ANALYSIS);
-    setGapsData(INITIAL_PREREQUISITE_GAPS);
-    setRoadmapData(INITIAL_ROADMAP);
-    setTestQuestions(INITIAL_GAP_TEST);
-    setCompletedSteps([1, 2, 3, 4, 5, 6, 7, 8]);
+  // Client-side routing popstate listener
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPath(window.location.pathname || '/');
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const navigateTo = (path) => {
+    if (typeof window !== 'undefined') {
+      window.history.pushState({}, '', path);
+    }
+    setCurrentPath(path);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Helper to reset workflow states to empty for real authenticated teacher
+  const handleLaunchApp = () => {
+    navigateTo('/app');
+  };
+
+  // Helper to reset workflow states to clean empty state
   const resetToEmptyWorkflow = () => {
     setIsDemoMode(false);
     setActiveAnswerSheet(null);
@@ -190,6 +181,33 @@ export default function App() {
     }
   }, [currentUser, isDemoMode]);
 
+  // Maintain robots meta tag for public SEO vs private app views
+  useEffect(() => {
+    const isPublicPage = [
+      '/',
+      '/features',
+      '/how-it-works',
+      '/curriculum-coverage',
+      '/faq',
+      '/about',
+      '/contact',
+      '/privacy',
+    ].includes(currentPath);
+
+    let robotsMeta = document.querySelector('meta[name="robots"]');
+    if (!robotsMeta) {
+      robotsMeta = document.createElement('meta');
+      robotsMeta.name = 'robots';
+      document.head.appendChild(robotsMeta);
+    }
+
+    if (isPublicPage && !(currentPath === '/' && currentUser)) {
+      robotsMeta.content = 'index, follow';
+    } else {
+      robotsMeta.content = 'noindex, nofollow';
+    }
+  }, [currentPath, currentUser]);
+
   // Handle beginning a new student assessment cleanly without state collision
   const handleStartNewStudentAssessment = () => {
     const confirmed = window.confirm(
@@ -208,7 +226,7 @@ export default function App() {
   const getValidationState = () => {
     switch (currentStep) {
       case 1: {
-        const hasClass = isDemoMode || Boolean(syllabusData.classId || syllabusData.selectedClass);
+        const hasClass = Boolean(syllabusData.classId || syllabusData.selectedClass);
         const hasExamName = Boolean(syllabusData.examName && syllabusData.examName.trim().length > 0);
         const hasMarks = Number(syllabusData.totalMarks) > 0;
 
@@ -260,9 +278,6 @@ export default function App() {
   // Explicit Assessment Creation Action linked to backend service
   const handleSaveAssessment = async (currentData) => {
     const dataToSave = currentData || syllabusData;
-    if (isDemoMode) {
-      return { _id: 'demo-asm-' + Date.now(), ...dataToSave };
-    }
 
     let targetClassId = dataToSave.classId;
     if (!targetClassId) {
@@ -335,7 +350,7 @@ export default function App() {
     if (!validation.canContinue) return;
 
     // Auto-create assessment if moving past Step 1 and not yet persisted
-    if (currentStep === 1 && !isDemoMode && !syllabusData.assessmentId && syllabusData.classId) {
+    if (currentStep === 1 && !syllabusData.assessmentId && syllabusData.classId) {
       try {
         const created = await createAssessment({
           classId: syllabusData.classId,
@@ -354,7 +369,7 @@ export default function App() {
     // Auto-verify answer sheet when moving past Step 4 (Teacher Correction) to unlock Step 5 (AI Evaluation)
     if (currentStep === 4) {
       setIsTeacherConfirmed(true);
-      if (!isDemoMode && activeAnswerSheet?._id) {
+      if (activeAnswerSheet?._id) {
         try {
           const verified = await verifyAnswerSheet(activeAnswerSheet._id, extractionData);
           if (verified) {
@@ -398,7 +413,6 @@ export default function App() {
   };
 
   const handleStepSelect = (stepId) => {
-    // A step is accessible if it is Step 1, or already completed, or the immediate next step after a completed step, or the current step
     const isUnlocked =
       stepId === 1 ||
       completedSteps.includes(stepId) ||
@@ -419,10 +433,43 @@ export default function App() {
     setAuthView('login');
     resetToEmptyWorkflow();
     setCurrentStep(1);
+    navigateTo('/');
   };
 
-  // If user is not authenticated and not in demo mode, show the Authentication pages
-  if (!currentUser && !isDemoMode) {
+  // -------------------------------------------------------------
+  // Public Marketing Routes Rendering
+  // -------------------------------------------------------------
+  if (currentPath === '/' && !currentUser) {
+    return <PublicHomePage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} />;
+  }
+  if (currentPath === '/features') {
+    return <PublicFeaturesPage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} />;
+  }
+  if (currentPath === '/how-it-works') {
+    return <PublicHowItWorksPage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} />;
+  }
+  if (currentPath === '/curriculum-coverage') {
+    return <PublicCurriculumCoveragePage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} />;
+  }
+  if (currentPath === '/faq') {
+    return <PublicFaqPage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} />;
+  }
+  if (currentPath === '/about') {
+    return <PublicAboutPage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} />;
+  }
+  if (currentPath === '/contact') {
+    return <PublicContactPage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} />;
+  }
+  if (currentPath === '/privacy') {
+    return <PublicPrivacyPage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} />;
+  }
+
+  // -------------------------------------------------------------
+  // Application Workspace Rendering
+  // -------------------------------------------------------------
+
+  // If user is not authenticated, show Authentication pages
+  if (!currentUser) {
     if (authView === 'register') {
       return (
         <Register
@@ -430,12 +477,9 @@ export default function App() {
             setCurrentUser(user);
             resetToEmptyWorkflow();
             setViewMode('dashboard');
+            navigateTo('/app');
           }}
           onNavigateLogin={() => setAuthView('login')}
-          onBypassToDemo={() => {
-            loadDemoData();
-            setViewMode('dashboard');
-          }}
         />
       );
     }
@@ -444,10 +488,6 @@ export default function App() {
       return (
         <ForgotPassword
           onNavigateLogin={() => setAuthView('login')}
-          onBypassToDemo={() => {
-            loadDemoData();
-            setViewMode('dashboard');
-          }}
         />
       );
     }
@@ -458,18 +498,15 @@ export default function App() {
           setCurrentUser(user);
           resetToEmptyWorkflow();
           setViewMode('dashboard');
+          navigateTo('/app');
         }}
         onNavigateRegister={() => setAuthView('register')}
         onNavigateForgotPassword={() => setAuthView('forgot-password')}
-        onBypassToDemo={() => {
-          loadDemoData();
-          setViewMode('dashboard');
-        }}
       />
     );
   }
 
-  // If authenticated (or in demo mode) and in dashboard mode, render the Teacher Dashboard
+  // If authenticated and in dashboard mode, render Teacher Dashboard
   if (viewMode === 'dashboard') {
     return (
       <TeacherDashboard
@@ -593,7 +630,6 @@ export default function App() {
               }
             }}
             onEvaluationsUpdated={(evals) => {
-              // Update app state if evaluations generated
               if (evals && evals.length > 0) {
                 setAnalysisData(evals);
                 const derived = deriveGapsAndRemediation(evals, syllabusData);
@@ -664,7 +700,7 @@ export default function App() {
         onStepSelect={handleStepSelect}
       />
 
-      {/* App Shell: Desktop Sidebar + Main Content Column (Footer sits beside the sidebar) */}
+      {/* App Shell: Desktop Sidebar + Main Content Column */}
       <div className="workspace-layout">
         <Sidebar
           steps={WORKFLOW_STEPS}
@@ -682,7 +718,7 @@ export default function App() {
             </div>
           </main>
 
-          {/* Workflow Navigation Footer positioned beside the sidebar */}
+          {/* Workflow Navigation Footer positioned beside sidebar */}
           <WorkflowNavigation
             currentStep={currentStep}
             totalSteps={WORKFLOW_STEPS.length}

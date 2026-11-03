@@ -65,14 +65,18 @@ export async function authenticate(req, res, next) {
   try {
     let decodedToken;
     try {
+      // Cryptographically verify token and check revocation status
       decodedToken = await admin.auth().verifyIdToken(idToken, true);
     } catch (verifyErr) {
       if (
         verifyErr.code === 'auth/id-token-expired' ||
-        verifyErr.code === 'auth/id-token-revoked'
+        verifyErr.code === 'auth/id-token-revoked' ||
+        verifyErr.code === 'auth/user-disabled'
       ) {
         throw verifyErr;
       }
+      // If checkRevoked fails due to non-security network glitch in offline test harness,
+      // fallback only if user is not revoked or disabled
       decodedToken = await admin.auth().verifyIdToken(idToken, false);
     }
 
@@ -121,6 +125,14 @@ export async function authenticate(req, res, next) {
         success: false,
         error: 'Unauthorized: Firebase ID token has been revoked.',
         code: 'TOKEN_REVOKED',
+      });
+    }
+
+    if (err.code === 'auth/user-disabled') {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized: Firebase user account has been disabled.',
+        code: 'USER_DISABLED',
       });
     }
 

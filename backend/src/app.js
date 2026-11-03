@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 
 // Routes
 import healthRoutes from './routes/health.routes.js';
@@ -15,26 +17,47 @@ import errorHandler from './middleware/errorHandler.js';
 
 const app = express();
 
+// Secure HTTP response headers with Helmet
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    crossOriginEmbedderPolicy: false,
+    contentSecurityPolicy: false, // Disabled for API backend to prevent conflicting with frontend headers
+  })
+);
+
 // Request logging for cloud observability
 app.use((req, res, next) => {
   console.log(`[API] ${req.method} ${req.url}`);
   next();
 });
 
-// Configure CORS for local development and Vercel cloud deployments
-const configuredFrontend = process.env.FRONTEND_URL;
+// Configure CORS strictly for verified production and local development origins
+const allowedOrigins = new Set([
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+]);
+
+if (process.env.FRONTEND_URL) {
+  process.env.FRONTEND_URL.split(',').forEach((url) => {
+    const trimmed = url.trim();
+    if (trimmed) allowedOrigins.add(trimmed);
+  });
+}
+
+// Strictly whitelist official Neev Vercel deployments, preventing arbitrary third-party .vercel.app origins
+const VERCEL_NEEV_REGEX = /^https:\/\/(neev|neev-[a-z0-9-]+)\.vercel\.app$/i;
+
 app.use(
   cors({
     origin: (origin, callback) => {
       // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
       if (!origin) return callback(null, true);
 
-      // Check allowed origins
-      const isAllowed =
-        origin === configuredFrontend ||
-        origin === 'http://localhost:5173' ||
-        origin === 'http://127.0.0.1:5173' ||
-        (origin.endsWith('.vercel.app') && !origin.includes('@'));
+      // Check allowed origins against whitelist and official pattern
+      const isAllowed = allowedOrigins.has(origin) || VERCEL_NEEV_REGEX.test(origin);
 
       if (isAllowed) {
         return callback(null, true);
@@ -51,8 +74,29 @@ app.use(
   })
 );
 
+// Express Rate Limiting to prevent brute force and resource exhaustion
+const isTestEnv =
+  process.env.NODE_ENV === 'test' ||
+  process.env.npm_lifecycle_event === 'test';
+
+const generalApiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: isTestEnv ? 10000 : 300, // 300 requests per 15 minutes in production
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    res.status(429).json({
+      success: false,
+      error: 'Too many requests from this IP. Please try again after 15 minutes.',
+      code: 'RATE_LIMIT_EXCEEDED',
+    });
+  },
+});
+
+app.use('/api', generalApiLimiter);
+
 // Body parsing
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 // System Health Diagnostics
 app.use('/api/health', healthRoutes);

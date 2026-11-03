@@ -68,6 +68,9 @@ export function isNonErrorText(text) {
     clean.includes('consistent with criteria') ||
     clean.includes('mastery confirmed') ||
     clean.includes('mastery validated') ||
+    clean.includes('correct answer') ||
+    clean.includes('mathematically correct') ||
+    clean.includes('correct solution') ||
     clean.includes('perfect solution')
   ) {
     return true;
@@ -1131,27 +1134,35 @@ function resolveCurriculumKnowledge({
       return catSub.includes('math');
     });
 
+    let bestScore = 0;
     for (const entry of subjectCategories) {
+      let score = 0;
       for (const trigger of entry.triggers) {
         if (combined.includes(trigger.toLowerCase())) {
-          baseKnowledge = entry;
-          break;
+          score += trigger.length;
         }
       }
-      if (baseKnowledge) break;
+      if (score > bestScore) {
+        bestScore = score;
+        baseKnowledge = entry;
+      }
     }
   }
 
   // 3. Fallback check across all entries if no subject-specific match
   if (!baseKnowledge) {
+    let bestScore = 0;
     for (const entry of CURRICULUM_KNOWLEDGE_BASE) {
+      let score = 0;
       for (const trigger of entry.triggers) {
         if (combined.includes(trigger.toLowerCase())) {
-          baseKnowledge = entry;
-          break;
+          score += trigger.length;
         }
       }
-      if (baseKnowledge) break;
+      if (score > bestScore) {
+        bestScore = score;
+        baseKnowledge = entry;
+      }
     }
   }
 
@@ -1264,16 +1275,71 @@ function resolveCurriculumKnowledge({
 }
 
 /**
+ * Normalizes conceptual error phrasing into canonical misconception keys.
+ * Uses the resolved curriculum knowledge category as the authoritative taxonomy.
+ */
+export function normalizeConceptKey(topicName = '', observed = '', hypothesis = '', category = '') {
+  if (category && category !== 'general' && !category.endsWith('_foundations')) {
+    return category;
+  }
+
+  const combined = `${category} ${topicName} ${observed} ${hypothesis}`.toLowerCase();
+
+  if (/transpos|equation\s*balanc|isolate\s*variable|equals\s*sign/i.test(combined)) {
+    return 'linear_equations';
+  }
+  if (/fraction|denominator|lcm|cross\s*multipl/i.test(combined)) {
+    return 'linear_equations';
+  }
+  if (/precedence|bodmas|order\s*of\s*operations/i.test(combined)) {
+    return 'arithmetic_order_of_operations';
+  }
+  if (/osmosis|exosmosis|potato|hypertonic|hypotonic/i.test(combined)) {
+    return 'osmosis_and_diffusion';
+  }
+  if (/prokaryot|eukaryot/i.test(combined)) {
+    return 'prokaryotes_vs_eukaryotes';
+  }
+  if (/scientific\s*model|simulation/i.test(combined)) {
+    return 'scientific_models_and_inquiry';
+  }
+  if (/constitution|preamble|secular|sovereign/i.test(combined)) {
+    return 'social_constitution_and_governance';
+  }
+  if (/voice|active|passive/i.test(combined)) {
+    return 'english_grammar_tenses_voice';
+  }
+  if (/concord|subject-verb/i.test(combined)) {
+    return 'subject_verb_concord_and_clauses';
+  }
+
+  return category || topicName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+}
+
+/**
  * Derives foundational prerequisite gaps, ordered learning roadmaps,
  * and diagnostic re-test items from evaluated answer sheet results.
  *
+ * Engine Architecture:
+ * Explainable Diagnostic Rule-Based Synthesis Engine grounded in NCERT/SCERT
+ * curriculum dependency trees and teacher-verified rubric observations.
+ * Objective, deterministic evaluation without speculative ungrounded claims.
+ *
  * Enforces:
  * 1. Filtering out questions where no error occurred or full marks were awarded.
- * 2. Generating 2-mark diagnostic questions with a count strictly between 5 and 10 questions.
- * 3. Exact Class & Chapter numbers for previous class delayed topics.
- * 4. Future affected chapters strictly up to Class 10 (with Class 10 Board exam & Class 11/12 rule).
+ * 2. Grouping related questions into canonical root misconceptions (duplicate prevention).
+ * 3. Paraphrase matching across student working error descriptions.
+ * 4. Multi-question evidence aggregation and severity prioritization.
+ * 5. Generating 2-mark diagnostic questions with a count strictly between 5 and 10 questions.
+ * 6. Exact Class & Chapter numbers for previous class delayed topics.
+ * 7. Future affected chapters strictly up to Class 10 (with Class 10 Board exam & Class 11/12 rule).
  */
 export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
+  // Honest Empty State: If no student evaluations are provided, return clean empty diagnostic artifacts
+  if (!evaluations || evaluations.length === 0) {
+    return { gaps: [], roadmap: [], testQuestions: [] };
+  }
+
   const gaps = [];
   const roadmap = [];
 
@@ -1345,7 +1411,6 @@ export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
       gapTopic = `Foundational Gap in ${topicName}`;
     }
 
-    const gapId = `gap-${qNum.toLowerCase().replace(/[^a-z0-9]/g, '') || index + 1}`;
     const lessonName = item.affectedLessonName || topicName;
 
     // Retrieve previous class foundational lesson and future affected lessons
@@ -1363,9 +1428,49 @@ export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
       diagnosedCategories.push(knowledge);
     }
 
+    // Paraphrase matching and canonical concept key for root misconception grouping
+    const conceptKey = normalizeConceptKey(topicName, observed, hypothesis, knowledge.category);
+
+    const existingGap = gaps.find((g) => g.conceptKey === conceptKey);
+
+    if (existingGap) {
+      // Group under the same root misconception (duplicate prevention & evidence aggregation)
+      if (!existingGap.questionNumbers.includes(qNum)) {
+        existingGap.questionNumbers.push(qNum);
+        existingGap.questionNumber = existingGap.questionNumbers.join(', ');
+      }
+      existingGap.evidence += ` | In ${qNum}, ${observed || hypothesis || 'discrepancy identified in working steps.'}`;
+      if (hypothesis && !existingGap.misconceptions.includes(hypothesis)) {
+        existingGap.misconceptions.push(hypothesis);
+      }
+      existingGap.scoreInfo.awarded += awarded;
+      existingGap.scoreInfo.max += max;
+      existingGap.scoreInfo.lost += max - awarded;
+
+      const lossRatio = existingGap.scoreInfo.max > 0 ? existingGap.scoreInfo.lost / existingGap.scoreInfo.max : 0;
+      existingGap.severity = lossRatio >= 0.5 || existingGap.questionNumbers.length > 1 ? 'High' : lossRatio >= 0.25 ? 'Medium' : 'Low';
+      existingGap.likelihood = lossRatio >= 0.5 ? 'Definite' : 'Likely';
+      existingGap.isRecurring = existingGap.questionNumbers.length > 1;
+
+      // Update practice intensity in corresponding roadmap item
+      const existingRm = roadmap.find((r) => r.conceptKey === conceptKey);
+      if (existingRm) {
+        existingRm.practiceQuestions = Math.min(8, existingRm.practiceQuestions + 2);
+        existingRm.estimatedMinutes = Math.min(60, existingRm.estimatedMinutes + 15);
+        existingRm.severity = existingGap.severity;
+      }
+      return;
+    }
+
+    const gapId = `gap-${qNum.toLowerCase().replace(/[^a-z0-9]/g, '') || index + 1}`;
+    const lossRatio = max > 0 ? (max - awarded) / max : 0;
+    const severity = lossRatio >= 0.5 ? 'High' : lossRatio >= 0.25 ? 'Medium' : 'Low';
+
     gaps.push({
       id: gapId,
+      conceptKey,
       questionNumber: qNum,
+      questionNumbers: [qNum],
       topicName: gapTopic,
       grade: `${knowledge.prerequisiteLesson.grade} Prerequisite`,
       lessonName,
@@ -1373,8 +1478,11 @@ export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
       evidence: `In ${qNum}, ${observed || hypothesis || 'discrepancy identified in working steps.'}`,
       likelihood: awarded <= max / 2 ? 'Likely' : 'Possible',
       status: 'Verified from Answer Evidence',
+      severity,
+      isRecurring: false,
       dependentTopics: [topicName, `${activeSubject} Core Curriculum`],
       misconception: hypothesis || observed || 'Conceptual reinforcement required.',
+      misconceptions: [hypothesis || observed].filter(Boolean),
       prerequisiteLesson: knowledge.prerequisiteLesson,
       futureLessonsAffected: knowledge.futureLessonsAffected,
       scoreInfo: {
@@ -1386,10 +1494,12 @@ export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
 
     roadmap.push({
       id: `rm-${qNum.toLowerCase().replace(/[^a-z0-9]/g, '') || index + 1}`,
+      conceptKey,
       rank: roadmap.length + 1,
       topic: gapTopic,
       grade: `${knowledge.prerequisiteLesson.grade} Remediation`,
       lessonId: item.affectedLessonId || `les-${index + 1}`,
+      severity,
       prereqChain: roadmap.length === 0 ? 'None (Root Foundation)' : `Step ${roadmap.length}: Prior Concept`,
       recommendedActivity: `Targeted practice on ${topicName.toLowerCase()}: ${knowledge.prerequisiteLesson.studyTip}`,
       workedExamples: `2 worked examples from ${knowledge.prerequisiteLesson.chapterName} breaking down step-by-step resolution.`,

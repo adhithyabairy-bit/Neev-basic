@@ -8,6 +8,11 @@ const syllabusDocumentSchema = new mongoose.Schema(
       required: [true, 'Teacher ID is required for syllabus ownership'],
       index: true,
     },
+    isShared: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
     classId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Class',

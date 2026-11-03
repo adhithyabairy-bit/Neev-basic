@@ -118,12 +118,12 @@ export default function ClassGapOverview({
     };
   }, [syllabusData?.assessmentId, isDemoMode]);
 
-  const activeData = isDemoMode ? initialPropGapData : (liveGapData || initialPropGapData);
+  const activeData = isDemoMode ? initialPropGapData : liveGapData;
 
   // Check if assessment data exists
   const hasAssessmentData = isDemoMode
     ? selectedClass === 'Grade 8' && (selectedSection === 'Section A' || selectedSection === 'All Sections')
-    : (liveGapData && liveGapData.classSummary.totalAssessed > 0);
+    : Boolean(liveGapData && liveGapData.classSummary && liveGapData.classSummary.totalAssessed > 0);
 
   // Toggle covered state for a topic
   const handleToggleCovered = (topicId) => {

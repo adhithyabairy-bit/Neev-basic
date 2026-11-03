@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Frequently Asked Questions — Accuracy, Privacy & AI Scoring | Neev</title>
+    <meta name="description" content="Answers to common questions about Neev: OCR handwriting accuracy, teacher-in-the-loop verification, data isolation, and PDF reports." />
+    <link rel="canonical" href="https://neev.app/faq" />
+    <meta name="robots" content="index, follow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- Open Graph Metadata -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Neev" />
+    <meta property="og:title" content="Frequently Asked Questions — Accuracy, Privacy & AI Scoring | Neev" />
+    <meta property="og:description" content="Answers to common questions about Neev: OCR handwriting accuracy, teacher-in-the-loop verification, data isolation, and PDF reports." />
+    <meta property="og:url" content="https://neev.app/faq" />
+    <meta property="og:image" content="https://neev.app/og-image.png" />
+
+    <!-- Twitter Card Metadata -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Frequently Asked Questions — Accuracy, Privacy & AI Scoring | Neev" />
+    <meta name="twitter:description" content="Answers to common questions about Neev: OCR handwriting accuracy, teacher-in-the-loop verification, data isolation, and PDF reports." />
+    <meta name="twitter:image" content="https://neev.app/og-image.png" />
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "How does Neev handle messy student handwriting?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Neev uses multimodal vision AI to parse cursive, imperfect, and multilingual student answer sheets. The side-by-side verification screen lets teachers review and edit any transcription slips before diagnostic scoring."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can the AI grade incorrectly without the teacher noticing?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Neev strictly enforces teacher-in-the-loop verification. Step 4 requires teacher approval before any AI diagnostic is run, and all AI feedback is cited against textbook passages."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is student and school assessment data kept private?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Tenant isolation is enforced at the database layer. Teacher-uploaded documents and student marks are private to that teacher and school."
+          }
+        }
+      ]
+    }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/assets/index-DMSPFEX0.css" />
+  </head>
+  <body>
+    <div id="root">
+      <header class="pub-header" role="banner">
+        <div class="pub-header-inner">
+          <a href="/" class="pub-brand" aria-label="Neev Home">
+            <div class="pub-logo-mark">N</div>
+            <span class="pub-brand-text">NEEV</span>
+          </a>
+          <nav class="pub-nav" role="navigation" aria-label="Main Navigation">
+            <a href="/" class="pub-nav-link">Home</a>
+            <a href="/features" class="pub-nav-link">Features</a>
+            <a href="/how-it-works" class="pub-nav-link">How It Works</a>
+            <a href="/curriculum-coverage" class="pub-nav-link">Curriculum</a>
+            <a href="/faq" class="pub-nav-link active">FAQ</a>
+            <a href="/about" class="pub-nav-link">About Us</a>
+            <a href="/contact" class="pub-nav-link">Contact</a>
+          </nav>
+          <div class="pub-header-actions">
+            <a href="/app" class="pub-btn-launch"><span>Launch App</span> &rarr;</a>
+          </div>
+        </div>
+      </header>
+
+      <main class="pub-main-content" role="main">
+        <div class="pub-container">
+          <div style="text-align: center; margin-bottom: 40px;">
+            <div class="pub-hero-badge">Got Questions?</div>
+            <h1 style="font-size: 36px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 12px;">Frequently Asked Questions</h1>
+            <p style="color: var(--pub-slate, #475569); max-width: 680px; margin: 0 auto; font-size: 17px;">Everything you need to know about how Neev empowers teachers and diagnoses learning gaps.</p>
+          </div>
+
+          <div style="max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px;">
+            <div class="pub-card">
+              <h3 class="pub-card-title">How does Neev handle messy student handwriting?</h3>
+              <p class="pub-card-text">Neev utilizes Gemini Multimodal Vision optimized for student manuscripts, mathematical notations, and diagrams. Our side-by-side Step 4 interface lets teachers make instant edits with 100% fidelity.</p>
+            </div>
+            <div class="pub-card">
+              <h3 class="pub-card-title">Can the AI grade incorrectly without the teacher noticing?</h3>
+              <p class="pub-card-text">No. Teacher authority is paramount. Neev enforces a strict teacher-in-the-loop verification step. The AI acts as an assistant providing textbook-cited hypotheses, not an unverified grader.</p>
+            </div>
+            <div class="pub-card">
+              <h3 class="pub-card-title">Is student assessment data private and secure?</h3>
+              <p class="pub-card-text">Yes. All student answer sheets and teacher syllabus documents are scoped to authenticated teacher accounts with strict multi-tenant isolation, encrypted storage, and rate limiting.</p>
+            </div>
+            <div class="pub-card">
+              <h3 class="pub-card-title">What reports can I export for parents and administration?</h3>
+              <p class="pub-card-text">Neev produces 5 PDF reports including Student Diagnostic Summaries, Parent Guidance sheets with regional language phonetics (Telugu & Hindi), Teacher Worksheets, and Class Gap Overviews.</p>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
+

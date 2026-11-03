@@ -1,0 +1,31 @@
+# Neev — Foundational Learning Gap Analysis & Remediation Platform
+
+> Neev is an educational assessment platform designed for K-12 teachers and schools in India. It diagnoses foundational conceptual learning gaps from physical handwritten student answer sheets, grounds diagnostics in standard NCERT/State Board curriculum knowledge bases, and synthesizes sequenced personalized remediation roadmaps.
+
+## Core Capabilities
+- **Multimodal Handwriting Extraction**: Transcribes student examination answer sheets directly using vision and OCR with verbatim fidelity.
+- **Teacher-in-the-Loop Verification**: Enables educators to inspect, verify, and approve digitized student text before any AI analysis occurs.
+- **Curriculum-Grounded RAG (Retrieval-Augmented Generation)**: Grounds all evaluation strictly against the teacher's rubric, exam question paper, and official state textbook chapters using vector embeddings.
+- **Explainable Learning Gap Synthesis**: Maps student errors to prerequisite concepts from earlier grades (e.g. Class 7 equation balancing gaps affecting Class 8 linear equations) and downstream impact up to Class 10 Board exams.
+- **Automated Diagnostic Materials Generation**: Produces 5 distinct, high-fidelity PDF documents:
+  1. Student Learning Gap Analysis Report
+  2. Personalized Remediation Learning Roadmap
+  3. Syllabus Continuity & Prerequisite Impact Report
+  4. Diagnostic 2-Mark Practice Questions Paper (Student Workspace)
+  5. Teacher Model Solution Key & Marking Scheme Guide
+
+## Pedagogical Methodology
+- **Objective Grounding**: No hallucinated marks or fabricated student statistics. Evaluations require explicit evidence citations from curriculum chunks.
+- **Deterministic Multi-Subject Support**: Covers Mathematics, Science, English Language, and Social Studies across Grades 6 through 10.
+- **Zero-Trust Tenant Isolation**: Teacher-uploaded private curriculum documents and student answer sheets are strictly isolated to the authenticated teacher.
+
+## Public Web Resources
+- Website: https://neev.app/
+- Features: https://neev.app/features
+- How It Works: https://neev.app/how-it-works
+- Curriculum Coverage: https://neev.app/curriculum-coverage
+- FAQ: https://neev.app/faq
+- About Us: https://neev.app/about
+- Contact: https://neev.app/contact
+- Privacy Policy: https://neev.app/privacy
+

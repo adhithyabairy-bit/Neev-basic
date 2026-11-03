@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { describe, it, after } from 'node:test';
 import assert from 'node:assert/strict';
 import mongoose from 'mongoose';
 import fs from 'fs';
@@ -679,5 +679,9 @@ describe('Phase 6: Direct Cloud PDF Upload & Asynchronous Ingestion Tests', () =
         storageService.setProvider(origProvider);
       }
     });
+  });
+
+  after(async () => {
+    await mongoose.disconnect();
   });
 });

@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { describe, it, after } from 'node:test';
 import assert from 'node:assert/strict';
 import mongoose from 'mongoose';
 import Teacher from '../src/models/Teacher.js';
@@ -158,6 +158,10 @@ describe('Validation, Schema Constraints & Security Tests', () => {
       assert.equal(res.status, 200);
       assert.equal(res.body.success, true);
     });
+  });
+
+  after(async () => {
+    await mongoose.disconnect();
   });
 });
 

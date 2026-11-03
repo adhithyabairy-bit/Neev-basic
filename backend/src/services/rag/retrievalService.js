@@ -8,9 +8,34 @@ import embeddingService, { cosineSimilarity } from './embeddingService.js';
  * Requirements:
  * - Queries persistent MongoDB Atlas Vector Search ($vectorSearch) when available.
  * - Explicitly reports degraded mode when Atlas Vector Search is bypassed or unavailable.
- * - Strictly enforces teacher ownership boundaries to prevent cross-tenant data leakage.
- * - Bounded chunk retrieval (topK) to preserve low latency and zero-budget limits.
+ * - Strictly enforces teacher ownership and shared curriculum boundaries (tenant isolation).
+ * - Distinguishes between shared curriculum (isShared: true) and private teacher uploads.
+ * - Filters by subject and grade.
+ * - Prevents duplicate chunks.
+ * - Ranks chunks by relevance score.
+ * - Fast keyword fallback if vector search is offline or yields 0 results.
+ * - Clear handling when no relevant evidence is found.
  */
+
+/**
+ * Helper to deduplicate chunks by text content hash or normalized snippet.
+ */
+function deduplicateChunks(chunks) {
+  if (!Array.isArray(chunks)) return [];
+  const seen = new Set();
+  const unique = [];
+  for (const chunk of chunks) {
+    if (!chunk) continue;
+    const key = (chunk.contentHash || chunk.chunkText || '')
+      .trim()
+      .toLowerCase()
+      .slice(0, 120);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    unique.push(chunk);
+  }
+  return unique;
+}
 
 /**
  * Retrieves the most relevant syllabus text passages for a given query and lesson context.
@@ -22,7 +47,7 @@ import embeddingService, { cosineSimilarity } from './embeddingService.js';
  * @param {string} params.grade - Grade filter (e.g. 'Grade 8')
  * @param {string} params.lessonName - Optional lesson/topic filter
  * @param {number} params.topK - Number of passages to retrieve (default: 4)
- * @returns {Promise<{ chunks: Array<Object>, retrievalMethod: string, isDegraded: boolean, vectorSearchAvailable: boolean, vectorDimensions: number }>}
+ * @returns {Promise<{ chunks: Array<Object>, retrievalMethod: string, isDegraded: boolean, vectorSearchAvailable: boolean, vectorDimensions: number, message?: string }>}
  */
 export async function retrieveRelevantSyllabusChunks({
   teacherId,
@@ -36,35 +61,159 @@ export async function retrieveRelevantSyllabusChunks({
     throw new Error('SECURITY_VIOLATION: Teacher ID is mandatory for syllabus retrieval.');
   }
 
+  const dimension = embeddingService.getDimension();
+
   if (!queryText || !queryText.trim()) {
     return {
       chunks: [],
       retrievalMethod: 'empty_query',
       isDegraded: false,
       vectorSearchAvailable: false,
-      vectorDimensions: embeddingService.getDimension(),
+      vectorDimensions: dimension,
+      message: 'Empty query provided; no retrieval performed.',
     };
   }
 
-  // Database connectivity guard (for fast unit testing without DB connection)
+  // Database connectivity guard (for fast unit testing without live DB connection)
   if (mongoose.connection.readyState !== 1) {
     return {
       chunks: [],
       retrievalMethod: 'db_offline',
       isDegraded: true,
       vectorSearchAvailable: false,
-      vectorDimensions: embeddingService.getDimension(),
+      vectorDimensions: dimension,
+      message: 'Database is offline; retrieval degraded.',
     };
   }
 
-  // 1. FAST PRE-INDEXED SYLLABUS RETRIEVAL (Zero Embedding Generation at Evaluation Time)
-  // The syllabus dataset is already chunked and embedded in MongoDB during deployment.
-  // We perform ultra-fast indexed lookup to retrieve the correct syllabus evidence in <15ms.
-  try {
-    const cleanGrade = (grade || '').replace('Class', 'Grade').trim();
-    const gradeRegex = cleanGrade ? new RegExp(cleanGrade.replace(/\s+/g, '\\s*'), 'i') : null;
-    const subjectRegex = subject ? new RegExp(subject.split(/[\/\s]/)[0], 'i') : null;
+  const cleanGrade = (grade || '').replace('Class', 'Grade').trim();
+  const gradeRegex = cleanGrade ? new RegExp(cleanGrade.replace(/\s+/g, '\\s*'), 'i') : null;
+  const subjectRegex = subject ? new RegExp(subject.split(/[\/\s]/)[0], 'i') : null;
 
+  // Strict tenant boundary: only retrieve chunks owned by this teacher OR marked as shared/curated
+  const teacherObjectId = mongoose.isValidObjectId(teacherId)
+    ? new mongoose.Types.ObjectId(teacherId.toString())
+    : teacherId;
+
+  const tenantCondition = {
+    $or: [{ teacherId: teacherObjectId }, { isShared: true }],
+  };
+
+  // 1. ATTEMPT ATLAS VECTOR SEARCH ($vectorSearch)
+  let queryEmbedding = [];
+  try {
+    queryEmbedding = await embeddingService.generateEmbedding(queryText);
+  } catch (embErr) {
+    console.warn('[RetrievalService] Query embedding notice:', embErr.message);
+  }
+
+  const vectorDimensions = queryEmbedding.length || dimension;
+  const vectorIndexName = process.env.ATLAS_VECTOR_INDEX_NAME || 'syllabus_vector_index';
+
+  if (queryEmbedding && queryEmbedding.length > 0) {
+    try {
+      const filterConditions = {
+        $or: [{ teacherId: teacherObjectId }, { isShared: true }],
+      };
+      if (subject) filterConditions.subject = subject;
+      if (grade) filterConditions.grade = grade;
+
+      const pipeline = [
+        {
+          $vectorSearch: {
+            index: vectorIndexName,
+            path: 'embedding',
+            queryVector: queryEmbedding,
+            numCandidates: Math.max(40, topK * 10),
+            limit: topK * 2,
+            filter: filterConditions,
+          },
+        },
+        {
+          $project: {
+            documentId: 1,
+            chunkId: 1,
+            sourceFileName: 1,
+            pageNumber: 1,
+            pageRange: 1,
+            chunkIndex: 1,
+            chunkText: 1,
+            lessonName: 1,
+            grade: 1,
+            subject: 1,
+            isShared: 1,
+            contentHash: 1,
+            score: { $meta: 'vectorSearchScore' },
+          },
+        },
+      ];
+
+      const atlasResults = await SyllabusChunk.aggregate(pipeline);
+      const uniqueAtlas = deduplicateChunks(atlasResults).slice(0, topK);
+
+      if (uniqueAtlas && uniqueAtlas.length > 0) {
+        return {
+          chunks: uniqueAtlas,
+          retrievalMethod: 'atlas_vector_search',
+          isDegraded: false,
+          vectorSearchAvailable: true,
+          vectorDimensions,
+        };
+      }
+    } catch {
+      // Atlas Vector Search is not active or index is not yet built; proceed to in-memory cosine fallback
+    }
+
+    // 2. Local Cosine Similarity Fallback with strict tenant isolation
+    try {
+      const cosineFilter = {
+        $and: [
+          tenantCondition,
+          ...(subjectRegex ? [{ subject: subjectRegex }] : subject ? [{ subject }] : []),
+          ...(gradeRegex ? [{ grade: gradeRegex }] : grade ? [{ grade }] : []),
+        ],
+      };
+
+      const candidates = await SyllabusChunk.find(cosineFilter)
+        .select('documentId chunkId sourceFileName pageNumber pageRange chunkIndex chunkText lessonName grade subject isShared contentHash embedding')
+        .limit(150)
+        .lean();
+
+      if (candidates && candidates.length > 0) {
+        const scoredCandidates = candidates
+          .map((chunk) => {
+            const score =
+              chunk.embedding && chunk.embedding.length === vectorDimensions
+                ? cosineSimilarity(queryEmbedding, chunk.embedding)
+                : 0;
+            return {
+              ...chunk,
+              score: Math.round(score * 100) / 100,
+            };
+          })
+          .filter((c) => c.score > 0.15)
+          .sort((a, b) => b.score - a.score);
+
+        const uniqueScored = deduplicateChunks(scoredCandidates).slice(0, topK);
+
+        if (uniqueScored.length > 0) {
+          return {
+            chunks: uniqueScored,
+            retrievalMethod: 'local_cosine_fallback',
+            isDegraded: true,
+            vectorSearchAvailable: false,
+            vectorDimensions,
+          };
+        }
+      }
+    } catch (fallbackErr) {
+      console.warn('[RetrievalService] Local cosine fallback warning:', fallbackErr.message);
+    }
+  }
+
+  // 3. FAST PRE-INDEXED KEYWORD RETRIEVAL (Zero Embedding Generation / Text Index Fallback)
+  // Scoped strictly to tenantCondition to ensure teacher isolation
+  try {
     const textToScan = `${lessonName || ''} ${queryText || ''}`;
     const keywords = textToScan
       .replace(/[^a-zA-Z0-9\s]/g, ' ')
@@ -87,46 +236,55 @@ export async function retrieveRelevantSyllabusChunks({
         ],
       }));
 
-      const filter = {
+      const keywordFilter = {
         $and: [
+          tenantCondition,
           ...(subjectRegex ? [{ subject: subjectRegex }] : []),
+          ...(gradeRegex ? [{ grade: gradeRegex }] : []),
           { $or: keywordOr },
         ],
       };
 
-      const fastChunks = await SyllabusChunk.find(filter)
-        .select('documentId chunkId sourceFileName pageNumber pageRange chunkIndex chunkText lessonName grade subject')
-        .limit(topK)
+      const fastChunks = await SyllabusChunk.find(keywordFilter)
+        .select('documentId chunkId sourceFileName pageNumber pageRange chunkIndex chunkText lessonName grade subject isShared contentHash')
+        .limit(topK * 2)
         .lean();
 
-      if (fastChunks && fastChunks.length > 0) {
+      const uniqueFast = deduplicateChunks(fastChunks).slice(0, topK);
+
+      if (uniqueFast && uniqueFast.length > 0) {
         return {
-          chunks: fastChunks,
-          retrievalMethod: 'fast_preindexed_lookup',
-          isDegraded: false,
-          vectorSearchAvailable: true,
+          chunks: uniqueFast,
+          retrievalMethod: 'fast_keyword_lookup',
+          isDegraded: true,
+          vectorSearchAvailable: false,
           vectorDimensions: 768,
         };
       }
     }
 
-    // Fallback: match by grade and subject
+    // Secondary grade/subject fallback scoped to tenant
     const fallbackFilter = {
-      ...(subjectRegex ? { subject: subjectRegex } : {}),
-      ...(gradeRegex ? { grade: gradeRegex } : {}),
+      $and: [
+        tenantCondition,
+        ...(subjectRegex ? [{ subject: subjectRegex }] : []),
+        ...(gradeRegex ? [{ grade: gradeRegex }] : []),
+      ],
     };
 
     const gradeChunks = await SyllabusChunk.find(fallbackFilter)
-      .select('documentId chunkId sourceFileName pageNumber pageRange chunkIndex chunkText lessonName grade subject')
-      .limit(topK)
+      .select('documentId chunkId sourceFileName pageNumber pageRange chunkIndex chunkText lessonName grade subject isShared contentHash')
+      .limit(topK * 2)
       .lean();
 
-    if (gradeChunks && gradeChunks.length > 0) {
+    const uniqueGrade = deduplicateChunks(gradeChunks).slice(0, topK);
+
+    if (uniqueGrade && uniqueGrade.length > 0) {
       return {
-        chunks: gradeChunks,
+        chunks: uniqueGrade,
         retrievalMethod: 'preindexed_grade_subject',
-        isDegraded: false,
-        vectorSearchAvailable: true,
+        isDegraded: true,
+        vectorSearchAvailable: false,
         vectorDimensions: 768,
       };
     }
@@ -134,146 +292,14 @@ export async function retrieveRelevantSyllabusChunks({
     console.warn('[RetrievalService] Pre-indexed lookup note:', err.message);
   }
 
-  // 2. Vector search path if query vector is needed and configured
-  let queryEmbedding = [];
-  try {
-    queryEmbedding = await embeddingService.generateEmbedding(queryText);
-  } catch {
-    // If embedding generation is skipped or offline, continue to fallback
-  }
-
-  const vectorDimensions = queryEmbedding.length || embeddingService.getDimension();
-  const vectorIndexName = process.env.ATLAS_VECTOR_INDEX_NAME || 'syllabus_vector_index';
-
-  // 3. Attempt genuine Atlas Vector Search ($vectorSearch)
-  let atlasSearchAttempted = false;
-  try {
-    const filterConditions = {
-      teacherId: new mongoose.Types.ObjectId(teacherId.toString()),
-    };
-    if (subject) filterConditions.subject = subject;
-    if (grade) filterConditions.grade = grade;
-
-    const pipeline = [
-      {
-        $vectorSearch: {
-          index: vectorIndexName,
-          path: 'embedding',
-          queryVector: queryEmbedding,
-          numCandidates: Math.max(40, topK * 10),
-          limit: topK,
-          filter: filterConditions,
-        },
-      },
-      {
-        $project: {
-          documentId: 1,
-          chunkId: 1,
-          sourceFileName: 1,
-          pageNumber: 1,
-          pageRange: 1,
-          chunkIndex: 1,
-          chunkText: 1,
-          lessonName: 1,
-          grade: 1,
-          subject: 1,
-          score: { $meta: 'vectorSearchScore' },
-        },
-      },
-    ];
-
-    atlasSearchAttempted = true;
-    const atlasResults = await SyllabusChunk.aggregate(pipeline);
-
-    if (atlasResults && atlasResults.length > 0) {
-      return {
-        chunks: atlasResults,
-        retrievalMethod: 'atlas_vector_search',
-        isDegraded: false,
-        vectorSearchAvailable: true,
-        vectorDimensions,
-      };
-    }
-  } catch (atlasErr) {
-    // Atlas Vector Search is not enabled on local/non-Atlas instances or index is pending
-    // We log the condition and fall back to local computation while explicitly reporting degraded status
-  }
-
-  // 3. Fallback: Query chunks from MongoDB filtered strictly by teacherId, then compute cosine similarity
-  try {
-    const filter = { teacherId };
-    if (subjectRegex) filter.subject = subjectRegex;
-    else if (subject) filter.subject = subject;
-    if (gradeRegex) filter.grade = gradeRegex;
-    else if (grade) filter.grade = grade;
-
-    const candidates = await SyllabusChunk.find(filter)
-      .select('documentId chunkId sourceFileName pageNumber pageRange chunkIndex chunkText lessonName grade subject embedding')
-      .limit(150)
-      .lean();
-
-    if (candidates && candidates.length > 0) {
-      const scoredCandidates = candidates
-        .map((chunk) => {
-          const score =
-            chunk.embedding && chunk.embedding.length === vectorDimensions
-              ? cosineSimilarity(queryEmbedding, chunk.embedding)
-              : 0;
-          return {
-            ...chunk,
-            score: Math.round(score * 100) / 100,
-          };
-        })
-        .sort((a, b) => b.score - a.score)
-        .slice(0, topK);
-
-      if (scoredCandidates.length > 0 && scoredCandidates[0].score > 0) {
-        return {
-          chunks: scoredCandidates,
-          retrievalMethod: 'local_cosine_fallback',
-          isDegraded: true,
-          vectorSearchAvailable: false,
-          vectorDimensions,
-        };
-      }
-    }
-  } catch (fallbackErr) {
-    console.warn('[RetrievalService] Local cosine fallback warning:', fallbackErr.message);
-  }
-
-  // 4. Keyword text search fallback
-  try {
-    const keywordResults = await SyllabusChunk.find(
-      {
-        teacherId,
-        $text: { $search: queryText },
-      },
-      { score: { $meta: 'textScore' } }
-    )
-      .sort({ score: { $meta: 'textScore' } })
-      .limit(topK)
-      .lean();
-
-    if (keywordResults && keywordResults.length > 0) {
-      return {
-        chunks: keywordResults,
-        retrievalMethod: 'keyword_fallback',
-        isDegraded: true,
-        vectorSearchAvailable: false,
-        vectorDimensions,
-      };
-    }
-  } catch (keywordErr) {
-    // Text index not built or empty query
-  }
-
-  // 5. No relevant passages found
+  // 4. No relevant passages found
   return {
     chunks: [],
     retrievalMethod: 'none_found',
     isDegraded: true,
     vectorSearchAvailable: false,
-    vectorDimensions,
+    vectorDimensions: dimension,
+    message: 'No relevant curriculum passages found for this topic/question.',
   };
 }
 

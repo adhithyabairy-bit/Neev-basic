@@ -1,9 +1,13 @@
-import { describe, it } from 'node:test';
+import { describe, it, after } from 'node:test';
 import assert from 'node:assert/strict';
+import mongoose from 'mongoose';
 import app from '../src/app.js';
 import { getDBStatus } from '../src/config/db.js';
 
 describe('Health & Diagnostic Endpoint Tests', () => {
+  after(async () => {
+    await mongoose.disconnect();
+  });
   it('GET /api/health should respond with HTTP 200 and safe diagnostic information', async () => {
     // Perform simulated request against Express app
     const res = await fetchResponse(app, 'GET', '/api/health');
