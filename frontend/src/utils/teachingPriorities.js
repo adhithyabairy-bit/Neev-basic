@@ -523,8 +523,8 @@ export function getTeachingPrioritiesForClass(
         const entry = aggregatedMap.get(conceptKey);
         entry.averageMastery = Math.round((entry.averageMastery * entry.masteryCount + itemMastery) / (entry.masteryCount + 1));
         entry.masteryCount += 1;
-        entry.affectedStudentsCount = Math.max(entry.affectedStudentsCount, affectedCount);
-        entry.totalEvaluatedCount = Math.max(entry.totalEvaluatedCount, totalEvaluated);
+        entry.affectedStudentsCount += affectedCount;
+        entry.totalEvaluatedCount += totalEvaluated;
         entry.assessmentCount += 1;
         (raw.commonErrors || []).forEach((e) => entry.commonErrors.add(e));
         (raw.hypotheses || []).forEach((h) => entry.hypotheses.add(h));
@@ -543,20 +543,30 @@ export function getTeachingPrioritiesForClass(
     const errList = Array.from(t.commonErrors);
     const hypList = Array.from(t.hypotheses);
 
+    // In class overview mode with multiple assessments, calibrate total against class assessment cohort
+    const effectiveTotalEvaluated = Math.max(
+      t.totalEvaluatedCount,
+      targetAssessments.length,
+      cls.studentsAssessed || 1
+    );
+
+    const affectedCount = t.affectedStudentsCount;
+    const finalTotal = effectiveTotalEvaluated;
+
     const affectedPercentage = t.rawAffectedPercentage !== null && t.rawAffectedPercentage !== undefined
       ? t.rawAffectedPercentage
-      : t.totalEvaluatedCount > 0
-      ? Math.round((t.affectedStudentsCount / t.totalEvaluatedCount) * 100)
+      : finalTotal > 0
+      ? Math.round((affectedCount / finalTotal) * 100)
       : (t.averageMastery < 80 ? 100 - t.averageMastery : 0);
 
-    const noun = (t.totalEvaluatedCount || 1) === 1 ? 'student' : 'students';
+    const noun = finalTotal === 1 ? 'student' : 'students';
     const reason = hypList.length > 0
       ? `Diagnosed Misconception: ${hypList.join('; ')}`
       : errList.length > 0
       ? `Observed Error: ${errList.join('; ')}`
       : t.evidenceQuote
       ? `Evidence: ${t.evidenceQuote}`
-      : `${t.affectedStudentsCount} out of ${t.totalEvaluatedCount || 1} ${noun} affected by this learning gap.`;
+      : `${affectedCount} out of ${finalTotal} ${noun} affected by this learning gap.`;
 
     const commonMistakes = errList.length > 0
       ? errList.slice(0, 2).join('; ')
@@ -585,8 +595,8 @@ export function getTeachingPrioritiesForClass(
       suggestedActivity: t.suggestedActivity,
       estimatedMinutes: t.estimatedMinutes,
       averageMastery: t.averageMastery,
-      affectedStudentsCount: t.affectedStudentsCount,
-      totalEvaluatedCount: t.totalEvaluatedCount,
+      affectedStudentsCount: affectedCount,
+      totalEvaluatedCount: finalTotal,
       affectedPercentage,
       severity: t.severity,
       commonErrors: errList.slice(0, 3),

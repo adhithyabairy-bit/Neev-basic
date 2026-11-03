@@ -240,4 +240,45 @@ describe('Phase 2 & 9: Frontend Teaching Priorities Tests', () => {
     assert.strictEqual(priorities[0].category, 'PREVIOUS_CLASS_GAP');
     assert.strictEqual(priorities[0].rank, 1);
   });
+
+  it('aggregates affected students across multiple assessments in a class cohort (e.g. 28 students)', () => {
+    const cls = { _id: 'class-cohort-28', grade: 'Class 8', subject: 'Mathematics' };
+    // Create 28 assessments representing 28 students in the class
+    const allAssessments = Array.from({ length: 28 }, (_, i) => ({
+      _id: `asm-${i + 1}`,
+      classId: 'class-cohort-28',
+      title: `Student Test ${i + 1}`,
+    }));
+
+    // 10 students had a misconception on linear equations transposition
+    const gapOverviewByAssessment = {};
+    for (let i = 1; i <= 28; i++) {
+      if (i <= 10) {
+        gapOverviewByAssessment[`asm-${i}`] = {
+          hasEvaluatedData: true,
+          allPriorities: [
+            {
+              conceptKey: 'linear_equations_transposition',
+              topicName: 'Linear Equations Transposition',
+              missingConcept: 'Equation Balancing & Variable Transposition',
+              category: 'PREVIOUS_CLASS_GAP',
+              grade: 'Class 7 Prerequisite',
+              affectedStudentsCount: 1,
+              totalEvaluatedCount: 1,
+              averageMastery: 20,
+            },
+          ],
+        };
+      }
+    }
+
+    const priorities = getTeachingPrioritiesForClass(cls, allAssessments, gapOverviewByAssessment, 'all');
+    assert.strictEqual(priorities.length, 1);
+    // Cumulative affected students must be 10, not 1
+    assert.strictEqual(priorities[0].affectedStudentsCount, 10);
+    // Total evaluated cohort calibrated against class assessment count (28)
+    assert.strictEqual(priorities[0].totalEvaluatedCount, 28);
+    // Reason/label reflects 10 out of 28 students affected
+    assert.ok(priorities[0].reason.includes('10 out of 28 students affected'));
+  });
 });
