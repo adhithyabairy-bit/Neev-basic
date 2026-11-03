@@ -642,10 +642,20 @@ export function getTeachingPrioritiesForClass(
     rank: idx + 1,
   }));
 
-  // Assign group ranks
-  previousClassGaps.forEach((item, idx) => { item.groupRank = idx + 1; });
-  currentClassGaps.forEach((item, idx) => { item.groupRank = idx + 1; });
-  undeterminedGaps.forEach((item, idx) => { item.groupRank = idx + 1; });
+  // Assign group ranks and overall priority ranks
+  let currentRank = 1;
+  previousClassGaps.forEach((item, idx) => {
+    item.groupRank = idx + 1;
+    item.rank = currentRank++;
+  });
+  currentClassGaps.forEach((item, idx) => {
+    item.groupRank = idx + 1;
+    item.rank = currentRank++;
+  });
+  undeterminedGaps.forEach((item, idx) => {
+    item.groupRank = idx + 1;
+    item.rank = currentRank++;
+  });
 
   // If no gaps needed intervention, fallback to all processed sorted by lowest mastery
   const finalPriorities = combinedPriorities.length > 0

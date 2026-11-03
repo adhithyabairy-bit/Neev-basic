@@ -877,7 +877,7 @@ export default function TeacherDashboard({
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
                   {/* Helper card renderer */}
                   {(() => {
-                    const renderCard = (item) => {
+                    const renderCard = (item, idx) => {
                       const isItemCompleted = completedPriorities.has(item.id);
                       const isPrevClass = item.category === 'PREVIOUS_CLASS_GAP';
                       const isUndetermined = item.category === 'UNDETERMINED';
@@ -925,7 +925,7 @@ export default function TeacherDashboard({
                               transition: 'background-color var(--transition-fast)',
                             }}
                           >
-                            {isItemCompleted ? <IconCheck size={15} /> : item.rank}
+                            {isItemCompleted ? <IconCheck size={15} /> : (item.rank || (idx !== undefined ? idx + 1 : 1))}
                           </div>
 
                           <div style={{ flex: 1, minWidth: 0 }}>
@@ -959,7 +959,7 @@ export default function TeacherDashboard({
                                   const studentNoun = total === 1 ? 'Student' : 'Students';
                                   const label = `${affected} out of ${total} ${studentNoun} Affected`;
                                   return (
-                                    <span className={`badge ${affected > 0 ? 'badge-error' : 'badge-neutral'}`} style={{ fontSize: '10px', fontWeight: '600' }}>
+                                    <span className={`badge ${affected > 0 ? 'badge-danger' : 'badge-neutral'}`} style={{ fontSize: '10px', fontWeight: '600' }}>
                                       {label}
                                     </span>
                                   );
@@ -981,12 +981,12 @@ export default function TeacherDashboard({
                               const pctWidth = Math.min(100, Math.max(0, Math.round((affected / total) * 100)));
                               return (
                                 <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  <div style={{ flex: 1, height: '5px', backgroundColor: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
+                                  <div style={{ flex: 1, height: '6px', backgroundColor: '#E2E8F0', borderRadius: '3px', overflow: 'hidden' }}>
                                     <div
                                       style={{
                                         width: `${pctWidth}%`,
                                         height: '100%',
-                                        backgroundColor: affected > 0 ? 'var(--error)' : 'var(--success)',
+                                        backgroundColor: affected > 0 ? 'var(--danger, #D9383A)' : 'var(--success, #1E8E5A)',
                                         borderRadius: '3px',
                                         transition: 'width 0.3s ease',
                                       }}

@@ -89,15 +89,6 @@ export default function PublicCurriculumCoveragePage({ onNavigate, onLaunchApp, 
             </div>
           </div>
         </div>
-
-        <div className="pub-card" style={{ marginTop: '36px', borderLeft: '4px solid var(--pub-orange)' }}>
-          <h3 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '8px' }}>
-            Custom Teacher Curriculum Support
-          </h3>
-          <p style={{ color: 'var(--pub-slate)', fontSize: '14.5px', lineHeight: 1.6 }}>
-            In addition to standard NCERT curriculum, teachers can upload custom textbook chapters or school-specific worksheets (PDF / TXT). Neev automatically parses, chunks, and creates private vector indexes for custom teacher curriculum while keeping private school materials strictly isolated.
-          </p>
-        </div>
       </div>
     </PublicLayout>
   );

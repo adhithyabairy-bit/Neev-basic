@@ -14,6 +14,7 @@
 }
 
 .pub-site-wrapper {
+  padding-top: 72px;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -23,12 +24,18 @@
   line-height: 1.6;
 }
 
-/* Header (Static layout) */
+/* Header (Stays permanently pinned at top while scrolling) */
 .pub-header {
-  position: static;
-  background-color: rgba(255, 252, 242, 0.95);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  z-index: 1000;
+  background-color: #FFFCF2;
   border-bottom: 1px solid var(--pub-border);
   padding: 14px 24px;
+  box-sizing: border-box;
 }
 
 .pub-header-inner {
