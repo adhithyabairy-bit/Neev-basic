@@ -121,21 +121,24 @@ export default function TeacherDashboard({
       setRealAssessments(assessmentsData || []);
 
       if (assessmentsData && assessmentsData.length > 0) {
-        // Asynchronously fetch gap overviews for all assessments
+        // Fetch gap overviews for all assessments
         const overviewMap = {};
-        Promise.all(
+        await Promise.all(
           assessmentsData.map(async (a) => {
             const aId = a._id || a.id;
             if (aId) {
-              const overview = await fetchAssessmentGapOverview(aId);
-              if (overview && overview.hasEvaluatedData) {
-                overviewMap[aId] = overview;
+              try {
+                const overview = await fetchAssessmentGapOverview(aId);
+                if (overview && (overview.hasEvaluatedData || overview.allPriorities?.length > 0 || overview.topicSummaries?.length > 0)) {
+                  overviewMap[String(aId)] = overview;
+                }
+              } catch (err) {
+                console.warn(`[Dashboard] Failed to fetch gap overview for assessment ${aId}:`, err);
               }
             }
           })
-        ).then(() => {
-          setGapOverviews(overviewMap);
-        }).catch(() => {});
+        );
+        setGapOverviews(overviewMap);
       }
 
       if (classesData && classesData.length > 0) {

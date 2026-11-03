@@ -56,9 +56,12 @@ export function parseGradeNumber(gradeStr) {
 export async function fetchAssessmentGapOverview(assessmentId) {
   if (!assessmentId) return null;
   try {
-    const res = await apiRequest(`/assessments/${assessmentId}/gap-overview`);
+    const res = await apiRequest(`/api/assessments/${assessmentId}/gap-overview`);
     if (res && res.success && res.data) {
       return res.data;
+    }
+    if (res && (res.hasEvaluatedData !== undefined || res.allPriorities || res.topicSummaries)) {
+      return res;
     }
     return null;
   } catch (err) {

@@ -3,6 +3,7 @@ import multer from 'multer';
 import Assessment from '../models/Assessment.js';
 import AnswerSheet from '../models/AnswerSheet.js';
 import Evaluation from '../models/Evaluation.js';
+import Class from '../models/Class.js';
 import storageService from '../services/storage/storageService.js';
 import { validateUploadedFile } from '../utils/fileValidation.js';
 import { processDocumentExtraction } from '../services/extraction/extractionService.js';

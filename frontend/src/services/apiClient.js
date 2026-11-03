@@ -35,7 +35,12 @@ export function getAuthorizationHeaders(extraHeaders = {}, isFormData = false) {
  * Centralized fetch wrapper handling token injection, response parsing, and error formatting.
  */
 export async function apiRequest(endpoint, options = {}) {
-  const url = `${API_BASE_URL}${endpoint}`;
+  const cleanEndpoint = endpoint.startsWith('http')
+    ? endpoint
+    : endpoint.startsWith('/api/') || endpoint === '/api'
+    ? endpoint
+    : `/api${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  const url = cleanEndpoint.startsWith('http') ? cleanEndpoint : `${API_BASE_URL}${cleanEndpoint}`;
   const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
   const headers = getAuthorizationHeaders(options.headers, isFormData);
 

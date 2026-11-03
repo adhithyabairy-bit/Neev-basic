@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import Assessment from '../models/Assessment.js';
 import AnswerSheet from '../models/AnswerSheet.js';
 import Evaluation from '../models/Evaluation.js';
+import Class from '../models/Class.js';
 import storageService from '../services/storage/storageService.js';
 import { processDocumentExtraction } from '../services/extraction/extractionService.js';
 import { retrieveRelevantSyllabusChunks, formatChunksAsEvidence } from '../services/rag/retrievalService.js';
