@@ -27,8 +27,67 @@ export function formatPrivateKey(rawKey) {
 }
 
 /**
+ * Resiliently parses a service account JSON string across various formats:
+ * - Direct JSON string
+ * - Wrapped in outer quotes
+ * - Escaped double quotes (\"type\": \"service_account\")
+ * - Base64 encoded JSON
+ * - Double-stringified JSON
+ *
+ * @param {string} val
+ * @returns {Object|null}
+ */
+export function parseServiceAccount(val) {
+  if (!val || typeof val !== 'string') return null;
+  let str = val.trim();
+
+  // Strip wrapping outer quotes if present
+  if (
+    (str.startsWith('"') && str.endsWith('"')) ||
+    (str.startsWith("'") && str.endsWith("'"))
+  ) {
+    str = str.slice(1, -1).trim();
+  }
+
+  // 1. Direct JSON parse
+  try {
+    const obj = JSON.parse(str);
+    if (obj && typeof obj === 'object') return obj;
+  } catch {}
+
+  // 2. Unescape escaped double quotes (e.g. {\"type\": \"service_account\"})
+  if (str.includes('\\"')) {
+    try {
+      const unescaped = str.replace(/\\"/g, '"');
+      const obj = JSON.parse(unescaped);
+      if (obj && typeof obj === 'object') return obj;
+    } catch {}
+  }
+
+  // 3. Base64 decode
+  try {
+    const decoded = Buffer.from(str, 'base64').toString('utf8');
+    if (decoded.includes('"type"') || decoded.includes('service_account')) {
+      const obj = JSON.parse(decoded);
+      if (obj && typeof obj === 'object') return obj;
+    }
+  } catch {}
+
+  // 4. Handle JSON-stringified string (e.g. "\"{\\\"type\\\":...}\"")
+  try {
+    const firstPass = JSON.parse(str);
+    if (typeof firstPass === 'string') {
+      const secondPass = JSON.parse(firstPass);
+      if (secondPass && typeof secondPass === 'object') return secondPass;
+    }
+  } catch {}
+
+  return null;
+}
+
+/**
  * Initializes Firebase Admin SDK with credentials from:
- * 1. FIREBASE_SERVICE_ACCOUNT (raw JSON string or base64 encoded)
+ * 1. FIREBASE_SERVICE_ACCOUNT (raw JSON, escaped JSON, or Base64)
  * 2. FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY (individual env vars)
  * 3. GOOGLE_APPLICATION_CREDENTIALS (file path)
  * 4. Application Default Credentials (ADC)
@@ -51,41 +110,55 @@ function initFirebaseAdmin() {
     (projectId ? `${projectId}.appspot.com` : null);
 
   try {
-    // Strategy 1: Raw JSON string or Base64 in FIREBASE_SERVICE_ACCOUNT / FIREBASE_SERVICE_ACCOUNT_KEY
-    const serviceAccountJson =
+    // Strategy 1: FIREBASE_SERVICE_ACCOUNT (JSON or Base64 in any format)
+    const serviceAccountRaw =
       process.env.FIREBASE_SERVICE_ACCOUNT ||
-      process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+      process.env.FIREBASE_SERVICE_ACCOUNT_KEY ||
+      process.env.FIREBASE_SERVICE_ACCOUNT_JSON ||
+      process.env.GOOGLE_SERVICE_ACCOUNT ||
+      process.env.FIREBASE_CREDENTIALS;
 
-    if (serviceAccountJson && typeof serviceAccountJson === 'string') {
-      try {
-        let raw = serviceAccountJson.trim();
-        if (!raw.startsWith('{')) {
-          raw = Buffer.from(raw, 'base64').toString('utf8');
+    if (serviceAccountRaw) {
+      const parsed = parseServiceAccount(serviceAccountRaw);
+      if (parsed) {
+        const clientEmail = parsed.client_email || parsed.clientEmail;
+        let privateKey = parsed.private_key || parsed.privateKey;
+        const saProjectId = parsed.project_id || parsed.projectId || projectId;
+
+        if (clientEmail && privateKey) {
+          privateKey = formatPrivateKey(privateKey);
+          admin.initializeApp({
+            credential: admin.credential.cert({
+              projectId: saProjectId,
+              clientEmail: clientEmail.trim(),
+              privateKey: privateKey,
+            }),
+            projectId: saProjectId,
+            storageBucket,
+          });
+
+          isConfigured = true;
+          hasServiceAccount = true;
+          initError = null;
+          console.log(`[Firebase Admin] Initialized successfully using FIREBASE_SERVICE_ACCOUNT.`);
+          return admin.app();
+        } else {
+          initError = 'FIREBASE_SERVICE_ACCOUNT JSON is missing client_email or private_key.';
+          console.warn(`[Firebase Admin] ${initError}`);
         }
-        const parsed = JSON.parse(raw);
-        if (parsed.private_key) {
-          parsed.private_key = formatPrivateKey(parsed.private_key);
-        }
-
-        admin.initializeApp({
-          credential: admin.credential.cert(parsed),
-          projectId: parsed.project_id || projectId,
-          storageBucket,
-        });
-
-        isConfigured = true;
-        hasServiceAccount = true;
-        console.log(`[Firebase Admin] Initialized successfully using FIREBASE_SERVICE_ACCOUNT JSON.`);
-        return admin.app();
-      } catch (jsonErr) {
-        console.warn(`[Firebase Admin] Could not parse FIREBASE_SERVICE_ACCOUNT JSON: ${jsonErr.message}`);
-        initError = `Invalid FIREBASE_SERVICE_ACCOUNT JSON: ${jsonErr.message}`;
+      } else {
+        initError = 'FIREBASE_SERVICE_ACCOUNT is defined but could not be parsed as valid JSON or Base64.';
+        console.warn(`[Firebase Admin] ${initError}`);
       }
     }
 
     // Strategy 2: Individual env vars (FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY)
-    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-    const rawPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
+    const clientEmail =
+      process.env.FIREBASE_CLIENT_EMAIL ||
+      process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
+    const rawPrivateKey =
+      process.env.FIREBASE_PRIVATE_KEY ||
+      process.env.FIREBASE_ADMIN_PRIVATE_KEY;
 
     if (clientEmail && rawPrivateKey) {
       try {
@@ -102,11 +175,12 @@ function initFirebaseAdmin() {
 
         isConfigured = true;
         hasServiceAccount = true;
+        initError = null;
         console.log(`[Firebase Admin] Initialized successfully using FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY.`);
         return admin.app();
       } catch (credErr) {
-        console.warn(`[Firebase Admin] Could not initialize with FIREBASE_CLIENT_EMAIL/PRIVATE_KEY: ${credErr.message}`);
         initError = `Invalid Firebase credentials: ${credErr.message}`;
+        console.warn(`[Firebase Admin] Could not initialize with FIREBASE_CLIENT_EMAIL/PRIVATE_KEY: ${credErr.message}`);
       }
     }
 
@@ -133,11 +207,12 @@ function initFirebaseAdmin() {
 
           isConfigured = true;
           hasServiceAccount = true;
+          initError = null;
           console.log(`[Firebase Admin] Initialized successfully using service account file: ${resolvedPath}`);
           return admin.app();
         } catch (fileErr) {
-          console.warn(`[Firebase Admin] Could not read service account file: ${fileErr.message}`);
           initError = `Invalid service account file: ${fileErr.message}`;
+          console.warn(`[Firebase Admin] Could not read service account file: ${fileErr.message}`);
         }
       } else {
         const msg = `GOOGLE_APPLICATION_CREDENTIALS path not found: ${resolvedPath}`;
@@ -176,6 +251,8 @@ function initFirebaseAdmin() {
 // Perform initial setup
 initFirebaseAdmin();
 
+let overrideHasServiceAccountForTest = null;
+
 /**
  * Checks whether Firebase Admin SDK is initialized.
  * @returns {boolean}
@@ -183,8 +260,6 @@ initFirebaseAdmin();
 export function isFirebaseAdminConfigured() {
   return isConfigured && admin.apps.length > 0;
 }
-
-let overrideHasServiceAccountForTest = null;
 
 /**
  * Checks whether Firebase Admin SDK was initialized with full service account credentials
@@ -218,7 +293,7 @@ export function getFirebaseAdminStatus() {
       projectId: admin.app().options.projectId || process.env.FIREBASE_PROJECT_ID || 'Configured',
       reason: hasServiceAccount
         ? null
-        : 'Service account credentials (FIREBASE_CLIENT_EMAIL / FIREBASE_PRIVATE_KEY) not provided. Revocation check requires credentials.',
+        : (initError || 'Service account credentials (FIREBASE_CLIENT_EMAIL / FIREBASE_PRIVATE_KEY or FIREBASE_SERVICE_ACCOUNT) not provided. Revocation check requires credentials.'),
     };
   }
   return {

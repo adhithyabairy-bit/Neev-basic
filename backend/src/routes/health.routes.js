@@ -35,7 +35,9 @@ router.get('/', async (req, res) => {
     },
     firebaseAdmin: {
       configured: firebaseStatus.configured,
+      hasServiceAccount: firebaseStatus.hasServiceAccount,
       projectId: firebaseStatus.projectId || null,
+      reason: firebaseStatus.reason || null,
     },
     uptime: Math.floor(process.uptime()),
     timestamp: new Date().toISOString(),
