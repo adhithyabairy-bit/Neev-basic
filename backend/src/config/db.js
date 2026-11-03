@@ -1,9 +1,9 @@
 import dns from 'dns';
 import mongoose from 'mongoose';
 
-// Configure reliable DNS servers ONLY on Windows to avoid queryTxt ESERVFAIL on local Windows resolvers.
+// Configure reliable DNS servers ONLY on Windows outside tests to avoid queryTxt ESERVFAIL on local Windows resolvers.
 // On Linux/Vercel (AWS Lambda), Lambda's native VPC DNS resolver must be used.
-if (process.platform === 'win32') {
+if (process.platform === 'win32' && process.env.NODE_ENV !== 'test') {
   try {
     dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
   } catch {

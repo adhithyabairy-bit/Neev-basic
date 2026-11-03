@@ -43,6 +43,7 @@ export default function TeacherDashboard({
   const [sectionFilter, setSectionFilter] = useState('all');
   const [subjectFilter, setSubjectFilter] = useState('all');
   const [selectedClassId, setSelectedClassId] = useState(null);
+  const [selectedPriorityAssessmentId, setSelectedPriorityAssessmentId] = useState('all');
 
   // Modal & class creation state
   const [isAddClassModalOpen, setIsAddClassModalOpen] = useState(false);
@@ -284,10 +285,33 @@ export default function TeacherDashboard({
   }).length;
   const pendingRetestsCount = Math.max(0, totalRetestsCount - completedRetestsCount);
 
+  // All assessments belonging to the active selected class
+  const selectedClassAssessments = selectedClass
+    ? realAssessments.filter((a) => {
+        const aClassId = String(a.classId || a.class?._id || a.class || '');
+        const cId = String(selectedClass._id || selectedClass.id || '');
+        return aClassId === cId;
+      })
+    : [];
+
   // Teaching priorities items: tailored specifically to selectedClass (grade + section)
   const currentClassPriorities = selectedClass
-    ? getTeachingPrioritiesForClass(selectedClass, realAssessments, gapOverviews)
+    ? getTeachingPrioritiesForClass(
+        selectedClass,
+        realAssessments,
+        gapOverviews,
+        selectedPriorityAssessmentId
+      )
     : [];
+
+  const previousClassGaps = currentClassPriorities.previousClassGaps ||
+    currentClassPriorities.filter((p) => p.category === 'PREVIOUS_CLASS_GAP' && !p.isResolved);
+  const currentClassGaps = currentClassPriorities.currentClassGaps ||
+    currentClassPriorities.filter((p) => p.category === 'CURRENT_CLASS_GAP' && !p.isResolved);
+  const undeterminedGaps = currentClassPriorities.undeterminedGaps ||
+    currentClassPriorities.filter((p) => p.category === 'UNDETERMINED' && !p.isResolved);
+  const resolvedGaps = currentClassPriorities.resolvedGaps ||
+    currentClassPriorities.filter((p) => p.isResolved);
 
   const classCompletedCount = currentClassPriorities.filter((p) =>
     completedPriorities.has(p.id)
@@ -798,8 +822,30 @@ export default function TeacherDashboard({
                   </p>
                 </div>
 
+                {selectedClass && selectedClassAssessments.length > 0 && (
+                  <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <label htmlFor="priority-assessment-select" style={{ fontSize: '11px', fontWeight: '600', color: 'var(--secondary-text)' }}>
+                      Assessment Scope:
+                    </label>
+                    <select
+                      id="priority-assessment-select"
+                      value={selectedPriorityAssessmentId}
+                      onChange={(e) => setSelectedPriorityAssessmentId(e.target.value)}
+                      className="form-select form-select-sm"
+                      style={{ fontSize: '12px', padding: '4px 10px', borderRadius: 'var(--radius-sm)', maxWidth: '300px', borderColor: 'var(--border-color)' }}
+                    >
+                      <option value="all">All Assessments (Class Overview)</option>
+                      {selectedClassAssessments.map((asm) => (
+                        <option key={asm._id || asm.id} value={asm._id || asm.id}>
+                          {asm.title || 'Assessment'} {asm.createdAt ? `(${new Date(asm.createdAt).toLocaleDateString()})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 {currentClassPriorities.length > 0 && (
-                  <div className="priorities-summary-badge" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div className="priorities-summary-badge" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}>
                     <span className="badge badge-neutral" style={{ fontSize: '11px' }}>
                       {classCompletedCount}/{currentClassPriorities.length} Completed
                     </span>
@@ -825,126 +871,305 @@ export default function TeacherDashboard({
                   }
                 />
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                  {currentClassPriorities.map((item) => {
-                    const isItemCompleted = completedPriorities.has(item.id);
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                  {/* Helper card renderer */}
+                  {(() => {
+                    const renderCard = (item) => {
+                      const isItemCompleted = completedPriorities.has(item.id);
+                      const isPrevClass = item.category === 'PREVIOUS_CLASS_GAP';
+                      const isUndetermined = item.category === 'UNDETERMINED';
 
-                    return (
-                      <div
-                        key={item.id}
-                        className={`priority-item-card ${isItemCompleted ? 'priority-completed' : ''}`}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: 'var(--space-3)',
-                          padding: '12px 14px',
-                          borderRadius: 'var(--radius-md)',
-                          backgroundColor: isItemCompleted ? 'rgba(30, 142, 90, 0.07)' : 'var(--surface-bg)',
-                          border: isItemCompleted ? '1px solid var(--success-border)' : '1px solid var(--border-color)',
-                          transition: 'all var(--transition-fast)',
-                        }}
-                      >
+                      return (
                         <div
+                          key={item.id}
+                          className={`priority-item-card ${isItemCompleted ? 'priority-completed' : ''}`}
                           style={{
-                            width: '28px',
-                            height: '28px',
-                            borderRadius: '50%',
-                            backgroundColor: isItemCompleted ? 'var(--success)' : 'var(--primary-orange)',
-                            color: '#FFFFFF',
                             display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '12px',
-                            fontWeight: 'bold',
-                            flexShrink: 0,
-                            transition: 'background-color var(--transition-fast)',
+                            alignItems: 'flex-start',
+                            gap: 'var(--space-3)',
+                            padding: '12px 14px',
+                            borderRadius: 'var(--radius-md)',
+                            backgroundColor: isItemCompleted ? 'rgba(30, 142, 90, 0.07)' : 'var(--surface-bg)',
+                            border: isItemCompleted
+                              ? '1px solid var(--success-border)'
+                              : isPrevClass
+                              ? '1px solid rgba(235, 94, 40, 0.4)'
+                              : isUndetermined
+                              ? '1px solid rgba(224, 159, 62, 0.4)'
+                              : '1px solid var(--border-color)',
+                            transition: 'all var(--transition-fast)',
                           }}
                         >
-                          {isItemCompleted ? <IconCheck size={15} /> : item.rank}
-                        </div>
+                          <div
+                            style={{
+                              width: '28px',
+                              height: '28px',
+                              borderRadius: '50%',
+                              backgroundColor: isItemCompleted
+                                ? 'var(--success)'
+                                : isPrevClass
+                                ? 'var(--primary-orange)'
+                                : isUndetermined
+                                ? '#D48806'
+                                : '#4A5568',
+                              color: '#FFFFFF',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '12px',
+                              fontWeight: 'bold',
+                              flexShrink: 0,
+                              transition: 'background-color var(--transition-fast)',
+                            }}
+                          >
+                            {isItemCompleted ? <IconCheck size={15} /> : item.rank}
+                          </div>
 
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px' }}>
-                            <h4
-                              style={{
-                                fontSize: 'var(--font-size-sm)',
-                                fontWeight: 'bold',
-                                color: isItemCompleted ? 'var(--success-dark)' : 'var(--main-text)',
-                                textDecoration: isItemCompleted ? 'line-through' : 'none',
-                                overflowWrap: 'anywhere',
-                              }}
-                            >
-                              {item.topicName}
-                            </h4>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span className="badge badge-neutral" style={{ fontSize: '10.5px' }}>
-                                {item.grade}
-                              </span>
-                              {isItemCompleted && (
-                                <span className="badge badge-success" style={{ fontSize: '10px' }}>
-                                  Taught
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                              <div>
+                                <h4
+                                  style={{
+                                    fontSize: 'var(--font-size-sm)',
+                                    fontWeight: 'bold',
+                                    color: isItemCompleted ? 'var(--success-dark)' : 'var(--main-text)',
+                                    textDecoration: isItemCompleted ? 'line-through' : 'none',
+                                    overflowWrap: 'anywhere',
+                                    margin: 0,
+                                  }}
+                                >
+                                  {item.missingConcept || item.topicName}
+                                </h4>
+                                {item.missingConcept && item.topicName && item.missingConcept !== item.topicName && (
+                                  <div style={{ fontSize: '11px', color: 'var(--secondary-text)', marginTop: '2px' }}>
+                                    Assessment Topic: {item.topicName}
+                                  </div>
+                                )}
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                <span className={`badge ${isPrevClass ? 'badge-orange' : isUndetermined ? 'badge-warning' : 'badge-neutral'}`} style={{ fontSize: '10.5px' }}>
+                                  {item.grade}
                                 </span>
-                              )}
-                            </div>
-                          </div>
-
-                          {item.chapterName && (
-                            <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                              <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--primary-orange)' }}>
-                                Prerequisite Chapter:
-                              </span>
-                              <span style={{ fontSize: '11px', color: 'var(--main-text)' }}>
-                                {item.chapterName} {item.pdfFileName ? `(${item.pdfFileName})` : ''}
-                              </span>
-                            </div>
-                          )}
-
-                          <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--secondary-text)', marginTop: '4px', lineHeight: 1.4, overflowWrap: 'anywhere' }}>
-                            {item.reason}
-                          </p>
-
-                          {item.suggestedActivity && (
-                            <div style={{ marginTop: '6px', fontSize: '11px', color: 'var(--main-text)', background: 'rgba(235, 94, 40, 0.05)', borderLeft: '3px solid var(--primary-orange)', padding: '6px 10px', borderRadius: '4px', lineHeight: 1.35, overflowWrap: 'anywhere' }}>
-                              <strong>Suggested Activity:</strong> {item.suggestedActivity}
-                            </div>
-                          )}
-
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: '8px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                              <span style={{ fontSize: '11px', color: 'var(--secondary-text)' }}>
-                                Est. Revision: {item.estimatedMinutes || 30} mins
-                              </span>
+                                {item.affectedPercentage !== undefined && (
+                                  <span className={`badge ${item.affectedPercentage >= 50 ? 'badge-error' : 'badge-neutral'}`} style={{ fontSize: '10px', fontWeight: '600' }}>
+                                    {item.affectedPercentage}% Affected ({item.affectedStudentsCount}/{item.totalEvaluatedCount || 1})
+                                  </span>
+                                )}
+                                {isItemCompleted && (
+                                  <span className="badge badge-success" style={{ fontSize: '10px' }}>
+                                    Taught
+                                  </span>
+                                )}
+                              </div>
                             </div>
 
-                            <button
-                              type="button"
-                              className={`btn btn-sm ${isItemCompleted ? 'btn-priority-done' : 'btn-priority-mark'}`}
-                              onClick={() => handleMarkPriorityCompleted(item.id, item.topicName)}
-                              disabled={isItemCompleted}
-                              title={isItemCompleted ? 'Topic revision completed' : 'Mark topic revision as completed'}
-                              style={{
-                                padding: '4px 10px',
-                                fontSize: '11px',
-                                cursor: isItemCompleted ? 'default' : 'pointer',
-                              }}
-                            >
-                              {isItemCompleted ? (
-                                <>
-                                  <IconCheckCircle size={13} color="var(--success)" />
-                                  <span>Completed</span>
-                                </>
-                              ) : (
-                                <>
-                                  <IconCheck size={13} />
-                                  <span>Mark as Completed</span>
-                                </>
-                              )}
-                            </button>
+                            {/* Mastery Bar */}
+                            {item.averageMastery !== undefined && (
+                              <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ flex: 1, height: '5px', backgroundColor: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
+                                  <div
+                                    style={{
+                                      width: `${Math.min(100, Math.max(0, item.averageMastery))}%`,
+                                      height: '100%',
+                                      backgroundColor: item.averageMastery < 50 ? 'var(--error)' : item.averageMastery < 75 ? 'var(--primary-orange)' : 'var(--success)',
+                                      borderRadius: '3px',
+                                      transition: 'width 0.3s ease',
+                                    }}
+                                  />
+                                </div>
+                                <span style={{ fontSize: '10.5px', color: 'var(--secondary-text)', fontWeight: '600', whiteSpace: 'nowrap' }}>
+                                  Mastery: {item.averageMastery}%
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Prerequisite Chapter */}
+                            {item.chapterName && (
+                              <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                <span style={{ fontSize: '11px', fontWeight: '600', color: isPrevClass ? 'var(--primary-orange)' : 'var(--main-text)' }}>
+                                  {isPrevClass ? 'NCERT Prerequisite Chapter:' : 'NCERT Core Chapter:'}
+                                </span>
+                                <span style={{ fontSize: '11px', color: 'var(--main-text)' }}>
+                                  {item.chapterName} {item.pdfFileName ? `(${item.pdfFileName})` : ''}
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Evidence & Common Mistakes */}
+                            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--secondary-text)', marginTop: '5px', lineHeight: 1.4, overflowWrap: 'anywhere' }}>
+                              {item.reason}
+                            </p>
+
+                            {/* Recommended Activity */}
+                            {item.suggestedActivity && (
+                              <div
+                                style={{
+                                  marginTop: '6px',
+                                  fontSize: '11px',
+                                  color: 'var(--main-text)',
+                                  background: isPrevClass ? 'rgba(235, 94, 40, 0.05)' : isUndetermined ? 'rgba(224, 159, 62, 0.07)' : 'rgba(0, 0, 0, 0.03)',
+                                  borderLeft: isPrevClass ? '3px solid var(--primary-orange)' : isUndetermined ? '3px solid #D48806' : '3px solid var(--border-color)',
+                                  padding: '6px 10px',
+                                  borderRadius: '4px',
+                                  lineHeight: 1.35,
+                                  overflowWrap: 'anywhere',
+                                }}
+                              >
+                                <strong>{isPrevClass ? 'Recommended Revision Action:' : isUndetermined ? 'Suggested Diagnostic Action:' : 'Recommended Teaching Action:'}</strong>{' '}
+                                {item.suggestedActivity}
+                              </div>
+                            )}
+
+                            {/* Footer: Revision Time & Action Button */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: '8px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                                <span style={{ fontSize: '11px', color: 'var(--secondary-text)' }}>
+                                  Est. Revision: {item.estimatedMinutes || 35} mins
+                                </span>
+                              </div>
+
+                              <button
+                                type="button"
+                                className={`btn btn-sm ${isItemCompleted ? 'btn-priority-done' : 'btn-priority-mark'}`}
+                                onClick={() => handleMarkPriorityCompleted(item.id, item.topicName)}
+                                disabled={isItemCompleted}
+                                title={isItemCompleted ? 'Topic revision completed' : 'Mark topic revision as completed'}
+                                style={{
+                                  padding: '4px 10px',
+                                  fontSize: '11px',
+                                  cursor: isItemCompleted ? 'default' : 'pointer',
+                                }}
+                              >
+                                {isItemCompleted ? (
+                                  <>
+                                    <IconCheckCircle size={13} color="var(--success)" />
+                                    <span>Completed</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <IconCheck size={13} />
+                                    <span>Mark as Completed</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      );
+                    };
+
+                    return (
+                      <>
+                        {/* PRIORITY GROUP 1: PREVIOUS-CLASS FOUNDATIONAL GAPS */}
+                        {previousClassGaps.length > 0 && (
+                          <div className="priority-group-container">
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', paddingBottom: '6px', borderBottom: '2px solid var(--primary-orange)' }}>
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                  <h4 style={{ fontSize: '13px', fontWeight: '700', color: 'var(--primary-orange)', margin: 0 }}>
+                                    1. Previous-Class Foundational Gaps
+                                  </h4>
+                                  <span className="badge badge-orange" style={{ fontSize: '9.5px', fontWeight: '600' }}>
+                                    Priority Group 1 &bull; Address First
+                                  </span>
+                                </div>
+                                <p style={{ fontSize: '11px', color: 'var(--secondary-text)', margin: '2px 0 0 0' }}>
+                                  Concepts from earlier grades that students need to revise before progressing.
+                                </p>
+                              </div>
+                              <span className="badge badge-neutral" style={{ fontSize: '10.5px' }}>
+                                {previousClassGaps.length} {previousClassGaps.length === 1 ? 'Gap' : 'Gaps'}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                              {previousClassGaps.map(renderCard)}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* PRIORITY GROUP 2: CURRENT-CLASS LEARNING GAPS */}
+                        {currentClassGaps.length > 0 && (
+                          <div className="priority-group-container" style={{ marginTop: previousClassGaps.length > 0 ? 'var(--space-3)' : 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', paddingBottom: '6px', borderBottom: '2px solid var(--border-color)' }}>
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                  <h4 style={{ fontSize: '13px', fontWeight: '700', color: 'var(--main-text)', margin: 0 }}>
+                                    2. Current-Class Learning Gaps
+                                  </h4>
+                                  <span className="badge badge-neutral" style={{ fontSize: '9.5px' }}>
+                                    Priority Group 2 &bull; Address Second
+                                  </span>
+                                </div>
+                                <p style={{ fontSize: '11px', color: 'var(--secondary-text)', margin: '2px 0 0 0' }}>
+                                  Current-grade concepts that need additional teaching.
+                                </p>
+                              </div>
+                              <span className="badge badge-neutral" style={{ fontSize: '10.5px' }}>
+                                {currentClassGaps.length} {currentClassGaps.length === 1 ? 'Gap' : 'Gaps'}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                              {currentClassGaps.map(renderCard)}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* PRIORITY GROUP 3: UNDETERMINED LEARNING GAPS */}
+                        {undeterminedGaps.length > 0 && (
+                          <div className="priority-group-container" style={{ marginTop: 'var(--space-3)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', paddingBottom: '6px', borderBottom: '2px solid rgba(224, 159, 62, 0.5)' }}>
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                  <h4 style={{ fontSize: '13px', fontWeight: '700', color: '#B7791F', margin: 0 }}>
+                                    3. Undetermined Learning Gaps
+                                  </h4>
+                                  <span className="badge badge-neutral" style={{ fontSize: '9.5px', background: 'rgba(224, 159, 62, 0.15)', color: '#B7791F' }}>
+                                    Priority Group 3 &bull; Further Diagnosis Required
+                                  </span>
+                                </div>
+                                <p style={{ fontSize: '11px', color: 'var(--secondary-text)', margin: '2px 0 0 0' }}>
+                                  Mistakes where the root cause requires further diagnosis.
+                                </p>
+                              </div>
+                              <span className="badge badge-neutral" style={{ fontSize: '10.5px' }}>
+                                {undeterminedGaps.length} {undeterminedGaps.length === 1 ? 'Gap' : 'Gaps'}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                              {undeterminedGaps.map(renderCard)}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* RESOLVED GAPS (PHASE 7) */}
+                        {resolvedGaps.length > 0 && (
+                          <div className="priority-group-container" style={{ marginTop: 'var(--space-3)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', paddingBottom: '6px', borderBottom: '2px solid var(--success-border)' }}>
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                  <h4 style={{ fontSize: '13px', fontWeight: '700', color: 'var(--success)', margin: 0 }}>
+                                    Resolved Learning Gaps
+                                  </h4>
+                                  <span className="badge badge-success" style={{ fontSize: '9.5px' }}>
+                                    Remediated &bull; Retest Verified
+                                  </span>
+                                </div>
+                                <p style={{ fontSize: '11px', color: 'var(--secondary-text)', margin: '2px 0 0 0' }}>
+                                  Foundational gaps successfully remediated through targeted instruction and verified on retests.
+                                </p>
+                              </div>
+                              <span className="badge badge-success" style={{ fontSize: '10.5px' }}>
+                                {resolvedGaps.length} Remediated
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                              {resolvedGaps.map(renderCard)}
+                            </div>
+                          </div>
+                        )}
+                      </>
                     );
-                  })}
+                  })()}
                 </div>
               )}
             </section>

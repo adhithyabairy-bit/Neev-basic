@@ -6,6 +6,7 @@ import storageService from '../services/storage/storageService.js';
 import { processDocumentExtraction } from '../services/extraction/extractionService.js';
 import { retrieveRelevantSyllabusChunks, formatChunksAsEvidence } from '../services/rag/retrievalService.js';
 import grokService from '../services/ai/grokService.js';
+import { aggregateClassTeachingPriorities } from '../services/curriculum/prerequisiteEngine.js';
 
 /**
  * POST /api/assessments/:id/answer-sheets/:sheetId/evaluate
@@ -484,6 +485,11 @@ export async function getAssessmentGapOverview(req, res, next) {
         data: {
           hasEvaluatedData: false,
           totalEvaluations: 0,
+          totalStudentsEvaluated: 0,
+          previousClassGaps: [],
+          currentClassGaps: [],
+          undeterminedGaps: [],
+          allPriorities: [],
           topicSummaries: [],
           recommendedTeachingOrder: [],
           message: 'No evaluated student answer sheets available yet for this assessment.',
@@ -491,72 +497,34 @@ export async function getAssessmentGapOverview(req, res, next) {
       });
     }
 
-    // Aggregate by topic/lesson
-    const topicMap = new Map();
-
-    evaluations.forEach((ev) => {
-      const topicKey = ev.affectedLessonName || ev.affectedLessonId || 'General Curriculum';
-      if (!topicMap.has(topicKey)) {
-        topicMap.set(topicKey, {
-          topicName: topicKey,
-          lessonId: ev.affectedLessonId || '',
-          totalQuestions: 0,
-          totalEarnedMarks: 0,
-          totalMaxMarks: 0,
-          observedErrors: new Set(),
-          hypotheses: new Set(),
-        });
+    // Retrieve answer sheets for student identity mapping
+    let answerSheets = [];
+    try {
+      if ((mongoose.connection.readyState === 1 || AnswerSheet.find !== mongoose.Model.find) && typeof AnswerSheet.find === 'function') {
+        const query = AnswerSheet.find({ assessmentId, teacherId });
+        if (query && typeof query.lean === 'function') {
+          answerSheets = await query.lean();
+        } else if (query && typeof query.then === 'function') {
+          answerSheets = await query;
+        }
       }
+    } catch {
+      answerSheets = [];
+    }
 
-      const entry = topicMap.get(topicKey);
-      entry.totalQuestions += 1;
-      const score = ev.approvedMarks !== null && ev.approvedMarks !== undefined
-        ? ev.approvedMarks
-        : ev.suggestedMarks;
-      entry.totalEarnedMarks += score;
-      entry.totalMaxMarks += ev.maxMarks;
+    const currentGrade = assessment.grade || (assessment.classId && assessment.classId.grade) || 'Class 9';
+    const currentSubject = assessment.subject || (assessment.classId && assessment.classId.subject) || 'Mathematics';
 
-      if (ev.observedErrors && ev.observedErrors !== 'None') {
-        entry.observedErrors.add(ev.observedErrors);
-      }
-      if (ev.misconceptionHypothesis && ev.misconceptionHypothesis !== 'None identified.') {
-        entry.hypotheses.add(ev.misconceptionHypothesis);
-      }
-    });
-
-    // Format topic summaries
-    const topicSummaries = Array.from(topicMap.values()).map((t) => {
-      const mastery = t.totalMaxMarks > 0
-        ? Math.round((t.totalEarnedMarks / t.totalMaxMarks) * 100)
-        : 100;
-      return {
-        topicName: t.topicName,
-        lessonId: t.lessonId,
-        totalQuestions: t.totalQuestions,
-        averageMastery: mastery,
-        commonErrors: Array.from(t.observedErrors).slice(0, 3),
-        hypotheses: Array.from(t.hypotheses).slice(0, 3),
-      };
-    });
-
-    // Sort by lowest mastery first (highest teaching priority)
-    const recommendedTeachingOrder = [...topicSummaries]
-      .sort((a, b) => a.averageMastery - b.averageMastery)
-      .map((t, idx) => ({
-        ...t,
-        rank: idx + 1,
-        priority: t.averageMastery < 60 ? 'High' : t.averageMastery < 80 ? 'Medium' : 'Low',
-        covered: false,
-      }));
+    const gapResult = aggregateClassTeachingPriorities(
+      evaluations,
+      answerSheets,
+      currentGrade,
+      currentSubject
+    );
 
     return res.status(200).json({
       success: true,
-      data: {
-        hasEvaluatedData: true,
-        totalEvaluations: evaluations.length,
-        topicSummaries,
-        recommendedTeachingOrder,
-      },
+      data: gapResult,
     });
   } catch (err) {
     return next(err);
