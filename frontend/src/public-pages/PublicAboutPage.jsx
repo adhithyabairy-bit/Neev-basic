@@ -1,24 +1,25 @@
 import React from 'react';
 import PublicLayout from './PublicLayout';
 
-export default function PublicAboutPage({ onNavigate, onLaunchApp }) {
+export default function PublicAboutPage({ onNavigate, onLaunchApp, currentUser = null }) {
   const structuredData = {
     '@context': 'https://schema.org',
     '@type': 'AboutPage',
     name: 'About Neev Platform',
     description: 'Learn about Neev’s mission to rebuild foundational learning competencies in Indian school classrooms through explainable diagnostic AI.',
-    url: 'https://neev.app/about',
+    url: 'https://neev-basic-seven.vercel.app/about',
   };
 
   return (
     <PublicLayout
       title="About Us — Neev's Educational Mission & Philosophy"
       description="Learn about Neev: built to help Indian teachers diagnose foundational learning gaps from paper exams, protect Class 10 Board exam outcomes, and restore student confidence."
-      canonicalUrl="https://neev.app/about"
+      canonicalUrl="https://neev-basic-seven.vercel.app/about"
       structuredData={structuredData}
       activePath="/about"
       onNavigate={onNavigate}
       onLaunchApp={onLaunchApp}
+      currentUser={currentUser}
     >
       <div className="pub-container" style={{ maxWidth: '850px' }}>
         <div style={{ textAlign: 'center', marginBottom: '40px' }}>

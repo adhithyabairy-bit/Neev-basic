@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function PublicHeader({ activePath = '/', onNavigate, onLaunchApp }) {
+export default function PublicHeader({ activePath = '/', onNavigate, onLaunchApp, currentUser = null }) {
   const navItems = [
     { path: '/', label: 'Home' },
     { path: '/features', label: 'Features' },
@@ -43,15 +43,45 @@ export default function PublicHeader({ activePath = '/', onNavigate, onLaunchApp
           ))}
         </nav>
 
-        <div className="pub-header-actions">
-          <button
-            type="button"
-            className="pub-btn-launch"
-            onClick={onLaunchApp}
-            title="Open Neev Teacher Workspace"
-          >
-            <span>Launch App</span> &rarr;
-          </button>
+        <div className="pub-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {currentUser ? (
+            <button
+              type="button"
+              className="pub-btn-launch"
+              onClick={() => onNavigate('/app')}
+              title="Go to Teacher Dashboard"
+            >
+              <span>Go to Dashboard</span> &rarr;
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="pub-btn-text"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--pub-slate)',
+                  fontWeight: '600',
+                  fontSize: '14.5px',
+                  cursor: 'pointer',
+                  padding: '8px 14px',
+                }}
+                onClick={() => onNavigate('/login')}
+                title="Log in to your account"
+              >
+                Login
+              </button>
+              <button
+                type="button"
+                className="pub-btn-launch"
+                onClick={() => onNavigate('/register')}
+                title="Create a free teacher account"
+              >
+                <span>Get Started</span> &rarr;
+              </button>
+            </>
+          )}
         </div>
       </div>
     </header>

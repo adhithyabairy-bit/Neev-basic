@@ -1,7 +1,7 @@
 import React from 'react';
 import PublicLayout from './PublicLayout';
 
-export default function PublicFaqPage({ onNavigate, onLaunchApp }) {
+export default function PublicFaqPage({ onNavigate, onLaunchApp, currentUser = null }) {
   const faqs = [
     {
       q: 'How does handwriting vision OCR work on student answer sheets?',
@@ -50,11 +50,12 @@ export default function PublicFaqPage({ onNavigate, onLaunchApp }) {
     <PublicLayout
       title="Frequently Asked Questions — Neev Platform & Teacher Diagnostics"
       description="Answers to common questions about Neev: handwriting OCR accuracy, teacher verification, curriculum grounding, student data privacy, and supported subjects."
-      canonicalUrl="https://neev.app/faq"
+      canonicalUrl="https://neev-basic-seven.vercel.app/faq"
       structuredData={structuredData}
       activePath="/faq"
       onNavigate={onNavigate}
       onLaunchApp={onLaunchApp}
+      currentUser={currentUser}
     >
       <div className="pub-container" style={{ maxWidth: '850px' }}>
         <div style={{ textAlign: 'center', marginBottom: '40px' }}>

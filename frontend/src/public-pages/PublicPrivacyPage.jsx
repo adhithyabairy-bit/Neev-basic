@@ -1,24 +1,25 @@
 import React from 'react';
 import PublicLayout from './PublicLayout';
 
-export default function PublicPrivacyPage({ onNavigate, onLaunchApp }) {
+export default function PublicPrivacyPage({ onNavigate, onLaunchApp, currentUser = null }) {
   const structuredData = {
     '@context': 'https://schema.org',
     '@type': 'WebPage',
     name: 'Neev Privacy Policy',
     description: 'Privacy policy for Neev educational platform: student data isolation, zero-advertising guarantee, and data retention standards.',
-    url: 'https://neev.app/privacy',
+    url: 'https://neev-basic-seven.vercel.app/privacy',
   };
 
   return (
     <PublicLayout
       title="Privacy Policy — Student Data Safeguards & Institutional Privacy"
       description="Read Neev's privacy policy: strict teacher tenant isolation, zero third-party data monetization, and transparent handling of student work."
-      canonicalUrl="https://neev.app/privacy"
+      canonicalUrl="https://neev-basic-seven.vercel.app/privacy"
       structuredData={structuredData}
       activePath="/privacy"
       onNavigate={onNavigate}
       onLaunchApp={onLaunchApp}
+      currentUser={currentUser}
     >
       <div className="pub-container" style={{ maxWidth: '850px' }}>
         <div style={{ marginBottom: '32px' }}>
@@ -74,7 +75,7 @@ export default function PublicPrivacyPage({ onNavigate, onLaunchApp }) {
             5. Contact for Privacy Inquiries
           </h2>
           <p style={{ color: 'var(--pub-slate)', fontSize: '14.5px', lineHeight: 1.7 }}>
-            If you have questions regarding our data privacy practices or institutional data processing agreements, please email our data protection officer at <strong>privacy@neev.app</strong>.
+            If you have questions regarding our data privacy practices or institutional data processing agreements, please email our data protection officer at <strong>privacy@neev-basic-seven.vercel.app</strong>.
           </p>
         </div>
       </div>

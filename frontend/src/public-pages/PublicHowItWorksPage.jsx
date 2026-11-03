@@ -1,7 +1,7 @@
 import React from 'react';
 import PublicLayout from './PublicLayout';
 
-export default function PublicHowItWorksPage({ onNavigate, onLaunchApp }) {
+export default function PublicHowItWorksPage({ onNavigate, onLaunchApp, currentUser = null }) {
   const structuredData = {
     '@context': 'https://schema.org',
     '@type': 'HowTo',
@@ -45,11 +45,12 @@ export default function PublicHowItWorksPage({ onNavigate, onLaunchApp }) {
     <PublicLayout
       title="How It Works — 5-Step Diagnostic & Remediation Workflow"
       description="Learn how Neev turns paper answer sheets into personalized learning roadmaps in 5 straightforward teacher-guided steps."
-      canonicalUrl="https://neev.app/how-it-works"
+      canonicalUrl="https://neev-basic-seven.vercel.app/how-it-works"
       structuredData={structuredData}
       activePath="/how-it-works"
       onNavigate={onNavigate}
       onLaunchApp={onLaunchApp}
+      currentUser={currentUser}
     >
       <div className="pub-container" style={{ maxWidth: '850px' }}>
         <div style={{ textAlign: 'center', marginBottom: '40px' }}>

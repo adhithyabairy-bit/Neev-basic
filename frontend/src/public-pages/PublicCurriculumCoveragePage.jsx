@@ -1,24 +1,25 @@
 import React from 'react';
 import PublicLayout from './PublicLayout';
 
-export default function PublicCurriculumCoveragePage({ onNavigate, onLaunchApp }) {
+export default function PublicCurriculumCoveragePage({ onNavigate, onLaunchApp, currentUser = null }) {
   const structuredData = {
     '@context': 'https://schema.org',
     '@type': 'WebPage',
     name: 'Neev Curriculum Coverage — CBSE & State Board Syllabus',
     description: 'Detailed coverage of NCERT CBSE and State Board curriculum for Mathematics, Science, English, and Social Studies across Grades 6 to 10.',
-    url: 'https://neev.app/curriculum-coverage',
+    url: 'https://neev-basic-seven.vercel.app/curriculum-coverage',
   };
 
   return (
     <PublicLayout
       title="Curriculum Coverage — NCERT, CBSE & State Board Syllabus (Grades 6 - 10)"
       description="Inspect Neev's multi-subject curriculum coverage: Mathematics, Science, English Language, and Social Studies from Grade 6 to Grade 10 with prerequisite mapping."
-      canonicalUrl="https://neev.app/curriculum-coverage"
+      canonicalUrl="https://neev-basic-seven.vercel.app/curriculum-coverage"
       structuredData={structuredData}
       activePath="/curriculum-coverage"
       onNavigate={onNavigate}
       onLaunchApp={onLaunchApp}
+      currentUser={currentUser}
     >
       <div className="pub-container">
         <div style={{ textAlign: 'center', marginBottom: '40px' }}>

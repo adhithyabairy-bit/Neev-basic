@@ -147,6 +147,10 @@ const evaluationSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isFallback: {
+      type: Boolean,
+      default: false,
+    },
     evaluatorProvider: {
       type: String,
       default: 'grok_ai',

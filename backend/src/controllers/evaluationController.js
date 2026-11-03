@@ -291,6 +291,7 @@ export async function evaluateAnswerSheet(req, res, next) {
         syllabusEvidence,
         modelUsed: aiResult.modelUsed || grokService.getModelName(),
         isMock: Boolean(aiResult.isMock),
+        isFallback: Boolean(aiResult.isFallback),
         evaluatorProvider: aiResult.evaluatorProvider || 'groq_ai',
         evaluationVersion: nextVersion,
       };

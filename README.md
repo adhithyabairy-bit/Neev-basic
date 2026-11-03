@@ -165,8 +165,6 @@ Neev/
 │   └── package.json
 │
 ├── vercel.json                          # Monorepo deployment & serverless routing configuration
-├── DEPLOYMENT_AND_SETUP.md              # Authoritative deployment & configuration guide
-└── REPOSITORY_CLEANUP_REPORT.md         # Repository audit, security review & cleanup report
 ```
 
 ---

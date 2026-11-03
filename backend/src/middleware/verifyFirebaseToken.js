@@ -33,21 +33,61 @@ export async function verifyFirebaseToken(req, res, next) {
   }
 
   try {
-    // Verify the ID token using Firebase Admin SDK
-    // Attempt with checkRevoked: true first (if service account is configured)
-    // Fall back to standard cryptographic verification if revocation check requires admin privileges
+    // Strictly verify token cryptographically AND check revocation status.
+    // Never bypass revocation checks if infrastructure issues arise.
     let decodedToken;
     try {
       decodedToken = await admin.auth().verifyIdToken(idToken, true);
-    } catch (verifyErr) {
-      if (
-        verifyErr.code === 'auth/id-token-expired' ||
-        verifyErr.code === 'auth/id-token-revoked'
-      ) {
-        throw verifyErr;
+    } catch (err) {
+      // 1. Client auth / token validation errors -> 401
+      if (err.code === 'auth/id-token-expired') {
+        return res.status(401).json({
+          success: false,
+          error: 'Unauthorized: Firebase ID token has expired. Please refresh your session.',
+          code: 'TOKEN_EXPIRED',
+        });
       }
-      // If checkRevoked fails due to lack of service account / quota project, verify signature directly
-      decodedToken = await admin.auth().verifyIdToken(idToken, false);
+
+      if (err.code === 'auth/id-token-revoked') {
+        return res.status(401).json({
+          success: false,
+          error: 'Unauthorized: Firebase ID token has been revoked. Please sign in again.',
+          code: 'TOKEN_REVOKED',
+        });
+      }
+
+      if (err.code === 'auth/user-disabled') {
+        return res.status(401).json({
+          success: false,
+          error: 'Unauthorized: User account has been disabled.',
+          code: 'USER_DISABLED',
+        });
+      }
+
+      if (
+        err.code === 'auth/invalid-id-token' ||
+        err.code === 'auth/argument-error' ||
+        err.code === 'auth/invalid-argument' ||
+        (err.name === 'FirebaseAuthError' && err.message?.toLowerCase().includes('token'))
+      ) {
+        return res.status(401).json({
+          success: false,
+          error: 'Unauthorized: Invalid Firebase ID token.',
+          code: 'INVALID_TOKEN',
+        });
+      }
+
+      // 2. Infrastructure / network / service outage errors -> 503 (Fail safely!)
+      console.error('[Firebase Token Verification] Infrastructure error while verifying token:', {
+        code: err.code || 'UNKNOWN_ERROR',
+        message: err.message,
+      });
+
+      return res.status(503).json({
+        success: false,
+        error: 'Service Unavailable: Unable to verify token revocation status due to an authentication infrastructure error. Please try again later.',
+        code: 'REVOCATION_CHECK_UNAVAILABLE',
+      });
     }
 
     // Attach verified identity strictly from the cryptographically verified token
@@ -60,28 +100,12 @@ export async function verifyFirebaseToken(req, res, next) {
     };
 
     return next();
-  } catch (err) {
-    // Discriminate between token expiration, revocation, or invalid signature
-    if (err.code === 'auth/id-token-expired') {
-      return res.status(401).json({
-        success: false,
-        error: 'Unauthorized: Firebase ID token has expired. Please refresh your session.',
-        code: 'TOKEN_EXPIRED',
-      });
-    }
-
-    if (err.code === 'auth/id-token-revoked') {
-      return res.status(401).json({
-        success: false,
-        error: 'Unauthorized: Firebase ID token has been revoked. Please sign in again.',
-        code: 'TOKEN_REVOKED',
-      });
-    }
-
-    return res.status(401).json({
+  } catch (outerErr) {
+    console.error('[Firebase Token Verification] Unexpected error:', outerErr.message);
+    return res.status(500).json({
       success: false,
-      error: 'Unauthorized: Invalid Firebase ID token.',
-      code: 'INVALID_TOKEN',
+      error: 'Internal Server Error during identity verification.',
+      code: 'AUTH_INTERNAL_ERROR',
     });
   }
 }

@@ -1,7 +1,7 @@
 import React from 'react';
 import PublicLayout from './PublicLayout';
 
-export default function PublicHomePage({ onNavigate, onLaunchApp }) {
+export default function PublicHomePage({ onNavigate, onLaunchApp, currentUser = null }) {
   const structuredData = {
     '@context': 'https://schema.org',
     '@type': 'EducationalApplication',
@@ -18,7 +18,7 @@ export default function PublicHomePage({ onNavigate, onLaunchApp }) {
     provider: {
       '@type': 'Organization',
       name: 'Neev Educational Technologies',
-      url: 'https://neev.app',
+      url: 'https://neev-basic-seven.vercel.app',
     },
   };
 
@@ -26,11 +26,12 @@ export default function PublicHomePage({ onNavigate, onLaunchApp }) {
     <PublicLayout
       title="Neev — AI-Powered Learning Gap Analysis Platform"
       description="Neev digitizes physical student answer sheets, detects prerequisite conceptual learning gaps from earlier grades, and generates personalized remediation roadmaps grounded in NCERT syllabus."
-      canonicalUrl="https://neev.app/"
+      canonicalUrl="https://neev-basic-seven.vercel.app/"
       structuredData={structuredData}
       activePath="/"
       onNavigate={onNavigate}
       onLaunchApp={onLaunchApp}
+      currentUser={currentUser}
     >
       <section className="pub-hero">
         <div className="pub-hero-badge">NCERT &amp; State Board Aligned &bull; Grades 6 - 10</div>

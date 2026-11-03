@@ -58,49 +58,44 @@ export default function AIAnswerAnalysis({
   const [isLoading, setIsLoading] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [isLocallyVerified, setIsLocallyVerified] = useState(false);
   const [approvingId, setApprovingId] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
   const [successBanner, setSuccessBanner] = useState(null);
   const [editingScoreId, setEditingScoreId] = useState(null);
   const [scoreInput, setScoreInput] = useState('');
 
-  // Determine if the current sheet is verified
+  // Determine if the current sheet is verified (requires real backend confirmation in production)
   const isSheetVerified =
     isDemoMode ||
-    isLocallyVerified ||
-    isTeacherConfirmed ||
     activeAnswerSheet?.status === 'verified' ||
     activeAnswerSheet?.verificationStatus?.isVerified === true;
 
   const handleConfirmVerification = async () => {
     if (isDemoMode) {
-      setIsLocallyVerified(true);
       return;
     }
     const sheetId = activeAnswerSheet?._id;
     if (!sheetId) {
-      setIsLocallyVerified(true);
+      setErrorMessage('No active answer sheet ID found to verify.');
       return;
     }
     setIsVerifying(true);
     setErrorMessage(null);
     try {
       const verified = await verifyAnswerSheet(sheetId, activeAnswerSheet.answers);
-      setIsLocallyVerified(true);
-      if (onAnswerSheetUpdated && verified) {
-        onAnswerSheetUpdated(verified);
-      }
-      setSuccessBanner('Ground truth confirmed successfully! AI pedagogical evaluation is unlocked.');
-      setTimeout(() => setSuccessBanner(null), 4000);
-    } catch (err) {
-      console.warn('[AIAnswerAnalysis] Direct verification error:', err);
-      // If answers exist, unlock locally for seamless educator flow
-      if (activeAnswerSheet?.answers && activeAnswerSheet.answers.length > 0) {
-        setIsLocallyVerified(true);
+      if (verified && (verified.status === 'verified' || verified.verificationStatus?.isVerified)) {
+        if (onAnswerSheetUpdated) {
+          onAnswerSheetUpdated(verified);
+        }
+        setSuccessBanner('Ground truth confirmed successfully! AI pedagogical evaluation is unlocked.');
+        setTimeout(() => setSuccessBanner(null), 4000);
       } else {
-        setErrorMessage(err.message || 'Verification confirmation failed. Please check Step 4.');
+        throw new Error('Verification failed to confirm answer sheet on server.');
       }
+    } catch (err) {
+      console.error('[AIAnswerAnalysis] Direct verification error:', err);
+      // Strictly do not unlock on failure
+      setErrorMessage(`Verification failed: ${err.message || 'Could not verify answer sheet on server. Please retry.'}`);
     } finally {
       setIsVerifying(false);
     }
@@ -436,6 +431,42 @@ export default function AIAnswerAnalysis({
         </div>
       )}
 
+      {/* Heuristic Fallback Warning Banner */}
+      {evaluations.some((e) => e.isFallback || e.evaluatorProvider === 'heuristic_fallback') && (
+        <div
+          className="alert alert-warning"
+          role="alert"
+          style={{
+            marginBottom: 'var(--space-4)',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '12px',
+          }}
+        >
+          <IconAlertCircle size={20} style={{ flexShrink: 0, marginTop: '2px', color: 'var(--warning-dark)' }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 'var(--font-weight-bold)', marginBottom: '4px', color: 'var(--main-text)' }}>
+              Heuristic Fallback Notice: External AI Provider Unavailable
+            </div>
+            <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--main-text)', lineHeight: 1.5 }}>
+              The cloud AI evaluation service was temporarily unavailable, so these evaluations were generated using deterministic rubric-aware heuristics. <strong>These are not genuine LLM evaluations.</strong> You can review and approve them or retry with the AI provider when connectivity is restored.
+            </p>
+            <div style={{ marginTop: '10px' }}>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={handleRunEvaluation}
+                disabled={isEvaluating}
+                title="Retry evaluation with AI provider"
+              >
+                <IconRefreshCw size={14} className={isEvaluating ? 'spin' : ''} />
+                <span>{isEvaluating ? 'Retrying AI Evaluation...' : 'Retry with AI Provider'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Filter Tabs */}
       {evaluations.length > 0 && (
         <div style={{ display: 'flex', gap: '8px', marginBottom: 'var(--space-5)', flexWrap: 'wrap' }}>
@@ -544,6 +575,22 @@ export default function AIAnswerAnalysis({
                           Review Required
                         </span>
                       )}
+                      {/* Explicit Provider & Fallback Badges */}
+                      {item.isFallback || item.evaluatorProvider === 'heuristic_fallback' ? (
+                        <span className="badge badge-warning" style={{ fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                          <IconAlertCircle size={11} />
+                          Heuristic Fallback
+                        </span>
+                      ) : isDemoMode || (item.isMock && !item.isFallback) ? (
+                        <span className="badge badge-neutral" style={{ fontSize: '11px' }}>
+                          Demo / Simulated
+                        </span>
+                      ) : item.evaluatorProvider ? (
+                        <span className="badge badge-info" style={{ fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                          <IconSparkles size={11} />
+                          AI Evaluated ({item.evaluatorProvider === 'groq_ai' ? 'Groq LPU' : item.evaluatorProvider === 'grok_ai' ? 'xAI Grok' : item.evaluatorProvider})
+                        </span>
+                      ) : null}
                     </div>
 
                     <span style={{ fontSize: 'var(--font-size-md)', fontWeight: 'var(--font-weight-semibold)', color: 'var(--main-text)' }}>
@@ -721,13 +768,25 @@ export default function AIAnswerAnalysis({
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                      <span className="badge badge-orange" style={{ fontSize: '11px', textTransform: 'uppercase' }}>
-                        <IconSparkles size={12} />
-                        AI Misconception Hypothesis
-                      </span>
+                      {item.isFallback || item.evaluatorProvider === 'heuristic_fallback' ? (
+                        <span className="badge badge-warning" style={{ fontSize: '11px', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <IconAlertCircle size={12} />
+                          Heuristic Misconception Rule (Fallback)
+                        </span>
+                      ) : (
+                        <span className="badge badge-orange" style={{ fontSize: '11px', textTransform: 'uppercase' }}>
+                          <IconSparkles size={12} />
+                          AI Misconception Hypothesis
+                        </span>
+                      )}
                     </div>
                     <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--dark-orange)', lineHeight: 1.5, margin: 0 }}>
                       {item.misconceptionHypothesis || 'No persistent conceptual misconception detected.'}
+                      {(item.isFallback || item.evaluatorProvider === 'heuristic_fallback') && (
+                        <span style={{ display: 'block', fontSize: '11px', color: 'var(--secondary-text)', marginTop: '4px', fontStyle: 'italic' }}>
+                          (Rule-based heuristic estimation because primary AI provider was unavailable)
+                        </span>
+                      )}
                     </p>
                   </div>
                 </div>

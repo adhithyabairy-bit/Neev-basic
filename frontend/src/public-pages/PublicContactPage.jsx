@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import PublicLayout from './PublicLayout';
 
-export default function PublicContactPage({ onNavigate, onLaunchApp }) {
+export default function PublicContactPage({ onNavigate, onLaunchApp, currentUser = null }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [school, setSchool] = useState('');
@@ -19,18 +19,19 @@ export default function PublicContactPage({ onNavigate, onLaunchApp }) {
     '@type': 'ContactPage',
     name: 'Contact Neev Support & Institutional Inquiries',
     description: 'Get in touch with the Neev educational team for technical support, school onboarding, or institutional inquiries.',
-    url: 'https://neev.app/contact',
+    url: 'https://neev-basic-seven.vercel.app/contact',
   };
 
   return (
     <PublicLayout
       title="Contact Us — School Onboarding & Teacher Support"
       description="Connect with the Neev platform team for institutional onboarding, pilot program requests, or technical support."
-      canonicalUrl="https://neev.app/contact"
+      canonicalUrl="https://neev-basic-seven.vercel.app/contact"
       structuredData={structuredData}
       activePath="/contact"
       onNavigate={onNavigate}
       onLaunchApp={onLaunchApp}
+      currentUser={currentUser}
     >
       <div className="pub-container" style={{ maxWidth: '750px' }}>
         <div style={{ textAlign: 'center', marginBottom: '36px' }}>
@@ -121,11 +122,11 @@ export default function PublicContactPage({ onNavigate, onLaunchApp }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginTop: '36px', textAlign: 'center' }}>
           <div className="pub-card" style={{ padding: '18px' }}>
             <h4 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '4px' }}>Direct Support</h4>
-            <span style={{ fontSize: '13.5px', color: 'var(--pub-orange)' }}>support@neev.app</span>
+            <span style={{ fontSize: '13.5px', color: 'var(--pub-orange)' }}>support@neev-basic-seven.vercel.app</span>
           </div>
           <div className="pub-card" style={{ padding: '18px' }}>
             <h4 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '4px' }}>Pilot Programs</h4>
-            <span style={{ fontSize: '13.5px', color: 'var(--pub-orange)' }}>schools@neev.app</span>
+            <span style={{ fontSize: '13.5px', color: 'var(--pub-orange)' }}>schools@neev-basic-seven.vercel.app</span>
           </div>
         </div>
       </div>

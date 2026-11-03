@@ -1285,7 +1285,7 @@ export function normalizeConceptKey(topicName = '', observed = '', hypothesis = 
 
   const combined = `${category} ${topicName} ${observed} ${hypothesis}`.toLowerCase();
 
-  if (/transpos|equation\s*balanc|isolate\s*variable|equals\s*sign/i.test(combined)) {
+  if (/transpos|equation\s*balanc|isolate\s*variable|equals\s*sign|sign\s*change|inverse\s*operation|moving\s*terms|lhs.*rhs|rhs.*lhs/i.test(combined)) {
     return 'linear_equations';
   }
   if (/fraction|denominator|lcm|cross\s*multipl/i.test(combined)) {
@@ -1294,22 +1294,34 @@ export function normalizeConceptKey(topicName = '', observed = '', hypothesis = 
   if (/precedence|bodmas|order\s*of\s*operations/i.test(combined)) {
     return 'arithmetic_order_of_operations';
   }
-  if (/osmosis|exosmosis|potato|hypertonic|hypotonic/i.test(combined)) {
+  if (/exponent|power|base|index\s*law|division\s*of\s*powers|multiplication\s*of\s*powers|negative\s*exponent|zero\s*power/i.test(combined)) {
+    return 'exponents_and_powers';
+  }
+  if (/mensuration|pythagor|diagonal|rectangle|perimeter|surface\s*area|volume|area\s*formula/i.test(combined)) {
+    return 'mensuration_and_geometry';
+  }
+  if (/factoris|identity|a\^2\s*-\s*b\^2|difference\s*of\s*squares|split.*middle\s*term|quadratic/i.test(combined)) {
+    return 'algebraic_identities_and_factorisation';
+  }
+  if (/compound\s*interest|simple\s*interest|annual\s*rate|principal|amount\s*accumulated/i.test(combined)) {
+    return 'commercial_mathematics_and_interest';
+  }
+  if (/osmosis|exosmosis|potato|hypertonic|hypotonic|diffusion|semi-permeable|plasmolysis|water\s*movement/i.test(combined)) {
     return 'osmosis_and_diffusion';
   }
-  if (/prokaryot|eukaryot/i.test(combined)) {
+  if (/prokaryot|eukaryot|nucleoid|organelle|membrane-bound|mitochondria|chloroplast/i.test(combined)) {
     return 'prokaryotes_vs_eukaryotes';
   }
-  if (/scientific\s*model|simulation/i.test(combined)) {
+  if (/scientific\s*model|simulation|inquiry|prediction|hypothesis/i.test(combined)) {
     return 'scientific_models_and_inquiry';
   }
-  if (/constitution|preamble|secular|sovereign/i.test(combined)) {
+  if (/constitution|preamble|secular|sovereign|fundamental\s*rights|directive\s*principles|separation\s*of\s*powers/i.test(combined)) {
     return 'social_constitution_and_governance';
   }
-  if (/voice|active|passive/i.test(combined)) {
+  if (/voice|active|passive|tense|past\s*perfect|auxiliary\s*verb|participle/i.test(combined)) {
     return 'english_grammar_tenses_voice';
   }
-  if (/concord|subject-verb/i.test(combined)) {
+  if (/concord|subject-verb|relative\s*clause|subordinate\s*clause/i.test(combined)) {
     return 'subject_verb_concord_and_clauses';
   }
 
@@ -1654,6 +1666,35 @@ export function deriveGapsAndRemediation(evaluations = [], syllabusData = {}) {
     number: `${idx + 1}`,
     marks: 2, // Every question carries strictly 2 marks
   }));
+
+  // Prioritize gaps: High severity first, then Medium, then Low;
+  // recurring gaps before single-occurrence; higher marks lost before lower marks lost.
+  const severityWeight = { High: 3, Medium: 2, Low: 1 };
+
+  gaps.sort((a, b) => {
+    const sDiff = (severityWeight[b.severity] || 0) - (severityWeight[a.severity] || 0);
+    if (sDiff !== 0) return sDiff;
+    const rDiff = (b.isRecurring ? 1 : 0) - (a.isRecurring ? 1 : 0);
+    if (rDiff !== 0) return rDiff;
+    return (b.scoreInfo?.lost || 0) - (a.scoreInfo?.lost || 0);
+  });
+
+  // Align roadmap order with gap prioritization and re-rank sequentially
+  const gapOrderMap = new Map();
+  gaps.forEach((g, idx) => {
+    gapOrderMap.set(g.conceptKey, idx);
+  });
+
+  roadmap.sort((a, b) => {
+    const orderA = gapOrderMap.has(a.conceptKey) ? gapOrderMap.get(a.conceptKey) : 999;
+    const orderB = gapOrderMap.has(b.conceptKey) ? gapOrderMap.get(b.conceptKey) : 999;
+    return orderA - orderB;
+  });
+
+  roadmap.forEach((item, idx) => {
+    item.rank = idx + 1;
+    item.prereqChain = idx === 0 ? 'None (Root Priority Foundation)' : `Step ${idx}: Prior Remediated Concept`;
+  });
 
   return { gaps, roadmap, testQuestions };
 }

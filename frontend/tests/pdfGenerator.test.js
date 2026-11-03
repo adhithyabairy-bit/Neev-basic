@@ -21,19 +21,22 @@ describe('Phase 6 & 9: Frontend PDF Generation Tests', () => {
     assert.ok(sanitized.includes('Rs.'));
   });
 
-  it('transliterates Telugu and Devanagari script phonetically for Standard 14 fonts', () => {
+  it('preserves genuine Telugu and Devanagari Unicode scripts intact without transliteration loss', () => {
     // Telugu
     const teluguText = 'గణితం మరియు సైన్స్';
     const sanitizedTelugu = sanitizeForPdf(teluguText);
     assert.ok(sanitizedTelugu.length > 0);
-    // Should not contain untransliterated Telugu unicode blocks
-    assert.strictEqual(/[\u0C00-\u0C7F]/.test(sanitizedTelugu), false);
+    // Should preserve authentic Telugu unicode code points
+    assert.strictEqual(/[\u0C00-\u0C7F]/.test(sanitizedTelugu), true);
+    assert.strictEqual(sanitizedTelugu, teluguText);
 
     // Hindi / Devanagari
     const hindiText = 'गणित और विज्ञान';
     const sanitizedHindi = sanitizeForPdf(hindiText);
     assert.ok(sanitizedHindi.length > 0);
-    assert.strictEqual(/[\u0900-\u097F]/.test(sanitizedHindi), false);
+    // Should preserve authentic Devanagari unicode code points
+    assert.strictEqual(/[\u0900-\u097F]/.test(sanitizedHindi), true);
+    assert.strictEqual(sanitizedHindi, hindiText);
   });
 
   it('wraps long lines cleanly without clipping words', () => {

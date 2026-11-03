@@ -183,6 +183,7 @@ async function fetchResponse(expressApp, method, url, headers = {}, body = null)
         const json = await res.json().catch(() => ({}));
         server.close(() => resolve({ status: res.status, body: json }));
       } catch (e) {
+        console.error('[fetch error in test]', e);
         server.close(() => resolve({ status: 500, body: { error: e.message } }));
       }
     });

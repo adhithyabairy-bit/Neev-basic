@@ -20,12 +20,12 @@
 - **Zero-Trust Tenant Isolation**: Teacher-uploaded private curriculum documents and student answer sheets are strictly isolated to the authenticated teacher.
 
 ## Public Web Resources
-- Website: https://neev.app/
-- Features: https://neev.app/features
-- How It Works: https://neev.app/how-it-works
-- Curriculum Coverage: https://neev.app/curriculum-coverage
-- FAQ: https://neev.app/faq
-- About Us: https://neev.app/about
-- Contact: https://neev.app/contact
-- Privacy Policy: https://neev.app/privacy
+- Website: https://neev-basic-seven.vercel.app/
+- Features: https://neev-basic-seven.vercel.app/features
+- How It Works: https://neev-basic-seven.vercel.app/how-it-works
+- Curriculum Coverage: https://neev-basic-seven.vercel.app/curriculum-coverage
+- FAQ: https://neev-basic-seven.vercel.app/faq
+- About Us: https://neev-basic-seven.vercel.app/about
+- Contact: https://neev-basic-seven.vercel.app/contact
+- Privacy Policy: https://neev-basic-seven.vercel.app/privacy
 

@@ -591,7 +591,7 @@ export async function processDocumentExtraction(buffer, mimeType, options = {}) 
             rawExtractedText: q.prompt,
             correctedText: q.prompt,
             pageNumber: 1,
-            confidence: 100,
+            confidence: null,
             maxMarks: Number(q.maxMarks) || 3,
             awardedMarks: 0,
             status: 'Needs Review',
@@ -605,7 +605,7 @@ export async function processDocumentExtraction(buffer, mimeType, options = {}) 
             ocrStatus: {
               method: 'gemini-vision-question-paper',
               processedAt: new Date(),
-              confidence: 100,
+              confidence: null,
               errorDetails: null,
             },
           };
@@ -622,7 +622,7 @@ export async function processDocumentExtraction(buffer, mimeType, options = {}) 
             rawExtractedText: r.referenceAnswer,
             correctedText: r.referenceAnswer,
             pageNumber: 1,
-            confidence: 100,
+            confidence: null,
             maxMarks: Number(r.maxMarks) || 3,
             awardedMarks: 0,
             status: 'Needs Review',
@@ -636,7 +636,7 @@ export async function processDocumentExtraction(buffer, mimeType, options = {}) 
             ocrStatus: {
               method: 'gemini-vision-marking-scheme',
               processedAt: new Date(),
-              confidence: 100,
+              confidence: null,
               errorDetails: null,
             },
           };
@@ -668,7 +668,7 @@ export async function processDocumentExtraction(buffer, mimeType, options = {}) 
                   rawExtractedText: answerText,
                   correctedText: answerText,
                   pageNumber: q.pageNumber || 1,
-                  confidence: answerText ? 98 : 0,
+                  confidence: null,
                   maxMarks: Number(q.maxMarks) || 3,
                   awardedMarks: 0,
                   status: 'Needs Review',
@@ -681,7 +681,7 @@ export async function processDocumentExtraction(buffer, mimeType, options = {}) 
                 rawExtractedText: a.studentAnswer || '',
                 correctedText: a.studentAnswer || '',
                 pageNumber: 1,
-                confidence: a.studentAnswer ? 98 : 0,
+                confidence: null,
                 maxMarks: 3,
                 awardedMarks: 0,
                 status: 'Needs Review',
@@ -695,7 +695,7 @@ export async function processDocumentExtraction(buffer, mimeType, options = {}) 
             ocrStatus: {
               method: 'gemini-vision-answer-sheet',
               processedAt: new Date(),
-              confidence: 98,
+              confidence: null,
               errorDetails: null,
             },
           };
@@ -711,7 +711,7 @@ export async function processDocumentExtraction(buffer, mimeType, options = {}) 
     let pageCount = 1;
     let pages = [{ pageNumber: 1, text: '' }];
     let method = isPdf ? 'pdf-text-extract' : 'tesseract-ocr';
-    let confidence = 100;
+    let confidence = null;
 
     if (isPdf) {
       let pdfResult = null;
@@ -727,7 +727,7 @@ export async function processDocumentExtraction(buffer, mimeType, options = {}) 
         rawText = pdfResult.text;
         pageCount = pdfResult.pageCount || 1;
         pages = pdfResult.pages || [{ pageNumber: 1, text: rawText }];
-        confidence = 100;
+        confidence = null; // Direct digital text extraction from PDF has no OCR confidence
         method = 'pdf-text-extract';
       } else {
         // Scanned PDF: extract images and perform OCR safely without hanging
@@ -737,7 +737,7 @@ export async function processDocumentExtraction(buffer, mimeType, options = {}) 
             rawText = scannedResult.text;
             pageCount = scannedResult.pageCount || 1;
             pages = scannedResult.pages || [{ pageNumber: 1, text: rawText }];
-            confidence = 85;
+            confidence = typeof scannedResult.confidence === 'number' ? scannedResult.confidence : null;
             method = 'tesseract-ocr-pdf';
           }
         } catch (scannedErr) {
@@ -749,16 +749,16 @@ export async function processDocumentExtraction(buffer, mimeType, options = {}) 
           pageCount = pdfResult?.pageCount || 1;
           pages = pdfResult?.pages || [{ pageNumber: 1, text: '' }];
           method = 'pdf-scan-review';
-          confidence = 50;
+          confidence = null;
         }
       }
     } else {
-      // Image file (JPEG, PNG): Run Tesseract OCR
+      // Image file (JPEG, PNG): Run Tesseract OCR and measure genuine confidence
       const imageResult = await extractImageOcr(buffer);
       rawText = imageResult.text;
       pageCount = imageResult.pageCount || 1;
       pages = imageResult.pages || [{ pageNumber: 1, text: rawText }];
-      confidence = imageResult.confidence || 80;
+      confidence = typeof imageResult.confidence === 'number' ? imageResult.confidence : null;
       method = 'tesseract-ocr';
     }
 
@@ -773,7 +773,7 @@ export async function processDocumentExtraction(buffer, mimeType, options = {}) 
             rawExtractedText: q.prompt,
             correctedText: q.prompt,
             pageNumber: 1,
-            confidence: 100,
+            confidence: null,
             maxMarks: Number(q.maxMarks) || 3,
             awardedMarks: 0,
             status: 'Needs Review',
@@ -787,7 +787,7 @@ export async function processDocumentExtraction(buffer, mimeType, options = {}) 
             ocrStatus: {
               method: 'groq-question-paper-extract',
               processedAt: new Date(),
-              confidence: 100,
+              confidence: null,
               errorDetails: null,
             },
           };
@@ -809,7 +809,7 @@ export async function processDocumentExtraction(buffer, mimeType, options = {}) 
             rawExtractedText: r.referenceAnswer,
             correctedText: r.referenceAnswer,
             pageNumber: 1,
-            confidence: 100,
+            confidence: null,
             maxMarks: Number(r.maxMarks) || 3,
             awardedMarks: 0,
             status: 'Needs Review',
@@ -823,7 +823,7 @@ export async function processDocumentExtraction(buffer, mimeType, options = {}) 
             ocrStatus: {
               method: 'groq-marking-scheme-extract',
               processedAt: new Date(),
-              confidence: 100,
+              confidence: null,
               errorDetails: null,
             },
           };
@@ -852,7 +852,7 @@ export async function processDocumentExtraction(buffer, mimeType, options = {}) 
                   rawExtractedText: answerText,
                   correctedText: answerText,
                   pageNumber: q.pageNumber || 1,
-                  confidence: answerText ? 95 : 0,
+                  confidence: null,
                   maxMarks: Number(q.maxMarks) || 3,
                   awardedMarks: 0,
                   status: 'Needs Review',
@@ -865,7 +865,7 @@ export async function processDocumentExtraction(buffer, mimeType, options = {}) 
                 rawExtractedText: a.studentAnswer || '',
                 correctedText: a.studentAnswer || '',
                 pageNumber: 1,
-                confidence: a.studentAnswer ? 95 : 0,
+                confidence: null,
                 maxMarks: 3,
                 awardedMarks: 0,
                 status: 'Needs Review',
@@ -879,7 +879,7 @@ export async function processDocumentExtraction(buffer, mimeType, options = {}) 
             ocrStatus: {
               method: 'groq-answer-sheet-extract',
               processedAt: new Date(),
-              confidence: 95,
+              confidence: null,
               errorDetails: null,
             },
           };
@@ -914,7 +914,7 @@ export async function processDocumentExtraction(buffer, mimeType, options = {}) 
           rawExtractedText: '',
           correctedText: '',
           pageNumber: 1,
-          confidence: 0,
+          confidence: null,
           maxMarks: 5,
           awardedMarks: 0,
           status: 'Needs Review',
@@ -925,7 +925,7 @@ export async function processDocumentExtraction(buffer, mimeType, options = {}) 
       ocrStatus: {
         method: isPdf ? 'pdf-text-extract' : 'tesseract-ocr',
         processedAt: new Date(),
-        confidence: 0,
+        confidence: null,
         errorDetails: err.message,
       },
     };

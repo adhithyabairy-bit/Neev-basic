@@ -11,10 +11,13 @@ Allow: /privacy
 Allow: /llms.txt
 Disallow: /app
 Disallow: /app/
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
 Disallow: /api/
 Disallow: /dashboard/
 Disallow: /assessments/
 Disallow: /student/
 
 # Sitemaps
-Sitemap: https://neev.app/sitemap.xml
+Sitemap: https://neev-basic-seven.vercel.app/sitemap.xml

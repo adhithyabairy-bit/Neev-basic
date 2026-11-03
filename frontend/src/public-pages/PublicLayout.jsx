@@ -11,6 +11,7 @@ export default function PublicLayout({
   activePath,
   onNavigate,
   onLaunchApp,
+  currentUser = null,
   children,
 }) {
   useEffect(() => {
@@ -44,7 +45,7 @@ export default function PublicLayout({
       canonical.rel = 'canonical';
       document.head.appendChild(canonical);
     }
-    canonical.href = canonicalUrl || `https://neev.app${activePath}`;
+    canonical.href = canonicalUrl || `https://neev-basic-seven.vercel.app${activePath}`;
 
     // JSON-LD structured data
     let scriptTag = document.getElementById('neev-jsonld-schema');
@@ -67,6 +68,7 @@ export default function PublicLayout({
         activePath={activePath}
         onNavigate={onNavigate}
         onLaunchApp={onLaunchApp}
+        currentUser={currentUser}
       />
       <main className="pub-main-content" role="main">
         {children}

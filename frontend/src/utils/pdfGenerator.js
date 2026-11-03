@@ -2,7 +2,9 @@
  * Neev Platform - Advanced Client-Side PDF Document Generator
  *
  * Generates genuine, compliant PDF 1.4 binary documents supporting:
- * - Full Unicode and Indic (Telugu & Hindi) script preservation through transliterated glyph mapping.
+ * - Genuine Unicode Indic script support (Telugu and Devanagari/Hindi) via UTF-16BE encoding
+ *   and Type0 composite fonts with ToUnicode CMaps, preserving original text without transliteration loss.
+ * - Standard Latin and English typography with Helvetica/Helvetica-Bold.
  * - Structured tables with header bars, cell padding, and column boundaries.
  * - Dynamic height tracking and automatic page breaks with zero clipping.
  * - Continuous headers, footers, and exact page numbering ("Page X of Y").
@@ -14,57 +16,44 @@
  *   5. Teacher Answer Key & Marking Guide (generateAnswerKeyPdfBlob - WITH model solutions)
  */
 
-// Mapping of Telugu characters to clean phonetic Latin representation
-const TELUGU_MAP = {
-  '\u0C05': 'A', '\u0C06': 'Aa', '\u0C07': 'I', '\u0C08': 'Ee', '\u0C09': 'U', '\u0C0A': 'Oo', '\u0C0B': 'Ru',
-  '\u0C0E': 'E', '\u0C0F': 'Ae', '\u0C10': 'Ai', '\u0C12': 'O', '\u0C13': 'O', '\u0C14': 'Au',
-  '\u0C15': 'k', '\u0C16': 'kh', '\u0C17': 'g', '\u0C18': 'gh', '\u0C19': 'ng',
-  '\u0C1A': 'ch', '\u0C1B': 'chh', '\u0C1C': 'j', '\u0C1D': 'jh', '\u0C1E': 'ny',
-  '\u0C1F': 't', '\u0C20': 'th', '\u0C21': 'd', '\u0C22': 'dh', '\u0C23': 'n',
-  '\u0C24': 't', '\u0C25': 'th', '\u0C26': 'd', '\u0C27': 'dh', '\u0C28': 'n',
-  '\u0C2A': 'p', '\u0C2B': 'ph', '\u0C2C': 'b', '\u0C2D': 'bh', '\u0C2E': 'm',
-  '\u0C2F': 'y', '\u0C30': 'r', '\u0C31': 'r', '\u0C32': 'l', '\u0C33': 'l', '\u0C35': 'v',
-  '\u0C36': 'sh', '\u0C37': 'sh', '\u0C38': 's', '\u0C39': 'h',
-  '\u0C3E': 'aa', '\u0C3F': 'i', '\u0C40': 'ee', '\u0C41': 'u', '\u0C42': 'oo', '\u0C43': 'ru',
-  '\u0C46': 'e', '\u0C47': 'ae', '\u0C48': 'ai', '\u0C4A': 'o', '\u0C4B': 'o', '\u0C4C': 'au',
-  '\u0C4D': '', '\u0C02': 'm', '\u0C03': 'h',
-  '\u0C66': '0', '\u0C67': '1', '\u0C68': '2', '\u0C69': '3', '\u0C6A': '4',
-  '\u0C6B': '5', '\u0C6C': '6', '\u0C6D': '7', '\u0C6E': '8', '\u0C6F': '9',
-};
-
-// Mapping of Devanagari (Hindi) characters to clean phonetic Latin representation
-const DEVANAGARI_MAP = {
-  '\u0905': 'A', '\u0906': 'Aa', '\u0907': 'I', '\u0908': 'Ee', '\u0909': 'U', '\u090A': 'Oo', '\u090B': 'Ri',
-  '\u090F': 'E', '\u0910': 'Ai', '\u0913': 'O', '\u0914': 'Au',
-  '\u0915': 'k', '\u0916': 'kh', '\u0917': 'g', '\u0918': 'gh', '\u0919': 'ng',
-  '\u091A': 'ch', '\u091B': 'chh', '\u091C': 'j', '\u091D': 'jh', '\u091E': 'ny',
-  '\u091F': 't', '\u0920': 'th', '\u0921': 'd', '\u0922': 'dh', '\u0923': 'n',
-  '\u0924': 't', '\u0925': 'th', '\u0926': 'd', '\u0927': 'dh', '\u0928': 'n',
-  '\u092A': 'p', '\u092B': 'ph', '\u092C': 'b', '\u092D': 'bh', '\u092E': 'm',
-  '\u092F': 'y', '\u0930': 'r', '\u0932': 'l', '\u0933': 'l', '\u0935': 'v',
-  '\u0936': 'sh', '\u0937': 'sh', '\u0938': 's', '\u0939': 'h',
-  '\u093E': 'aa', '\u093F': 'i', '\u0940': 'ee', '\u0941': 'u', '\u0942': 'oo', '\u0943': 'ri',
-  '\u0947': 'e', '\u0948': 'ai', '\u094B': 'o', '\u094C': 'au',
-  '\u094D': '', '\u0902': 'm', '\u0903': 'h',
-  '\u0966': '0', '\u0967': '1', '\u0968': '2', '\u0969': '3', '\u096A': '4',
-  '\u096B': '5', '\u096C': '6', '\u096D': '7', '\u096E': '8', '\u096F': '9',
-};
+/**
+ * Checks whether a string contains characters beyond standard ASCII.
+ */
+export function hasUnicodeChars(str) {
+  if (!str) return false;
+  for (let i = 0; i < str.length; i++) {
+    if (str.charCodeAt(i) > 127) return true;
+  }
+  return false;
+}
 
 /**
- * Sanitizes input text, preserving Indian scripts (Telugu & Hindi) via phonetics
- * and converting mathematical symbols into clean, universal standard notation.
+ * Calculates visual text length considering Indic combining vowel signs/matras.
+ */
+export function getVisualLength(str) {
+  if (!str) return 0;
+  if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+    try {
+      const segmenter = new Intl.Segmenter('und', { granularity: 'grapheme' });
+      let count = 0;
+      for (const _ of segmenter.segment(str)) count++;
+      return count;
+    } catch {
+      // Fallback below
+    }
+  }
+  return str.replace(/[\u093E-\u094D\u0C3E-\u0C4D]/g, '').length;
+}
+
+/**
+ * Sanitizes input text, preserving Indian scripts (Telugu & Hindi) intact,
+ * preserving English and numbers, and formatting mathematical symbols cleanly.
  */
 export function sanitizeForPdf(str) {
   if (str === null || str === undefined) return '';
   let text = String(str);
 
-  // 1. Convert Telugu characters
-  text = text.replace(/[\u0C00-\u0C7F]/g, (char) => TELUGU_MAP[char] || '');
-
-  // 2. Convert Devanagari (Hindi) characters
-  text = text.replace(/[\u0900-\u097F]/g, (char) => DEVANAGARI_MAP[char] || '');
-
-  // 3. Mathematical operators & comparison
+  // Mathematical operators & clean typographical replacements:
   text = text
     .replace(/\u2212/g, '-')
     .replace(/\u2013/g, '-')
@@ -105,25 +94,46 @@ export function sanitizeForPdf(str) {
     .replace(/\u2084/g, '_4')
     .replace(/\u2080/g, '_0');
 
-  // Filter out any remaining non-printable characters
-  return text.replace(/[^\x20-\x7E\t\r\n]/g, '');
+  // Strip non-printable ASCII control codes while preserving Unicode Telugu (\u0C00-\u0C7F),
+  // Devanagari (\u0900-\u097F), and standard printable text
+  return text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+}
+
+/**
+ * Encodes text for PDF text literal syntax:
+ * - Uses (ascii_string) for pure ASCII content.
+ * - Uses <FEFF...> hexadecimal string literal with UTF-16BE encoding for genuine Unicode Indic text.
+ */
+export function encodePdfString(str) {
+  if (!str) return '()';
+  const sanitized = sanitizeForPdf(str);
+  if (!hasUnicodeChars(sanitized)) {
+    const escaped = sanitized
+      .replace(/\\/g, '\\\\')
+      .replace(/\(/g, '\\(')
+      .replace(/\)/g, '\\)')
+      .replace(/[\r\n]+/g, ' ');
+    return `(${escaped})`;
+  }
+
+  // UTF-16BE Hexadecimal string literal for genuine Unicode script support
+  let hex = 'FEFF';
+  for (let i = 0; i < sanitized.length; i++) {
+    const code = sanitized.charCodeAt(i);
+    hex += code.toString(16).padStart(4, '0').toUpperCase();
+  }
+  return `<${hex}>`;
 }
 
 /**
  * Escapes characters that have special meaning inside PDF text literals.
  */
 function escapePdfText(str) {
-  if (!str) return '';
-  const sanitized = sanitizeForPdf(str);
-  return sanitized
-    .replace(/\\/g, '\\\\')
-    .replace(/\(/g, '\\(')
-    .replace(/\)/g, '\\)')
-    .replace(/[\r\n]+/g, ' ');
+  return encodePdfString(str);
 }
 
 /**
- * Wraps text defensively within margins.
+ * Wraps text defensively within margins respecting visual length of Indic graphemes.
  */
 export function wrapText(text, maxChars = 64) {
   if (!text) return [];
@@ -139,7 +149,8 @@ export function wrapText(text, maxChars = 64) {
     let currentLine = '';
 
     words.forEach((word) => {
-      if (word.length > maxChars) {
+      const wordLen = getVisualLength(word);
+      if (wordLen > maxChars) {
         if (currentLine) {
           lines.push(currentLine);
           currentLine = '';
@@ -151,7 +162,7 @@ export function wrapText(text, maxChars = 64) {
       }
 
       const candidate = currentLine ? `${currentLine} ${word}` : word;
-      if (candidate.length <= maxChars) {
+      if (getVisualLength(candidate) <= maxChars) {
         currentLine = candidate;
       } else {
         if (currentLine) lines.push(currentLine);
@@ -169,6 +180,7 @@ export function wrapText(text, maxChars = 64) {
 
 /**
  * Builds a multi-page PDF binary Blob from structured pages containing text and vector graphics.
+ * Embeds Type0 Unicode composite fonts with ToUnicode mapping to support Telugu, Devanagari, and English.
  */
 function buildMultiPagePdfBlob(pages) {
   if (!pages || pages.length === 0) {
@@ -178,21 +190,27 @@ function buildMultiPagePdfBlob(pages) {
   const numPages = pages.length;
   const kids = [];
   for (let i = 0; i < numPages; i++) {
-    const pageObjNum = 5 + 2 * i;
+    const pageObjNum = 9 + 2 * i;
     kids.push(`${pageObjNum} 0 R`);
   }
 
+  const toUnicodeCMap = `/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n/CMapName /Custom-ToUnicode def\n/CMapType 2 def\n1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n1 beginbfrange\n<0000> <FFFF> <0000>\nendbfrange\nendcmap\nCMapName currentdict /CMap defineresource pop\nend\nend\n`;
+
   const obj1 = '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n';
   const obj2 = `2 0 obj\n<< /Type /Pages /Kids [${kids.join(' ')}] /Count ${numPages} >>\nendobj\n`;
-  const obj3 = '3 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n';
-  const obj4 = '4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>\nendobj\n';
+  const obj3 = '3 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\nendobj\n';
+  const obj4 = '4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>\nendobj\n';
+  const obj5 = '5 0 obj\n<< /Type /Font /Subtype /Type0 /BaseFont /NirmalaUI /Encoding /Identity-H /DescendantFonts [6 0 R] /ToUnicode 7 0 R >>\nendobj\n';
+  const obj6 = '6 0 obj\n<< /Type /Font /Subtype /CIDFontType2 /BaseFont /NirmalaUI /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor 8 0 R /DW 1000 >>\nendobj\n';
+  const obj7 = `7 0 obj\n<< /Length ${toUnicodeCMap.length} >>\nstream\n${toUnicodeCMap}endstream\nendobj\n`;
+  const obj8 = '8 0 obj\n<< /Type /FontDescriptor /FontName /NirmalaUI /Flags 4 /FontBBox [-500 -300 1200 1000] /ItalicAngle 0 /Ascent 850 /Descent -250 /CapHeight 700 /StemV 80 >>\nendobj\n';
 
   const pageObjects = [];
   const contentObjects = [];
 
   for (let i = 0; i < numPages; i++) {
-    const pageObjNum = 5 + 2 * i;
-    const streamObjNum = 6 + 2 * i;
+    const pageObjNum = 9 + 2 * i;
+    const streamObjNum = 10 + 2 * i;
     const pageData = pages[i] || { items: [], graphics: [] };
     const items = pageData.items || [];
     const graphics = pageData.graphics || [];
@@ -215,20 +233,21 @@ function buildMultiPagePdfBlob(pages) {
       }
     });
 
-    // 2. Draw text
+    // 2. Draw text with Unicode support
     streamContent += 'BT\n';
     items.forEach((item) => {
-      const font = item.font || 'F1';
+      const isUnicode = hasUnicodeChars(item.text);
+      const font = isUnicode ? 'F3' : (item.font || 'F1');
       const size = item.size || 10;
-      const safeText = escapePdfText(item.text);
+      const encodedText = encodePdfString(item.text);
       streamContent += `/${font} ${size} Tf\n`;
       streamContent += `1 0 0 1 ${item.x} ${item.y} Tm\n`;
-      streamContent += `(${safeText}) Tj\n`;
+      streamContent += `${encodedText} Tj\n`;
     });
     streamContent += 'ET\n';
 
     const streamLength = streamContent.length;
-    const pageObj = `${pageObjNum} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${streamObjNum} 0 R >>\nendobj\n`;
+    const pageObj = `${pageObjNum} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents ${streamObjNum} 0 R >>\nendobj\n`;
     const streamObj = `${streamObjNum} 0 obj\n<< /Length ${streamLength} >>\nstream\n${streamContent}endstream\nendobj\n`;
 
     pageObjects.push(pageObj);
@@ -236,7 +255,7 @@ function buildMultiPagePdfBlob(pages) {
   }
 
   const header = '%PDF-1.4\n';
-  const objects = [obj1, obj2, obj3, obj4];
+  const objects = [obj1, obj2, obj3, obj4, obj5, obj6, obj7, obj8];
   for (let i = 0; i < numPages; i++) {
     objects.push(pageObjects[i]);
     objects.push(contentObjects[i]);

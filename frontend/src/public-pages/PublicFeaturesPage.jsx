@@ -1,24 +1,25 @@
 import React from 'react';
 import PublicLayout from './PublicLayout';
 
-export default function PublicFeaturesPage({ onNavigate, onLaunchApp }) {
+export default function PublicFeaturesPage({ onNavigate, onLaunchApp, currentUser = null }) {
   const structuredData = {
     '@context': 'https://schema.org',
     '@type': 'WebPage',
     name: 'Neev Platform Features',
     description: 'Explore the full capabilities of Neev: handwriting vision OCR, teacher verification, syllabus-grounded AI evaluation, gap synthesis, and 5 distinct PDF reports.',
-    url: 'https://neev.app/features',
+    url: 'https://neev-basic-seven.vercel.app/features',
   };
 
   return (
     <PublicLayout
       title="Platform Features — Handwriting OCR, Teacher Verification & RAG Diagnostics"
       description="Explore Neev's features: multimodal handwriting extraction, teacher-in-the-loop verification, syllabus-grounded AI evaluation, root gap synthesis, and 5 PDF reports."
-      canonicalUrl="https://neev.app/features"
+      canonicalUrl="https://neev-basic-seven.vercel.app/features"
       structuredData={structuredData}
       activePath="/features"
       onNavigate={onNavigate}
       onLaunchApp={onLaunchApp}
+      currentUser={currentUser}
     >
       <div className="pub-container">
         <div style={{ textAlign: 'center', marginBottom: '40px' }}>

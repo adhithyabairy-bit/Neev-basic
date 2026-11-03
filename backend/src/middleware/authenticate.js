@@ -65,19 +65,57 @@ export async function authenticate(req, res, next) {
   try {
     let decodedToken;
     try {
-      // Cryptographically verify token and check revocation status
+      // Cryptographically verify token and strictly check revocation status
       decodedToken = await admin.auth().verifyIdToken(idToken, true);
-    } catch (verifyErr) {
-      if (
-        verifyErr.code === 'auth/id-token-expired' ||
-        verifyErr.code === 'auth/id-token-revoked' ||
-        verifyErr.code === 'auth/user-disabled'
-      ) {
-        throw verifyErr;
+    } catch (err) {
+      if (err.code === 'auth/id-token-expired') {
+        return res.status(401).json({
+          success: false,
+          error: 'Unauthorized: Firebase ID token has expired. Please refresh your session.',
+          code: 'TOKEN_EXPIRED',
+        });
       }
-      // If checkRevoked fails due to non-security network glitch in offline test harness,
-      // fallback only if user is not revoked or disabled
-      decodedToken = await admin.auth().verifyIdToken(idToken, false);
+
+      if (err.code === 'auth/id-token-revoked') {
+        return res.status(401).json({
+          success: false,
+          error: 'Unauthorized: Firebase ID token has been revoked. Please sign in again.',
+          code: 'TOKEN_REVOKED',
+        });
+      }
+
+      if (err.code === 'auth/user-disabled') {
+        return res.status(401).json({
+          success: false,
+          error: 'Unauthorized: User account has been disabled.',
+          code: 'USER_DISABLED',
+        });
+      }
+
+      if (
+        err.code === 'auth/invalid-id-token' ||
+        err.code === 'auth/argument-error' ||
+        err.code === 'auth/invalid-argument' ||
+        (err.name === 'FirebaseAuthError' && err.message?.toLowerCase().includes('token'))
+      ) {
+        return res.status(401).json({
+          success: false,
+          error: 'Unauthorized: Invalid Firebase ID token.',
+          code: 'INVALID_TOKEN',
+        });
+      }
+
+      // Infrastructure / network / service failure -> Fail safely without revocation bypass
+      console.error('[Authenticate Middleware] Infrastructure error while verifying token:', {
+        code: err.code || 'UNKNOWN_ERROR',
+        message: err.message,
+      });
+
+      return res.status(503).json({
+        success: false,
+        error: 'Service Unavailable: Unable to verify token revocation status due to an authentication infrastructure error. Please try again later.',
+        code: 'REVOCATION_CHECK_UNAVAILABLE',
+      });
     }
 
     const { uid, email, name } = decodedToken;

@@ -127,7 +127,11 @@ export default function App() {
   };
 
   const handleLaunchApp = () => {
-    navigateTo('/app');
+    if (currentUser) {
+      navigateTo('/app');
+    } else {
+      navigateTo('/login');
+    }
   };
 
   // Helper to reset workflow states to clean empty state
@@ -201,7 +205,7 @@ export default function App() {
       document.head.appendChild(robotsMeta);
     }
 
-    if (isPublicPage && !(currentPath === '/' && currentUser)) {
+    if (isPublicPage) {
       robotsMeta.content = 'index, follow';
     } else {
       robotsMeta.content = 'noindex, nofollow';
@@ -366,18 +370,25 @@ export default function App() {
       }
     }
 
-    // Auto-verify answer sheet when moving past Step 4 (Teacher Correction) to unlock Step 5 (AI Evaluation)
+    // Verify answer sheet before moving past Step 4 (Teacher Correction) to unlock Step 5 (AI Evaluation)
     if (currentStep === 4) {
-      setIsTeacherConfirmed(true);
-      if (activeAnswerSheet?._id) {
+      if (!isDemoMode && activeAnswerSheet?._id) {
         try {
           const verified = await verifyAnswerSheet(activeAnswerSheet._id, extractionData);
-          if (verified) {
+          if (verified && (verified.status === 'verified' || verified.verificationStatus?.isVerified)) {
             setActiveAnswerSheet(verified);
+            setIsTeacherConfirmed(true);
+          } else {
+            throw new Error('Verification request completed but answer sheet was not confirmed as verified.');
           }
         } catch (vErr) {
-          console.warn('[App] Auto-verification on continue notice:', vErr.message);
+          console.error('[App] Verification failed on continue:', vErr);
+          setIsTeacherConfirmed(false);
+          alert(`Verification required: ${vErr.message || 'Please fix marks and confirm ground truth before proceeding to AI Evaluation.'}`);
+          return; // Strictly abort advancement to Step 5
         }
+      } else {
+        setIsTeacherConfirmed(true);
       }
     }
 
@@ -439,59 +450,65 @@ export default function App() {
   // -------------------------------------------------------------
   // Public Marketing Routes Rendering
   // -------------------------------------------------------------
-  if (currentPath === '/' && !currentUser) {
-    return <PublicHomePage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} />;
+  if (currentPath === '/') {
+    return <PublicHomePage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} currentUser={currentUser} />;
   }
   if (currentPath === '/features') {
-    return <PublicFeaturesPage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} />;
+    return <PublicFeaturesPage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} currentUser={currentUser} />;
   }
   if (currentPath === '/how-it-works') {
-    return <PublicHowItWorksPage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} />;
+    return <PublicHowItWorksPage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} currentUser={currentUser} />;
   }
   if (currentPath === '/curriculum-coverage') {
-    return <PublicCurriculumCoveragePage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} />;
+    return <PublicCurriculumCoveragePage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} currentUser={currentUser} />;
   }
   if (currentPath === '/faq') {
-    return <PublicFaqPage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} />;
+    return <PublicFaqPage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} currentUser={currentUser} />;
   }
   if (currentPath === '/about') {
-    return <PublicAboutPage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} />;
+    return <PublicAboutPage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} currentUser={currentUser} />;
   }
   if (currentPath === '/contact') {
-    return <PublicContactPage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} />;
+    return <PublicContactPage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} currentUser={currentUser} />;
   }
   if (currentPath === '/privacy') {
-    return <PublicPrivacyPage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} />;
+    return <PublicPrivacyPage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} currentUser={currentUser} />;
   }
 
   // -------------------------------------------------------------
-  // Application Workspace Rendering
+  // Authentication Routes (/login, /register, /forgot-password)
   // -------------------------------------------------------------
-
-  // If user is not authenticated, show Authentication pages
-  if (!currentUser) {
-    if (authView === 'register') {
-      return (
-        <Register
-          onAuthSuccess={(user) => {
-            setCurrentUser(user);
-            resetToEmptyWorkflow();
-            setViewMode('dashboard');
-            navigateTo('/app');
-          }}
-          onNavigateLogin={() => setAuthView('login')}
-        />
-      );
+  // Redirect logged-in users visiting /login, /register, or /forgot-password to /app
+  if (currentUser && (currentPath === '/login' || currentPath === '/register' || currentPath === '/forgot-password')) {
+    if (typeof window !== 'undefined') {
+      window.history.replaceState({}, '', '/app');
     }
+    setCurrentPath('/app');
+  }
 
-    if (authView === 'forgot-password') {
-      return (
-        <ForgotPassword
-          onNavigateLogin={() => setAuthView('login')}
-        />
-      );
-    }
+  if (currentPath === '/register') {
+    return (
+      <Register
+        onAuthSuccess={(user) => {
+          setCurrentUser(user);
+          resetToEmptyWorkflow();
+          setViewMode('dashboard');
+          navigateTo('/app');
+        }}
+        onNavigateLogin={() => navigateTo('/login')}
+      />
+    );
+  }
 
+  if (currentPath === '/forgot-password') {
+    return (
+      <ForgotPassword
+        onNavigateLogin={() => navigateTo('/login')}
+      />
+    );
+  }
+
+  if (currentPath === '/login') {
     return (
       <Login
         onAuthSuccess={(user) => {
@@ -500,8 +517,27 @@ export default function App() {
           setViewMode('dashboard');
           navigateTo('/app');
         }}
-        onNavigateRegister={() => setAuthView('register')}
-        onNavigateForgotPassword={() => setAuthView('forgot-password')}
+        onNavigateRegister={() => navigateTo('/register')}
+        onNavigateForgotPassword={() => navigateTo('/forgot-password')}
+      />
+    );
+  }
+
+  // -------------------------------------------------------------
+  // Application Workspace Rendering (/app)
+  // -------------------------------------------------------------
+  // If user is not authenticated and attempts to access /app, route to /login
+  if (!currentUser) {
+    return (
+      <Login
+        onAuthSuccess={(user) => {
+          setCurrentUser(user);
+          resetToEmptyWorkflow();
+          setViewMode('dashboard');
+          navigateTo('/app');
+        }}
+        onNavigateRegister={() => navigateTo('/register')}
+        onNavigateForgotPassword={() => navigateTo('/forgot-password')}
       />
     );
   }
