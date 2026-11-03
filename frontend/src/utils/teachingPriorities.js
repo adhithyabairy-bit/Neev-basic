@@ -549,13 +549,14 @@ export function getTeachingPrioritiesForClass(
       ? Math.round((t.affectedStudentsCount / t.totalEvaluatedCount) * 100)
       : (t.averageMastery < 80 ? 100 - t.averageMastery : 0);
 
+    const noun = (t.totalEvaluatedCount || 1) === 1 ? 'student' : 'students';
     const reason = hypList.length > 0
       ? `Diagnosed Misconception: ${hypList.join('; ')}`
       : errList.length > 0
       ? `Observed Error: ${errList.join('; ')}`
       : t.evidenceQuote
       ? `Evidence: ${t.evidenceQuote}`
-      : `Class mastery is ${t.averageMastery}%, indicating foundational review is recommended.`;
+      : `${t.affectedStudentsCount} out of ${t.totalEvaluatedCount || 1} ${noun} affected by this learning gap.`;
 
     const commonMistakes = errList.length > 0
       ? errList.slice(0, 2).join('; ')

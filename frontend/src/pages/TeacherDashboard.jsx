@@ -953,11 +953,17 @@ export default function TeacherDashboard({
                                 <span className={`badge ${isPrevClass ? 'badge-orange' : isUndetermined ? 'badge-warning' : 'badge-neutral'}`} style={{ fontSize: '10.5px' }}>
                                   {item.grade}
                                 </span>
-                                {item.affectedPercentage !== undefined && (
-                                  <span className={`badge ${item.affectedPercentage >= 50 ? 'badge-error' : 'badge-neutral'}`} style={{ fontSize: '10px', fontWeight: '600' }}>
-                                    {item.affectedPercentage}% Affected ({item.affectedStudentsCount}/{item.totalEvaluatedCount || 1})
-                                  </span>
-                                )}
+                                {(() => {
+                                  const affected = item.affectedStudentsCount !== undefined ? item.affectedStudentsCount : 0;
+                                  const total = item.totalEvaluatedCount || 1;
+                                  const studentNoun = total === 1 ? 'Student' : 'Students';
+                                  const label = `${affected} out of ${total} ${studentNoun} Affected`;
+                                  return (
+                                    <span className={`badge ${affected > 0 ? 'badge-error' : 'badge-neutral'}`} style={{ fontSize: '10px', fontWeight: '600' }}>
+                                      {label}
+                                    </span>
+                                  );
+                                })()}
                                 {isItemCompleted && (
                                   <span className="badge badge-success" style={{ fontSize: '10px' }}>
                                     Taught
@@ -966,25 +972,32 @@ export default function TeacherDashboard({
                               </div>
                             </div>
 
-                            {/* Mastery Bar */}
-                            {item.averageMastery !== undefined && (
-                              <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <div style={{ flex: 1, height: '5px', backgroundColor: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
-                                  <div
-                                    style={{
-                                      width: `${Math.min(100, Math.max(0, item.averageMastery))}%`,
-                                      height: '100%',
-                                      backgroundColor: item.averageMastery < 50 ? 'var(--error)' : item.averageMastery < 75 ? 'var(--primary-orange)' : 'var(--success)',
-                                      borderRadius: '3px',
-                                      transition: 'width 0.3s ease',
-                                    }}
-                                  />
+                            {/* Affected Student Count Metric Display (Preserves exact layout without percentages or mastery) */}
+                            {(() => {
+                              const affected = item.affectedStudentsCount !== undefined ? item.affectedStudentsCount : 0;
+                              const total = item.totalEvaluatedCount || 1;
+                              const studentNoun = total === 1 ? 'Student' : 'Students';
+                              const label = `${affected} out of ${total} ${studentNoun} Affected`;
+                              const pctWidth = Math.min(100, Math.max(0, Math.round((affected / total) * 100)));
+                              return (
+                                <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <div style={{ flex: 1, height: '5px', backgroundColor: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
+                                    <div
+                                      style={{
+                                        width: `${pctWidth}%`,
+                                        height: '100%',
+                                        backgroundColor: affected > 0 ? 'var(--error)' : 'var(--success)',
+                                        borderRadius: '3px',
+                                        transition: 'width 0.3s ease',
+                                      }}
+                                    />
+                                  </div>
+                                  <span style={{ fontSize: '10.5px', color: 'var(--secondary-text)', fontWeight: '600', whiteSpace: 'nowrap' }}>
+                                    {label}
+                                  </span>
                                 </div>
-                                <span style={{ fontSize: '10.5px', color: 'var(--secondary-text)', fontWeight: '600', whiteSpace: 'nowrap' }}>
-                                  Mastery: {item.averageMastery}%
-                                </span>
-                              </div>
-                            )}
+                              );
+                            })()}
 
                             {/* Prerequisite Chapter (strictly for verified curriculum gaps) */}
                             {item.chapterName && !isUndetermined && (
