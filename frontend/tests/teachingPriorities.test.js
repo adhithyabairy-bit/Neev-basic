@@ -307,4 +307,72 @@ describe('Phase 2 & 9: Frontend Teaching Priorities Tests', () => {
     assert.ok(prioritiesEnglish.length > 0, 'Must generate diagnostic priorities for English');
     assert.ok(prioritiesEnglish.some((p) => p.pdfFileName && p.pdfFileName.includes('English')), 'Must anchor to NCERT English chapter PDF');
   });
+
+  it('strictly isolates teaching priorities and assessments between different sections of the same grade (Section A vs Section D)', () => {
+    const class9A = {
+      _id: 'class-9-sec-a',
+      name: 'Class 9 - Science / Physics',
+      grade: 'Class 9',
+      section: 'Section A',
+      subject: 'Science / Physics',
+    };
+    const class9D = {
+      _id: 'class-9-sec-d',
+      name: 'Class 9 - Science / Physics',
+      grade: 'Class 9',
+      section: 'Section D',
+      subject: 'Science / Physics',
+    };
+
+    assert.strictEqual(getSectionDisplay(class9A), 'Section A');
+    assert.strictEqual(getSectionDisplay(class9D), 'Section D');
+
+    const asmSectionA = [
+      { _id: 'asm-9a-1', classId: 'class-9-sec-a', title: 'Motion & Laws of Motion' },
+      { _id: 'asm-9a-2', classId: 'class-9-sec-a', title: 'Work and Energy' },
+    ];
+    const asmSectionD = [
+      { _id: 'asm-9d-1', classId: 'class-9-sec-d', title: 'Gravitation & Floatation' },
+    ];
+    const allAssessments = [...asmSectionA, ...asmSectionD];
+
+    const gapOverview = {
+      'asm-9a-1': {
+        hasEvaluatedData: true,
+        topicSummaries: [
+          {
+            topic: 'Inertia and Force Vectors',
+            masteryPercentage: 40,
+            commonErrors: ['Confusion between mass and inertia'],
+            totalEvaluations: 20,
+          },
+        ],
+      },
+      'asm-9d-1': {
+        hasEvaluatedData: true,
+        topicSummaries: [
+          {
+            topic: 'Archimedes Principle & Buoyancy',
+            masteryPercentage: 30,
+            commonErrors: ['Density vs buoyant force confusion'],
+            totalEvaluations: 15,
+          },
+        ],
+      },
+    };
+
+    // Priorities for Section A
+    const prioritiesA = getTeachingPrioritiesForClass(class9A, allAssessments, gapOverview);
+    assert.strictEqual(prioritiesA.length, 1);
+    assert.strictEqual(prioritiesA[0].topicName, 'Inertia and Force Vectors');
+
+    // Priorities for Section D
+    const prioritiesD = getTeachingPrioritiesForClass(class9D, allAssessments, gapOverview);
+    assert.strictEqual(prioritiesD.length, 1);
+    assert.strictEqual(prioritiesD[0].topicName, 'Archimedes Principle & Buoyancy');
+
+    // Cross-check: Section A must NOT contain Section D topic, and vice-versa
+    assert.ok(!prioritiesA.some((p) => p.topicName.includes('Archimedes')));
+    assert.ok(!prioritiesD.some((p) => p.topicName.includes('Inertia')));
+  });
 });

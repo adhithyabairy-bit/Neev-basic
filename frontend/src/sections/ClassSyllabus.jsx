@@ -10,6 +10,7 @@ import {
   IconAlertTriangle,
   IconBookOpen,
 } from '../components/Icons';
+import { getSectionDisplay } from '../utils/teachingPriorities';
 
 export default function ClassSyllabus({
   syllabusData,
@@ -20,6 +21,7 @@ export default function ClassSyllabus({
 }) {
   const {
     selectedClass = 'Class 8',
+    section = 'Section A',
     classId = '',
     selectedSubject = 'Mathematics',
     examName = '',
@@ -248,16 +250,18 @@ export default function ClassSyllabus({
               }
               onChange={(e) => {
                 const val = e.target.value;
+                const currentSection = section || 'Section A';
+                const currentSubject = selectedSubject || 'Mathematics';
                 const matched = classes.find(
                   (c) =>
-                    c.grade === val ||
-                    c.grade === val.replace('Class', 'Grade') ||
-                    c.name === val ||
-                    c.name.startsWith(val)
+                    (c.grade === val || c.grade === val.replace('Class', 'Grade')) &&
+                    getSectionDisplay(c) === currentSection &&
+                    (!c.subject || c.subject === currentSubject)
                 );
                 onUpdateSyllabus({
                   ...syllabusData,
                   selectedClass: val,
+                  section: currentSection,
                   classId: matched?._id || '',
                 });
               }}
@@ -272,10 +276,55 @@ export default function ClassSyllabus({
             </select>
           </FormField>
 
+          {/* Section Selection */}
+          <FormField id="section-select" label="Section" required>
+            <select
+              id="section-select"
+              value={section || 'Section A'}
+              onChange={(e) => {
+                const val = e.target.value;
+                const currentClass = selectedClass || 'Class 8';
+                const currentSubject = selectedSubject || 'Mathematics';
+                const matched = classes.find(
+                  (c) =>
+                    (c.grade === currentClass || c.grade === currentClass.replace('Class', 'Grade')) &&
+                    getSectionDisplay(c) === val &&
+                    (!c.subject || c.subject === currentSubject)
+                );
+                onUpdateSyllabus({
+                  ...syllabusData,
+                  section: val,
+                  classId: matched?._id || '',
+                });
+              }}
+              className="form-select"
+            >
+              <option value="Section A">Section A</option>
+              <option value="Section B">Section B</option>
+              <option value="Section C">Section C</option>
+              <option value="Section D">Section D</option>
+            </select>
+          </FormField>
+
           <FormField id="subject-select" label="Subject" required>
             <select
               value={selectedSubject}
-              onChange={(e) => handleConfigChange('selectedSubject', e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                const currentClass = selectedClass || 'Class 8';
+                const currentSection = section || 'Section A';
+                const matched = classes.find(
+                  (c) =>
+                    (c.grade === currentClass || c.grade === currentClass.replace('Class', 'Grade')) &&
+                    getSectionDisplay(c) === currentSection &&
+                    (!c.subject || c.subject === val)
+                );
+                onUpdateSyllabus({
+                  ...syllabusData,
+                  selectedSubject: val,
+                  classId: matched?._id || '',
+                });
+              }}
               className="form-select"
             >
               <option value="Mathematics">Mathematics</option>

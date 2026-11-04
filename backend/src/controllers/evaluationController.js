@@ -581,7 +581,7 @@ export async function getAssessmentGapOverview(req, res, next) {
     // Verify assessment ownership
     let assessmentQuery = Assessment.findOne({ _id: assessmentId, teacherId });
     if (assessmentQuery && typeof assessmentQuery.populate === 'function') {
-      assessmentQuery = assessmentQuery.populate('classId', 'name grade subject board');
+      assessmentQuery = assessmentQuery.populate('classId', 'name grade subject board section');
     }
     const assessment = await assessmentQuery;
     if (!assessment) {

@@ -31,7 +31,7 @@ export async function getAssessments(req, res, next) {
 
     const [assessments, total] = await Promise.all([
       Assessment.find(query)
-        .populate('classId', 'name grade subject board')
+        .populate('classId', 'name grade subject board section')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -215,7 +215,7 @@ export async function getAssessmentById(req, res, next) {
     }
 
     const foundAssessment = await Assessment.findOne({ _id: id, teacherId })
-      .populate('classId', 'name grade subject board')
+      .populate('classId', 'name grade subject board section')
       .lean();
 
     if (!foundAssessment) {

@@ -1007,17 +1007,6 @@ export default function TeacherDashboard({
                                 <span className={`badge ${isPrevClass ? 'badge-orange' : isUndetermined ? 'badge-warning' : 'badge-neutral'}`} style={{ fontSize: '10.5px' }}>
                                   {item.grade}
                                 </span>
-                                {(() => {
-                                  const affected = item.affectedStudentsCount !== undefined ? item.affectedStudentsCount : 0;
-                                  const total = item.totalEvaluatedCount || 1;
-                                  const studentNoun = total === 1 ? 'Student' : 'Students';
-                                  const label = `${affected} out of ${total} ${studentNoun} Affected`;
-                                  return (
-                                    <span className={`badge ${affected > 0 ? 'badge-danger' : 'badge-neutral'}`} style={{ fontSize: '10px', fontWeight: '600' }}>
-                                      {label}
-                                    </span>
-                                  );
-                                })()}
                                 {isItemCompleted && (
                                   <span className="badge badge-success" style={{ fontSize: '10px' }}>
                                     Taught

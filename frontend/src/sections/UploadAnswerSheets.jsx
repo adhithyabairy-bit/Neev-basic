@@ -20,6 +20,7 @@ import {
 
 export default function UploadAnswerSheets({
   syllabusData,
+  onUpdateSyllabus,
   uploadedFiles = [],
   onUpdateFiles,
   studentProfile = { name: '', rollNumber: '', section: 'Section A' },
@@ -296,6 +297,7 @@ export default function UploadAnswerSheets({
       const formData = new FormData();
       formData.append('studentName', activeStudentName);
       formData.append('rollNumber', studentProfile.rollNumber ? studentProfile.rollNumber.trim() : '');
+      formData.append('section', studentProfile.section || syllabusData?.section || 'Section A');
       formData.append('category', selectedCategory);
 
       filesToUpload.forEach((file) => {
@@ -654,12 +656,27 @@ export default function UploadAnswerSheets({
               />
               <select
                 id="student-section-select"
-                value={studentProfile?.section || 'Section A'}
+                value={studentProfile?.section || syllabusData?.section || 'Section A'}
                 onChange={(e) => {
+                  const newSec = e.target.value;
                   onUpdateStudentProfile?.({
                     ...studentProfile,
-                    section: e.target.value,
+                    section: newSec,
                   });
+                  if (onUpdateSyllabus) {
+                    onUpdateSyllabus((prev) => ({
+                      ...prev,
+                      section: newSec,
+                      classId: '',
+                    }));
+                  }
+                  if (onSaveAssessment) {
+                    onSaveAssessment({
+                      ...syllabusData,
+                      section: newSec,
+                      classId: '',
+                    }).catch((err) => console.warn('[UploadAnswerSheets] Assessment section sync warn:', err));
+                  }
                 }}
                 className="form-select"
                 style={{ width: '50%' }}

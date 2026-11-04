@@ -231,7 +231,7 @@ export async function getAnswerSheetById(req, res, next) {
 
     const answerSheet = await AnswerSheet.findOne({ _id: id, teacherId })
       .populate('assessmentId', 'title subject maximumMarks')
-      .populate('classId', 'name grade subject board')
+      .populate('classId', 'name grade subject board section')
       .lean();
 
     if (!answerSheet) {

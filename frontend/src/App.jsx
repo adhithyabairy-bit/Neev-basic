@@ -42,9 +42,11 @@ import { deriveGapsAndRemediation } from './utils/gapSynthesizer';
 import { fetchClasses, createClass } from './services/classService';
 import { createAssessment, updateAssessment } from './services/assessmentService';
 import { verifyAnswerSheet } from './services/answerSheetService';
+import { getSectionDisplay } from './utils/teachingPriorities';
 
 const EMPTY_SYLLABUS = {
   selectedClass: 'Class 8',
+  section: 'Section A',
   classId: '',
   selectedSubject: 'Mathematics',
   examName: '',
@@ -171,11 +173,13 @@ export default function App() {
         .then((data) => {
           setTeacherClasses(data || []);
           if (data && data.length > 0 && !syllabusData.classId) {
+            const first = data[0];
             setSyllabusData((prev) => ({
               ...prev,
-              classId: data[0]._id,
-              selectedClass: data[0].grade,
-              selectedSubject: data[0].subject || prev.selectedSubject,
+              classId: first._id,
+              selectedClass: first.grade,
+              section: getSectionDisplay(first),
+              selectedSubject: first.subject || prev.selectedSubject,
             }));
           }
         })
@@ -282,33 +286,50 @@ export default function App() {
   // Explicit Assessment Creation Action linked to backend service
   const handleSaveAssessment = async (currentData) => {
     const dataToSave = currentData || syllabusData;
+    const selClass = dataToSave.selectedClass || 'Class 8';
+    const selSection = dataToSave.section || studentProfile?.section || 'Section A';
+    const selSubject = dataToSave.selectedSubject || 'Mathematics';
 
     let targetClassId = dataToSave.classId;
-    if (!targetClassId) {
-      try {
-        const existingClasses = await fetchClasses();
-        const selClass = dataToSave.selectedClass || 'Class 8';
-        const matched = existingClasses.find(
-          (c) =>
-            c.grade === selClass ||
-            c.grade === selClass.replace('Class', 'Grade') ||
-            c.name === selClass ||
-            c.name.includes(selClass)
-        );
+
+    try {
+      const existingClasses = await fetchClasses();
+      const existingTarget = targetClassId ? existingClasses.find((c) => c._id === targetClassId) : null;
+      const targetMatches =
+        existingTarget &&
+        (existingTarget.grade === selClass || existingTarget.grade === selClass.replace('Class', 'Grade')) &&
+        getSectionDisplay(existingTarget) === selSection;
+
+      if (!targetMatches) {
+        // Find matching class by grade + section + subject
+        const matched =
+          existingClasses.find(
+            (c) =>
+              (c.grade === selClass || c.grade === selClass.replace('Class', 'Grade')) &&
+              getSectionDisplay(c) === selSection &&
+              (!c.subject || c.subject === selSubject)
+          ) ||
+          existingClasses.find(
+            (c) =>
+              (c.grade === selClass || c.grade === selClass.replace('Class', 'Grade')) &&
+              getSectionDisplay(c) === selSection
+          );
+
         if (matched) {
           targetClassId = matched._id;
         } else {
           const newClass = await createClass({
-            name: `${selClass} - ${dataToSave.selectedSubject || 'Mathematics'}`,
+            name: `${selClass} - ${selSubject}`,
             grade: selClass,
-            subject: dataToSave.selectedSubject || 'Mathematics',
+            section: selSection,
+            subject: selSubject,
           });
           targetClassId = newClass._id;
           setTeacherClasses((prev) => [...prev, newClass]);
         }
-      } catch (err) {
-        console.warn('[App] Could not resolve or auto-create class:', err);
       }
+    } catch (err) {
+      console.warn('[App] Could not resolve or auto-create class:', err);
     }
 
     if (!targetClassId) {
@@ -323,7 +344,7 @@ export default function App() {
     const payload = {
       classId: targetClassId,
       title: examTitle,
-      subject: dataToSave.selectedSubject || 'Mathematics',
+      subject: selSubject,
       maximumMarks: Number(dataToSave.totalMarks) || 50,
       examDate: dataToSave.examDate || new Date().toISOString(),
       status: 'draft',
@@ -341,6 +362,9 @@ export default function App() {
     setSyllabusData((prev) => ({
       ...prev,
       classId: targetClassId,
+      section: selSection,
+      selectedClass: selClass,
+      selectedSubject: selSubject,
       examName: examTitle,
       assessmentId: saved._id,
       lessons: saved.lessons || prev.lessons,
@@ -584,6 +608,7 @@ export default function App() {
         return (
           <UploadAnswerSheets
             syllabusData={syllabusData}
+            onUpdateSyllabus={setSyllabusData}
             uploadedFiles={uploadedFiles}
             onUpdateFiles={setUploadedFiles}
             studentProfile={studentProfile}
