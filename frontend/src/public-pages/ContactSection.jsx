@@ -308,7 +308,7 @@ export default function ContactSection({ onNavigate }) {
       </div>
 
       <div style={{ marginTop: '24px', textAlign: 'center', fontSize: '13.5px', color: 'var(--pub-muted)' }}>
-        Direct Academic Support Email: <a href="mailto:contact@neev.education" style={{ color: 'var(--pub-orange)', fontWeight: '700' }}>contact@neev.education</a>
+        Direct Academic Support Email: <a href="mailto:adhithyabairy@gmail.com" style={{ color: 'var(--pub-orange)', fontWeight: '700' }}>adhithyabairy@gmail.com</a>
       </div>
     </div>
   );
