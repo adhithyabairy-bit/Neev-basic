@@ -8,16 +8,17 @@
 [![Cloud Storage](https://img.shields.io/badge/Storage-Filebase%20S3%20%7C%20Firebase-orange)](https://filebase.com/)
 [![AI Engine](https://img.shields.io/badge/AI-Groq%20%7C%20Grok%20%7C%20Gemini-purple)](https://groq.com/)
 
-**Neev** (*Foundation*) is a teacher-first diagnostic learning platform that bridges student assessments with official NCERT curricula (Grades 6–10 across **Mathematics**, **Science**, **Social Studies**, and **English Language**).
+**Neev** (*Foundation*) is an enterprise-grade, teacher-first diagnostic learning platform that bridges physical student assessments with official NCERT curricula (Grades 6–10 across **Mathematics**, **Science**, **Social Studies**, and **English Language**).
 
-Neev ingests handwritten or digital student answer sheets, question papers, and marking schemes; automatically segments questions and extracts responses; provides interactive dual-pane correction; runs curriculum-grounded AI evaluation with misconception diagnosis; traces prerequisite foundational gaps back to previous classes; maps forward impacts on Class 9 and Class 10 Board exam topics; generates personalized remediation study roadmaps; creates gap-targeted 2-mark diagnostic retests; and exports 5 margin-wrapped, genuine PDF 1.4 documents.
+Neev ingests handwritten or digital student answer sheets, question papers, and marking schemes; automatically segments questions and extracts responses; provides interactive dual-pane correction; runs curriculum-grounded AI evaluation with misconception diagnosis; traces prerequisite foundational gaps back to previous classes; organizes class teaching priorities into a strict 3-tier sequence; maps forward impacts on Class 9 and Class 10 Board exam topics; generates personalized remediation study roadmaps; creates gap-targeted 2-mark diagnostic retests; and exports 5 margin-wrapped, genuine PDF 1.4 documents.
 
 ---
 
 ## 🌐 Live Application
 
 - **Production URL**: [https://neev-basic-seven.vercel.app](https://neev-basic-seven.vercel.app)
-- **Teacher Account**: Configure your teacher account or sign in to access the multi-class dashboard, active cohorts, and past evaluations.
+- **Teacher Workspace**: Secure authentication gateway supporting email/password login and persistent teacher sessions (`/app`).
+- **Public Portal**: Responsive marketing and curriculum exploration portal with smooth anchor scrolling and mobile drawer navigation.
 
 ---
 
@@ -37,7 +38,7 @@ Neev guides teachers through an intuitive, streamlined 9-step assessment pipelin
 
 1. **Class & Syllabus Configuration (`ClassSyllabus.jsx`)**:
    - Select Class (Class 6 through Class 10), Section (A–D), and Subject (Mathematics, Science, Social Studies, English).
-   - Ingest official NCERT textbook chapters or upload custom syllabus PDFs (up to 200 MB via presigned S3 URLs).
+   - Ingest official NCERT textbook chapters or upload syllabus documents.
    - Maps targeted syllabus chapters, core concepts, and exam metadata.
 
 2. **Upload Answer Sheets & Reference Material (`UploadAnswerSheets.jsx`)**:
@@ -76,9 +77,38 @@ Neev guides teachers through an intuitive, streamlined 9-step assessment pipelin
 
 ---
 
-### 2. Multi-Subject Curriculum Coverage (Class 6 – 10)
+### 2. Prerequisite-First Teaching Priorities Engine
 
-Neev includes pre-ingested NCERT knowledge bases, semantic vector chunks, and diagnostic problem banks across all core academic disciplines:
+Neev features a dedicated diagnostic prioritization engine (`backend/src/services/curriculum/prerequisiteEngine.js` and `frontend/src/utils/teachingPriorities.js`) that automatically groups classroom learning gaps into an actionable pedagogical order:
+
+1. **Priority Group 1 — Previous-Class Foundational Gaps (Address First)**:
+   - Concepts from earlier grades (e.g., Class 7 Algebra, Class 8 Cell Division) that students failed to master.
+   - Must be addressed prior to current-grade instruction to prevent compounding misconceptions.
+2. **Priority Group 2 — Current-Class Core Concept Gaps (Address Next)**:
+   - Evaluated concepts from the current grade syllabus where students demonstrated gaps.
+3. **Priority Group 3 — Undetermined Learning Gaps (Further Diagnosis Required)**:
+   - Mistakes requiring further targeted diagnostic probing before assigning a root cause.
+
+#### Key Priorities Features:
+- **Real Student Count Metric**: Displays strictly as **`X out of Y Students Affected`** (e.g. *10 out of 28 Students Affected*) without confusing percentages or mastery labels.
+- **Accurate Cohort Scaling**: Dynamically aggregates unique student identifiers (`studentName`, `answerSheetId`, `assessmentId`) across the entire classroom cohort.
+- **High-Contrast Metric Bars**: Clear visual progress indicators highlighting affected ratios.
+- **Sub-200ms Parallel Loading**: Classroom gap overviews load concurrently without UI spinners or blocking dashboard interactions.
+
+---
+
+### 3. Public Marketing Portal & Responsive Mobile Navigation
+
+- **Single-Page Smooth Navigation**: Fast in-page smooth-scroll anchoring across all core public sections: *Home*, *Features*, *How It Works*, *Curriculum*, *FAQ*, *About Us*, and *Contact*.
+- **Mobile Hamburger Drawer**: Responsive 3-line navigation drawer for mobile screens with backdrop touch-dismiss.
+- **Enforced Authentication Gating**: Unauthenticated attempts to access `/app` strictly redirect to `/login`.
+- **Static Public Header**: Clean, non-distracting header with persistent *Login* and *Create Account* actions.
+
+---
+
+### 4. Multi-Subject Curriculum Coverage (Class 6 – 10)
+
+Neev includes pre-ingested NCERT knowledge bases, semantic vector chunks, and diagnostic problem banks across core academic disciplines:
 
 | Subject | Core Curricular Concepts | Foundational Prerequisite Lessons | Downstream Impacted Chapters |
 | :--- | :--- | :--- | :--- |
@@ -87,11 +117,9 @@ Neev includes pre-ingested NCERT knowledge bases, semantic vector chunks, and di
 | **Social Studies** | The Indian Constitution, Preamble, Secularism, Revolt of 1857, Resources & Development | Class 8 Civics Ch 1: Indian Constitution; Class 8 History Ch 5: When People Rebel | Class 9 Civics Ch 2: Constitutional Design; Class 10 Civics Ch 1: Power Sharing |
 | **English Language** | Verb Tenses, Active & Passive Voice, Subject-Verb Concord, Conditional Clauses, Reading Comprehension | Class 7 Grammar: Finite & Non-Finite Verbs; Class 8 Grammar: Tense Agreement | Class 9 Writing & Grammar: Error Correction; Class 10 Board English Language & Literature |
 
-*Neev also includes a universal dynamic fallback that automatically analyzes, diagnoses, and formats evaluations for any custom subject or regional syllabus.*
-
 ---
 
-### 3. Client-Side Genuine PDF 1.4 Binary Generator
+### 5. Client-Side Genuine PDF 1.4 Binary Generator
 
 Unlike libraries that bundle heavy headless browsers or produce garbled text, Neev incorporates a custom, zero-dependency client-side PDF 1.4 binary engine (`frontend/src/utils/pdfGenerator.js`):
 
@@ -102,16 +130,15 @@ Unlike libraries that bundle heavy headless browsers or produce garbled text, Ne
   4. `[student]_questions.pdf`: Diagnostic Practice Questions Paper (Student Version) with clear workspace lines and no solutions.
   5. `teacher_marking_key.pdf`: Teacher Answer Key & Marking Guide (Confidential) with step-by-step solutions, mark breakdowns, and misconception alerts.
 - **Strict ASCII Sanitization**: Converts Unicode mathematical symbols, minus signs, arrows, superscripts ($x^2$, $5^m$), and currency into standard Type 1 Helvetica characters, preventing mojibake.
-- **Defensive Line Wrapping**: Enforces safe character limits (&le; 64 characters per line) and computes printable bounds dynamically from text coordinates ($x \le 540\text{ pt}$ on A4), eliminating horizontal right-edge text clipping across all PDF viewers (Adobe Acrobat, Preview, Chrome, Firefox, Edge).
+- **Defensive Line Wrapping**: Enforces safe character limits (&le; 64 characters per line) and computes printable bounds dynamically from text coordinates ($x \le 540\text{ pt}$ on A4), eliminating horizontal right-edge text clipping across all PDF viewers.
 
 ---
 
-### 4. Teacher-Centric Dashboard & Persistent Data
+### 6. Resilient Single-Page Application (SPA) Routing & Vercel Deployment
 
-- **Multi-Class Management**: Track active cohorts across grades (Class 6 through 10) and sections.
-- **MongoDB Atlas Persistence**: Student assessments, verified answer sheets, rubrics, and diagnostic results persist seamlessly across devices.
-- **Teacher-Friendly UX**: All technical database and cloud jargon has been replaced with clean, intuitive educational terminology (*"Active"*, *"Saved across all classes"*, *"Automated Scanner"*, *"Curriculum AI Evaluation"*).
-- **Secure Authentication**: Firebase Authentication gateway supporting email/password login and persistent teacher sessions.
+- **Universal Pre-Rendered Fallbacks (`generate-spa-fallbacks.js`)**: Generates compiled production entry points (`dist/app/index.html`, `dist/login/index.html`, `dist/register/index.html`, `dist/200.html`, `dist/404.html`) matching hashed production script tags at build time.
+- **Zero White Screens on Refresh**: Full client-side route persistence ensuring reloads on `/app`, `/login`, or `/curriculum-coverage` return HTTP 200 and boot instantly.
+- **Multi-Service Architecture**: Configured via `vercel.json` to seamlessly route `/api/*` to the Express backend and all other traffic to the Vite client.
 
 ---
 
@@ -125,9 +152,16 @@ Neev/
 ├── frontend/                            # React 19 + Vite client application
 │   ├── public/
 │   │   └── curriculum/                  # NCERT syllabus reference PDFs (Math, Science, Social, English)
+│   ├── scripts/
+│   │   └── generate-spa-fallbacks.js    # Pre-renders entry points for all SPA routes at build time
 │   ├── src/
 │   │   ├── components/                  # Navigation, header, modals, form controls, icons
 │   │   ├── pages/                       # Login, Register, ForgotPassword, TeacherDashboard
+│   │   ├── public-pages/                # Public single-page marketing portal
+│   │   │   ├── PublicHomePage.jsx       # Consolidated landing page with smooth scroll
+│   │   │   ├── PublicHeader.jsx         # Static header with hamburger drawer
+│   │   │   ├── PublicFooter.jsx         # Footer with quick links
+│   │   │   └── ContactSection.jsx       # Contact form and support information
 │   │   ├── sections/                    # 9-Step Teacher Assessment Workflow
 │   │   │   ├── ClassSyllabus.jsx        # Step 1: Class details & syllabus mapping
 │   │   │   ├── UploadAnswerSheets.jsx   # Step 2: Answer sheets & reference papers upload
@@ -141,30 +175,29 @@ Neev/
 │   │   │   └── ExportFollowUp.jsx       # Export: Multi-PDF document download center
 │   │   ├── services/                    # apiClient, authService, syllabusService, assessmentService
 │   │   ├── data/                        # initialData.js, dashboardDemoData.js
-│   │   └── utils/                       # pdfGenerator.js, filename.js, gapSynthesizer.js
+│   │   └── utils/                       # pdfGenerator.js, teachingPriorities.js, gapSynthesizer.js
 │   ├── package.json
 │   └── vite.config.js
 │
 ├── backend/                             # Express.js REST API & Ingestion Worker
 │   ├── src/
-│   │   ├── controllers/                 # syllabus, answerSheet, assessment, class, auth
-│   │   ├── models/                      # SyllabusDocument, SyllabusChunk, IngestionJob, Teacher, etc.
-│   │   ├── routes/                      # Protected REST API routes
+│   │   ├── controllers/                 # evaluation, syllabus, answerSheet, assessment, class, auth
+│   │   ├── models/                      # Evaluation, Assessment, AnswerSheet, Class, Teacher, etc.
+│   │   ├── routes/                      # Protected REST API routes (/api/evaluations, /api/classes, etc.)
 │   │   ├── services/
+│   │   │   ├── curriculum/              # prerequisiteEngine.js (multi-tier gap prioritization)
 │   │   │   ├── storage/                 # s3StorageProvider, firebaseStorageProvider, storageService
 │   │   │   ├── rag/                     # ingestionService, chunkingService, embeddingService, retrievalService
 │   │   │   ├── ai/                      # grokService (AI evaluation & feedback)
 │   │   │   └── extraction/              # groqExtractionService, extractionService (OCR & segmentation)
-│   │   ├── workers/
-│   │   │   └── ingestionWorker.js       # Background queue worker for chunking & embedding
-│   │   ├── scripts/                     # Textbook ingestion, CORS config, storage test, status check
 │   │   ├── middleware/                  # verifyFirebaseToken, authenticate, errorHandler
 │   │   ├── app.js                       # Express configuration & CORS validation
 │   │   └── server.js                    # Server bootstrap & graceful shutdown
-│   ├── tests/                           # Automated unit, integration, and security tests
+│   ├── tests/                           # Unit, integration, and security tests
 │   └── package.json
 │
-├── vercel.json                          # Monorepo deployment & serverless routing configuration
+├── vercel.json                          # Multi-service monorepo routing configuration
+└── package.json                         # Monorepo workspace configuration
 ```
 
 ---
@@ -231,18 +264,18 @@ npm --prefix backend run dev
 
 # Terminal 2: Frontend Client (http://localhost:5173)
 npm --prefix frontend run dev
-
-# Terminal 3: Optional background ingestion worker
-npm --prefix backend run worker:ingest
 ```
 
-### 5. Production Build & Verification
+### 5. Production Build & Automated Verification
 ```bash
-# Verify frontend production bundle
-npm --prefix frontend run build
+# Verify frontend production bundle and SPA fallback generator
+npm run build
 
-# Run backend test suite
-npm --prefix backend test
+# Run frontend test suite (Auth, Gap Synthesizer, PDF Generator, Teaching Priorities)
+npm run test:frontend
+
+# Run prerequisite prioritization unit tests
+node --test backend/tests/prerequisitePrioritization.test.js
 ```
 
 ---
