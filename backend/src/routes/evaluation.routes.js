@@ -6,9 +6,17 @@ import {
   getEvaluationsByAssessment,
   approveEvaluation,
   getAssessmentGapOverview,
+  getClassGapOverview,
 } from '../controllers/evaluationController.js';
 
 const router = express.Router();
+
+// Class-scoped gap overview route (aggregates all evaluations across class cohort)
+router.get(
+  '/classes/:classId/gap-overview',
+  authenticate,
+  getClassGapOverview
+);
 
 // Assessment-scoped evaluation routes (authenticated)
 router.post(

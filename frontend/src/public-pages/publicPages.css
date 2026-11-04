@@ -381,15 +381,131 @@
   gap: 12px;
 }
 
+/* Section Anchors & Smooth Scroll Offset */
+.pub-section {
+  scroll-margin-top: 85px;
+  padding: 48px 0;
+  border-bottom: 1px solid rgba(232, 230, 223, 0.7);
+}
+
+.pub-section:last-of-type {
+  border-bottom: none;
+}
+
+/* Mobile 3-Lines Toggle Button (Hidden on Desktop) */
+.pub-mobile-toggle {
+  display: none;
+  background: none;
+  border: 1px solid var(--pub-border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  color: var(--pub-dark);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.pub-mobile-toggle:hover {
+  background-color: rgba(235, 94, 40, 0.08);
+  color: var(--pub-orange);
+}
+
+/* Mobile Drawer Dropdown Menu */
+.pub-mobile-drawer {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background-color: #FFFCF2;
+  border-bottom: 2px solid var(--pub-orange);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+  padding: 16px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: calc(100vh - 72px);
+  overflow-y: auto;
+  z-index: 1001;
+}
+
+.pub-mobile-drawer-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pub-mobile-nav-link {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--pub-dark);
+  text-decoration: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.pub-mobile-nav-link:hover,
+.pub-mobile-nav-link:active {
+  background-color: rgba(235, 94, 40, 0.08);
+  color: var(--pub-orange);
+}
+
+.pub-mobile-drawer-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--pub-border);
+}
+
+.pub-mobile-action-btn {
+  width: 100%;
+  text-align: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
 @media (max-width: 768px) {
+  .pub-header {
+    padding: 10px 16px;
+  }
   .pub-header-inner {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    justify-content: space-between;
   }
   .pub-nav {
     display: none;
   }
+  .pub-header-actions {
+    display: none;
+  }
+  .pub-mobile-toggle {
+    display: flex;
+  }
+  .pub-hero {
+    padding: 36px 16px 28px;
+  }
   .pub-hero-title {
-    font-size: 32px;
+    font-size: 28px;
+  }
+  .pub-hero-desc {
+    font-size: 15px;
+  }
+  .pub-container {
+    padding: 24px 16px 60px;
+  }
+  .pub-grid-2, .pub-grid-3 {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .pub-card {
+    padding: 20px;
+  }
+  .pub-step-row {
+    flex-direction: column;
+    gap: 12px;
   }
   .pub-footer-inner {
     grid-template-columns: 1fr;

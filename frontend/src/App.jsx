@@ -71,7 +71,16 @@ export default function App() {
   });
 
   // Authentication & Session State
-  const [currentUser, setCurrentUser] = useState(() => getCurrentTeacherSession());
+  const [currentUser, setCurrentUser] = useState(() => {
+    // When visiting the public website landing, start unauthenticated so Login & Create Account buttons appear
+    if (typeof window !== 'undefined' && window.location.pathname === '/') {
+      try {
+        localStorage.removeItem('neev_authenticated_teacher');
+      } catch {}
+      return null;
+    }
+    return getCurrentTeacherSession();
+  });
   const [authView, setAuthView] = useState('login'); // 'login' | 'register' | 'forgot-password'
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [teacherClasses, setTeacherClasses] = useState([]);
@@ -448,31 +457,19 @@ export default function App() {
   };
 
   // -------------------------------------------------------------
-  // Public Marketing Routes Rendering
+  // Public Marketing Routes Rendering (Single Page with Smooth Anchors)
   // -------------------------------------------------------------
-  if (currentPath === '/') {
-    return <PublicHomePage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} currentUser={currentUser} />;
-  }
-  if (currentPath === '/features') {
-    return <PublicFeaturesPage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} currentUser={currentUser} />;
-  }
-  if (currentPath === '/how-it-works') {
-    return <PublicHowItWorksPage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} currentUser={currentUser} />;
-  }
-  if (currentPath === '/curriculum-coverage') {
-    return <PublicCurriculumCoveragePage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} currentUser={currentUser} />;
-  }
-  if (currentPath === '/faq') {
-    return <PublicFaqPage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} currentUser={currentUser} />;
-  }
-  if (currentPath === '/about') {
-    return <PublicAboutPage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} currentUser={currentUser} />;
-  }
-  if (currentPath === '/contact') {
-    return <PublicContactPage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} currentUser={currentUser} />;
+  if (['/', '/features', '/how-it-works', '/curriculum-coverage', '/faq', '/about', '/contact'].includes(currentPath)) {
+    return (
+      <PublicHomePage
+        onNavigate={navigateTo}
+        onLaunchApp={handleLaunchApp}
+        activeSection={currentPath}
+      />
+    );
   }
   if (currentPath === '/privacy') {
-    return <PublicPrivacyPage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} currentUser={currentUser} />;
+    return <PublicPrivacyPage onNavigate={navigateTo} onLaunchApp={handleLaunchApp} />;
   }
 
   // -------------------------------------------------------------

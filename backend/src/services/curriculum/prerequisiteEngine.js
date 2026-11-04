@@ -37,7 +37,7 @@ export const PREREQUISITE_KNOWLEDGE_BASE = [
     conceptKey: 'linear_equations_transposition',
     subject: 'Mathematics',
     conceptName: 'Equation Balancing & Variable Transposition',
-    triggers: ['linear equation', 'transpos', 'variable', 'algebraic balance', '5x', 'solve for', 'inverse operation'],
+    triggers: ['linear equation', 'transpos', 'algebraic balance', 'equation balance', '5x', 'solve for', 'inverse operation'],
     prerequisiteGrade: 7,
     prerequisiteGradeDisplay: 'Class 7 Prerequisite',
     chapterName: 'Chapter 2: Simple Expressions and Equations',
@@ -249,18 +249,36 @@ export function classifyEvaluationMistake(evaluation, currentGrade = 9, subject 
     : Number(evaluation.suggestedMarks) || 0;
   const marksLost = Math.max(0, maxMarks - score);
 
+  // Subject normalization to strictly isolate knowledge base rules and prevent cross-subject leakage
+  const normSubject = String(subject || '').toLowerCase();
+  const isScience = normSubject.includes('science') || normSubject.includes('physic') || normSubject.includes('chem') || normSubject.includes('bio');
+  const isMath = normSubject.includes('math') || normSubject.includes('arithmetic') || normSubject.includes('algebra') || normSubject.includes('geometry');
+  const isSocial = normSubject.includes('social') || normSubject.includes('history') || normSubject.includes('civic') || normSubject.includes('geography');
+  const isEnglish = normSubject.includes('english') || normSubject.includes('lang');
+
   // Attempt matching against verified curriculum knowledge base
   let matchedRule = null;
   let highestScore = 0;
 
   for (const rule of PREREQUISITE_KNOWLEDGE_BASE) {
+    const ruleSub = String(rule.subject || '').toLowerCase();
+    // Strictly isolate rules by subject.
+    // If subject is Science, allow Math rules ONLY if there is a strong algebraic/arithmetic trigger match (threshold >= 8)
+    if (isScience && ruleSub.includes('social')) continue;
+    if (isScience && ruleSub.includes('english')) continue;
+    if (isMath && !ruleSub.includes('math')) continue;
+    if (isSocial && !ruleSub.includes('social')) continue;
+    if (isEnglish && !ruleSub.includes('english')) continue;
+
     let scoreMatch = 0;
     for (const trigger of rule.triggers) {
       if (combinedContext.includes(trigger.toLowerCase())) {
         scoreMatch += trigger.length;
       }
     }
-    if (scoreMatch > highestScore && scoreMatch >= 3) {
+
+    const threshold = (isScience && ruleSub.includes('math')) ? 8 : 3;
+    if (scoreMatch > highestScore && scoreMatch >= threshold) {
       highestScore = scoreMatch;
       matchedRule = rule;
     }

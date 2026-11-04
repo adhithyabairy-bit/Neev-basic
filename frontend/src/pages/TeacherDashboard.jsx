@@ -22,6 +22,7 @@ import {
   getSectionDisplay,
   getTeachingPrioritiesForClass,
   fetchAssessmentGapOverview,
+  fetchClassGapOverview,
 } from '../utils/teachingPriorities';
 
 export default function TeacherDashboard({
@@ -120,27 +121,6 @@ export default function TeacherDashboard({
       setRealClasses(classesData || []);
       setRealAssessments(assessmentsData || []);
 
-      if (assessmentsData && assessmentsData.length > 0) {
-        // Fetch gap overviews for all assessments
-        const overviewMap = {};
-        await Promise.all(
-          assessmentsData.map(async (a) => {
-            const aId = a._id || a.id;
-            if (aId) {
-              try {
-                const overview = await fetchAssessmentGapOverview(aId);
-                if (overview && (overview.hasEvaluatedData || overview.allPriorities?.length > 0 || overview.topicSummaries?.length > 0)) {
-                  overviewMap[String(aId)] = overview;
-                }
-              } catch (err) {
-                console.warn(`[Dashboard] Failed to fetch gap overview for assessment ${aId}:`, err);
-              }
-            }
-          })
-        );
-        setGapOverviews(overviewMap);
-      }
-
       if (classesData && classesData.length > 0) {
         setSelectedClassId((prev) => {
           const exists = classesData.some((c) => c._id === prev);
@@ -149,6 +129,51 @@ export default function TeacherDashboard({
       } else {
         setSelectedClassId(null);
       }
+
+      // Unblock UI immediately so classes and counters display instantly without spinner delay
+      setIsLoadingBackend(false);
+
+      // Fetch class-level aggregated gap overviews (1 request per class instead of 50 individual requests)
+      const overviewMap = {};
+      if (classesData && classesData.length > 0) {
+        await Promise.all(
+          classesData.map(async (cls) => {
+            const cId = cls._id || cls.id;
+            if (cId) {
+              try {
+                const ov = await fetchClassGapOverview(cId);
+                if (ov && (ov.hasEvaluatedData || ov.allPriorities?.length > 0)) {
+                  overviewMap[String(cId)] = ov;
+                }
+              } catch (err) {
+                console.warn(`[Dashboard] Failed to fetch gap overview for class ${cId}:`, err);
+              }
+            }
+          })
+        );
+      }
+
+      // Also fetch individual assessment gap overviews for recent assessments
+      if (assessmentsData && assessmentsData.length > 0) {
+        const recentAssessments = assessmentsData.slice(0, 20);
+        await Promise.all(
+          recentAssessments.map(async (a) => {
+            const aId = a._id || a.id;
+            if (aId) {
+              try {
+                const overview = await fetchAssessmentGapOverview(aId);
+                if (overview && (overview.hasEvaluatedData || overview.allPriorities?.length > 0 || overview.topicSummaries?.length > 0)) {
+                  overviewMap[String(aId)] = overview;
+                }
+              } catch (err) {
+                // silent
+              }
+            }
+          })
+        );
+      }
+
+      setGapOverviews(overviewMap);
     } catch (err) {
       console.error('[Dashboard Data Load Error]:', err);
       setBackendError(err.message || 'Failed to load teacher records from backend.');

@@ -536,11 +536,123 @@ export async function getAssessmentGapOverview(req, res, next) {
   }
 }
 
+/**
+ * GET /api/classes/:classId/gap-overview
+ * Aggregates all evaluations across all assessments and answer sheets belonging to a class.
+ */
+export async function getClassGapOverview(req, res, next) {
+  try {
+    const teacherId = req.teacher._id;
+    const { classId } = req.params;
+
+    if (!mongoose.isValidObjectId(classId)) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid class ID format: '${classId}'`,
+        code: 'INVALID_ID_FORMAT',
+      });
+    }
+
+    const ClassModel = mongoose.models.Class || mongoose.model('Class');
+    const cls = await ClassModel.findOne({ _id: classId, teacherId }).lean();
+    if (!cls) {
+      return res.status(404).json({
+        success: false,
+        error: 'Class not found or access denied.',
+        code: 'NOT_FOUND',
+      });
+    }
+
+    // Retrieve all assessments belonging to this class
+    const assessments = await Assessment.find({ classId, teacherId }).select('_id title subject grade createdAt').lean();
+    const assessmentIds = assessments.map((a) => a._id);
+
+    // Retrieve all answer sheets belonging to this class or its assessments
+    let answerSheets = [];
+    try {
+      if ((mongoose.connection.readyState === 1 || AnswerSheet.find !== mongoose.Model.find) && typeof AnswerSheet.find === 'function') {
+        const query = AnswerSheet.find({
+          teacherId,
+          $or: [{ classId }, { assessmentId: { $in: assessmentIds } }],
+        });
+        if (query && typeof query.lean === 'function') {
+          answerSheets = await query.lean();
+        } else if (query && typeof query.then === 'function') {
+          answerSheets = await query;
+        }
+      }
+    } catch {
+      answerSheets = [];
+    }
+
+    // Retrieve all evaluations for this class's assessments
+    const evaluations = await Evaluation.find({
+      teacherId,
+      assessmentId: { $in: assessmentIds },
+      status: { $in: ['review_required', 'approved'] },
+    }).lean();
+
+    if (evaluations.length === 0) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          hasEvaluatedData: false,
+          totalEvaluations: 0,
+          totalStudentsEvaluated: answerSheets.length || assessments.length || 0,
+          previousClassGaps: [],
+          currentClassGaps: [],
+          undeterminedGaps: [],
+          allPriorities: [],
+          topicSummaries: [],
+          recommendedTeachingOrder: [],
+          message: 'No evaluated student answer sheets available yet for this class.',
+        },
+      });
+    }
+
+    const currentGrade = cls.grade || 'Class 9';
+    const currentSubject = cls.subject || 'Mathematics';
+
+    const gapResult = aggregateClassTeachingPriorities(
+      evaluations,
+      answerSheets,
+      currentGrade,
+      currentSubject
+    );
+
+    // Ensure total cohort reflects true unique students or assessment count
+    const cohortSize = Math.max(answerSheets.length, assessments.length, gapResult.totalStudentsEvaluated || 1, 1);
+    gapResult.totalStudentsEvaluated = cohortSize;
+
+    const adjustCohort = (item) => {
+      const affected = item.affectedStudentsCount !== undefined ? item.affectedStudentsCount : 0;
+      return {
+        ...item,
+        totalEvaluatedCount: cohortSize,
+        affectedPercentage: Math.round((affected / cohortSize) * 100),
+      };
+    };
+
+    gapResult.allPriorities = (gapResult.allPriorities || []).map(adjustCohort);
+    gapResult.previousClassGaps = (gapResult.previousClassGaps || []).map(adjustCohort);
+    gapResult.currentClassGaps = (gapResult.currentClassGaps || []).map(adjustCohort);
+    gapResult.undeterminedGaps = (gapResult.undeterminedGaps || []).map(adjustCohort);
+
+    return res.status(200).json({
+      success: true,
+      data: gapResult,
+    });
+  } catch (err) {
+    return next(err);
+  }
+}
+
 export default {
   evaluateAnswerSheet,
   getEvaluationsByAnswerSheet,
   getEvaluationsByAssessment,
   approveEvaluation,
   getAssessmentGapOverview,
+  getClassGapOverview,
 };
 

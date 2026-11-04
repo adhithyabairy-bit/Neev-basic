@@ -71,6 +71,28 @@ export async function fetchAssessmentGapOverview(assessmentId) {
 }
 
 /**
+ * Fetches aggregated gap overview data for an entire class cohort from the backend.
+ * @param {string} classId
+ * @returns {Promise<Object|null>}
+ */
+export async function fetchClassGapOverview(classId) {
+  if (!classId) return null;
+  try {
+    const res = await apiRequest(`/api/classes/${classId}/gap-overview`);
+    if (res && res.success && res.data) {
+      return res.data;
+    }
+    if (res && (res.hasEvaluatedData !== undefined || res.allPriorities || res.topicSummaries)) {
+      return res;
+    }
+    return null;
+  } catch (err) {
+    console.warn(`[TeachingPriorities] Failed to fetch class gap overview for class ${classId}:`, err.message);
+    return null;
+  }
+}
+
+/**
  * Verified NCERT prerequisite metadata lookup fallback for frontend
  * Strictly subject-aware: Prevents cross-subject hallucinations (e.g. Maths chapters in Science)
  * Strictly adheres to rule: If unverified or undetermined, never invent a chapter or grade.
@@ -390,9 +412,43 @@ export function getTeachingPrioritiesForClass(
   const classAssessments = (allAssessments || [])
     .filter((a) => {
       const aClassId = String(a.classId?._id || a.classId?.id || a.classId || a.class?._id || a.class || '');
-      return aClassId === classId;
+      if (aClassId && aClassId === classId) return true;
+      if (a.className && cls.name && a.className.trim().toLowerCase() === cls.name.trim().toLowerCase()) return true;
+      return false;
     })
     .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+  // Check if a direct aggregated class-level overview is provided
+  const directClassOverview = (!selectedAssessmentId || selectedAssessmentId === 'all')
+    ? (gapOverviewByAssessment[classId] || null)
+    : null;
+
+  if (directClassOverview && directClassOverview.hasEvaluatedData) {
+    const rawAll = directClassOverview.allPriorities || [];
+    const cohort = directClassOverview.totalStudentsEvaluated || Math.max(classAssessments.length, cls.studentsAssessed || 0, 1);
+    const prevGaps = (directClassOverview.previousClassGaps || rawAll.filter((i) => i.category === 'PREVIOUS_CLASS_GAP')).map((i) => ({
+      ...i,
+      totalEvaluatedCount: cohort,
+      affectedPercentage: Math.round(((i.affectedStudentsCount || 0) / cohort) * 100),
+    }));
+    const currGaps = (directClassOverview.currentClassGaps || rawAll.filter((i) => i.category === 'CURRENT_CLASS_GAP')).map((i) => ({
+      ...i,
+      totalEvaluatedCount: cohort,
+      affectedPercentage: Math.round(((i.affectedStudentsCount || 0) / cohort) * 100),
+    }));
+    const undetGaps = (directClassOverview.undeterminedGaps || rawAll.filter((i) => i.category === 'UNDETERMINED')).map((i) => ({
+      ...i,
+      totalEvaluatedCount: cohort,
+      affectedPercentage: Math.round(((i.affectedStudentsCount || 0) / cohort) * 100),
+    }));
+
+    const result = [...prevGaps, ...currGaps, ...undetGaps].map((item, idx) => ({ ...item, rank: idx + 1 }));
+    result.previousClassGaps = prevGaps;
+    result.currentClassGaps = currGaps;
+    result.undeterminedGaps = undetGaps;
+    result.resolvedGaps = [];
+    return result;
+  }
 
   if (classAssessments.length === 0) {
     return [];
@@ -495,6 +551,9 @@ export function getTeachingPrioritiesForClass(
         : ((raw.commonErrors && raw.commonErrors.length > 0) || itemMastery < 100 ? 1 : 0);
       const totalEvaluated = raw.totalEvaluatedCount || raw.totalEvaluations || 1;
 
+      const rawEvaluated = raw.totalEvaluatedCount ||
+        (raw.affectedPercentage > 0 && affectedCount > 0 ? Math.round(affectedCount / (raw.affectedPercentage / 100)) : totalEvaluated);
+
       if (!aggregatedMap.has(conceptKey)) {
         aggregatedMap.set(conceptKey, {
           id: `priority-${classId}-${conceptKey.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
@@ -512,7 +571,7 @@ export function getTeachingPrioritiesForClass(
           averageMastery: itemMastery,
           masteryCount: 1,
           affectedStudentsCount: affectedCount,
-          totalEvaluatedCount: totalEvaluated,
+          totalEvaluatedCount: rawEvaluated,
           rawAffectedPercentage: raw.affectedPercentage !== undefined ? raw.affectedPercentage : null,
           commonErrors: new Set(raw.commonErrors || []),
           hypotheses: new Set(raw.hypotheses || []),
@@ -524,7 +583,7 @@ export function getTeachingPrioritiesForClass(
         entry.averageMastery = Math.round((entry.averageMastery * entry.masteryCount + itemMastery) / (entry.masteryCount + 1));
         entry.masteryCount += 1;
         entry.affectedStudentsCount += affectedCount;
-        entry.totalEvaluatedCount += totalEvaluated;
+        entry.totalEvaluatedCount += rawEvaluated;
         entry.assessmentCount += 1;
         (raw.commonErrors || []).forEach((e) => entry.commonErrors.add(e));
         (raw.hypotheses || []).forEach((h) => entry.hypotheses.add(h));
@@ -546,18 +605,21 @@ export function getTeachingPrioritiesForClass(
     // In class overview mode with multiple assessments, calibrate total against class assessment cohort
     const effectiveTotalEvaluated = Math.max(
       t.totalEvaluatedCount,
+      classAssessments.length,
       targetAssessments.length,
-      cls.studentsAssessed || 1
+      cls.studentsAssessed || 0,
+      cls.totalStudents || 0,
+      1
     );
 
     const affectedCount = t.affectedStudentsCount;
     const finalTotal = effectiveTotalEvaluated;
 
-    const affectedPercentage = t.rawAffectedPercentage !== null && t.rawAffectedPercentage !== undefined
+    const affectedPercentage = (t.assessmentCount <= 1 && t.rawAffectedPercentage !== null && t.rawAffectedPercentage !== undefined)
       ? t.rawAffectedPercentage
       : finalTotal > 0
       ? Math.round((affectedCount / finalTotal) * 100)
-      : (t.averageMastery < 80 ? 100 - t.averageMastery : 0);
+      : 0;
 
     const noun = finalTotal === 1 ? 'student' : 'students';
     const reason = hypList.length > 0
