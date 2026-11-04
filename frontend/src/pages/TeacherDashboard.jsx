@@ -143,35 +143,32 @@ export default function TeacherDashboard({
       // Unblock UI immediately so classes and counters display instantly without spinner delay
       setIsLoadingBackend(false);
 
-      // High-Priority: Fetch active class overview FIRST and IMMEDIATELY update state!
-      if (activeClassId) {
+      if (loadedClasses.length > 0) {
         setIsLoadingPriorities(true);
-        fetchClassGapOverview(activeClassId)
-          .then((activeOv) => {
-            if (activeOv && (activeOv.hasEvaluatedData || activeOv.allPriorities?.length > 0)) {
-              setGapOverviews((prev) => ({ ...prev, [String(activeClassId)]: activeOv }));
-            }
-          })
-          .catch((err) => console.warn('[Dashboard] Active class overview error:', err))
-          .finally(() => setIsLoadingPriorities(false));
-      }
-
-      // Background: Prefetch remaining classes without blocking the active view
-      const otherClasses = loadedClasses.filter((c) => (c._id || c.id) !== activeClassId);
-      if (otherClasses.length > 0) {
-        otherClasses.forEach(async (cls) => {
-          const cId = cls._id || cls.id;
-          if (cId) {
+        // Fetch all classes' aggregated gap overviews in parallel
+        Promise.all(
+          loadedClasses.map(async (cls) => {
+            const cId = cls._id || cls.id;
+            if (!cId) return null;
             try {
               const ov = await fetchClassGapOverview(cId);
-              if (ov && (ov.hasEvaluatedData || ov.allPriorities?.length > 0)) {
-                setGapOverviews((prev) => ({ ...prev, [String(cId)]: ov }));
-              }
+              return { cId: String(cId), ov };
             } catch {
-              // silent background prefetch
+              return null;
             }
-          }
-        });
+          })
+        )
+          .then((results) => {
+            const newMap = {};
+            results.forEach((r) => {
+              if (r && r.ov && (r.ov.hasEvaluatedData || r.ov.allPriorities?.length > 0)) {
+                newMap[r.cId] = r.ov;
+              }
+            });
+            setGapOverviews((prev) => ({ ...prev, ...newMap }));
+          })
+          .catch((err) => console.warn('[Dashboard] Gap overviews load error:', err))
+          .finally(() => setIsLoadingPriorities(false));
       }
     } catch (err) {
       console.error('[Dashboard Data Load Error]:', err);
@@ -587,10 +584,16 @@ export default function TeacherDashboard({
                   <IconBookOpen size={18} color="var(--warning-dark)" />
                 </div>
                 <div className="dash-metric-number" style={{ color: 'var(--warning-dark)' }}>
-                  {pendingPrioritiesCount}
+                  {isLoadingPriorities && totalPrioritiesPool === 0 ? (
+                    <span style={{ fontSize: '18px', opacity: 0.7 }}>Loading...</span>
+                  ) : (
+                    pendingPrioritiesCount
+                  )}
                 </div>
                 <div className="dash-metric-subtext">
-                  {totalCompletedPriorities} completed &bull; {pendingPrioritiesCount} pending revision
+                  {isLoadingPriorities && totalPrioritiesPool === 0
+                    ? 'Loading priorities...'
+                    : `${totalCompletedPriorities} completed • ${pendingPrioritiesCount} pending revision`}
                 </div>
               </div>
 
@@ -1044,12 +1047,22 @@ export default function TeacherDashboard({
                               const pctWidth = Math.min(100, Math.max(0, Math.round((affected / total) * 100)));
                               return (
                                 <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  <div style={{ flex: 1, height: '6px', backgroundColor: '#E2E8F0', borderRadius: '3px', overflow: 'hidden' }}>
+                                  <div
+                                    style={{
+                                      flex: 1,
+                                      height: '7px',
+                                      backgroundColor: '#F1E9E4',
+                                      border: '1px solid #E8DFD8',
+                                      borderRadius: '4px',
+                                      overflow: 'hidden',
+                                    }}
+                                  >
                                     <div
                                       style={{
                                         width: `${pctWidth}%`,
+                                        minWidth: affected > 0 ? '6px' : '0',
                                         height: '100%',
-                                        backgroundColor: affected > 0 ? 'var(--danger, #D9383A)' : 'var(--success, #1E8E5A)',
+                                        backgroundColor: affected > 0 ? '#D9383A' : '#1E8E5A',
                                         borderRadius: '3px',
                                         transition: 'width 0.3s ease',
                                       }}

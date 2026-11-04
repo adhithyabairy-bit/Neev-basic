@@ -71,16 +71,7 @@ export default function App() {
   });
 
   // Authentication & Session State
-  const [currentUser, setCurrentUser] = useState(() => {
-    // When visiting the public website landing, start unauthenticated so Login & Create Account buttons appear
-    if (typeof window !== 'undefined' && window.location.pathname === '/') {
-      try {
-        localStorage.removeItem('neev_authenticated_teacher');
-      } catch {}
-      return null;
-    }
-    return getCurrentTeacherSession();
-  });
+  const [currentUser, setCurrentUser] = useState(() => getCurrentTeacherSession());
   const [authView, setAuthView] = useState('login'); // 'login' | 'register' | 'forgot-password'
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [teacherClasses, setTeacherClasses] = useState([]);

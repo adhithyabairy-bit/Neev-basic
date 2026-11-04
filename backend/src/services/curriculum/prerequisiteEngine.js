@@ -398,10 +398,14 @@ export function aggregateClassTeachingPriorities(evaluations = [], answerSheets 
     sheetStudentMap.set(sId, studentIdentifier);
   });
 
-  // 2. Count total unique students evaluated across this assessment
+  // 2. Count total unique students evaluated across this assessment / class
   const allEvaluatedStudents = new Set();
   evaluations.forEach((ev) => {
-    const studentId = sheetStudentMap.get(String(ev.answerSheetId)) || String(ev.answerSheetId || 'unknown_student');
+    const studentId = (ev.answerSheetId && sheetStudentMap.get(String(ev.answerSheetId))) ||
+      (ev.studentName ? String(ev.studentName) : null) ||
+      (ev.answerSheetId ? String(ev.answerSheetId) : null) ||
+      (ev.assessmentId ? String(ev.assessmentId) : null) ||
+      String(ev._id || 'unknown_student');
     allEvaluatedStudents.add(studentId);
   });
   const totalEvaluatedStudentsCount = allEvaluatedStudents.size || 1;
@@ -457,7 +461,11 @@ export function aggregateClassTeachingPriorities(evaluations = [], answerSheets 
   const conceptMap = new Map();
 
   evaluations.forEach((ev) => {
-    const studentId = sheetStudentMap.get(String(ev.answerSheetId)) || String(ev.answerSheetId || 'unknown_student');
+    const studentId = (ev.answerSheetId && sheetStudentMap.get(String(ev.answerSheetId))) ||
+      (ev.studentName ? String(ev.studentName) : null) ||
+      (ev.answerSheetId ? String(ev.answerSheetId) : null) ||
+      (ev.assessmentId ? String(ev.assessmentId) : null) ||
+      String(ev._id || 'unknown_student');
     const classification = classifyEvaluationMistake(ev, currentGrade, subject);
 
     const cKey = classification.conceptKey || (ev.affectedLessonName || 'general');

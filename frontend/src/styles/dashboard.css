@@ -12,19 +12,17 @@
   position: relative;
 }
 
-/* Dashboard Header (Static / Fixed: Stays permanently at the top while scrolling) */
+/* Dashboard Header (Static / Fixed: Stays permanently at the top with solid opaque background) */
 .dashboard-header {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   width: 100%;
-  z-index: 100;
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border-bottom: 1px solid rgba(240, 222, 210, 0.75);
-  box-shadow: 0 4px 20px rgba(35, 27, 22, 0.04);
+  z-index: 1000;
+  background: #FFFFFF;
+  border-bottom: 1px solid var(--border-color, #F0DED2);
+  box-shadow: 0 2px 10px rgba(35, 27, 22, 0.06);
 }
 
 .dashboard-header-inner {
