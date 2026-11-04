@@ -446,6 +446,34 @@ export async function approveEvaluation(req, res, next) {
 }
 
 /**
+ * Helper to compute the genuine unique student count from a collection of answer sheets.
+ * Filters out question papers, marking schemes, rubrics, and deduplicates multiple files
+ * belonging to the same student name/roll number.
+ */
+function getGenuineUniqueStudentCount(sheets = []) {
+  if (!Array.isArray(sheets) || sheets.length === 0) return 0;
+  const genuineStudentSheets = sheets.filter((s) => {
+    if (s.category && s.category !== 'answer-sheet') return false;
+    const name = s.originalFileName || '';
+    if (/marking|scheme|rubric|question|qp|paper/i.test(name)) return false;
+    return true;
+  });
+
+  const uniqueStudentIdentifiers = new Set();
+  genuineStudentSheets.forEach((s) => {
+    const id = (s.studentName || '').trim() || (s.rollNumber || '').trim();
+    if (id) {
+      uniqueStudentIdentifiers.add(id.toLowerCase());
+    }
+  });
+
+  if (uniqueStudentIdentifiers.size > 0) {
+    return uniqueStudentIdentifiers.size;
+  }
+  return genuineStudentSheets.length;
+}
+
+/**
  * Synthesizes diagnostic evaluation items when official Evaluation records are not yet present,
  * preserving genuine teacher classroom artifacts (answer sheet answers and assessment curricula).
  */
@@ -627,7 +655,7 @@ export async function getAssessmentGapOverview(req, res, next) {
         data: {
           hasEvaluatedData: false,
           totalEvaluations: 0,
-          totalStudentsEvaluated: answerSheets.length || 0,
+          totalStudentsEvaluated: getGenuineUniqueStudentCount(answerSheets) || 0,
           previousClassGaps: [],
           currentClassGaps: [],
           undeterminedGaps: [],
@@ -649,6 +677,28 @@ export async function getAssessmentGapOverview(req, res, next) {
     if (gapResult.allPriorities && gapResult.allPriorities.length > 0) {
       gapResult.hasEvaluatedData = true;
     }
+
+    const uniqueStudentCount = getGenuineUniqueStudentCount(answerSheets);
+    const cohortSize = Math.max(
+      uniqueStudentCount,
+      gapResult.totalStudentsEvaluated || 1,
+      1
+    );
+    gapResult.totalStudentsEvaluated = cohortSize;
+
+    const adjustCohort = (item) => {
+      const affected = item.affectedStudentsCount !== undefined ? item.affectedStudentsCount : 0;
+      return {
+        ...item,
+        totalEvaluatedCount: cohortSize,
+        affectedPercentage: Math.round((affected / cohortSize) * 100),
+      };
+    };
+
+    gapResult.allPriorities = (gapResult.allPriorities || []).map(adjustCohort);
+    gapResult.previousClassGaps = (gapResult.previousClassGaps || []).map(adjustCohort);
+    gapResult.currentClassGaps = (gapResult.currentClassGaps || []).map(adjustCohort);
+    gapResult.undeterminedGaps = (gapResult.undeterminedGaps || []).map(adjustCohort);
 
     return res.status(200).json({
       success: true,
@@ -728,7 +778,7 @@ export async function getClassGapOverview(req, res, next) {
         data: {
           hasEvaluatedData: false,
           totalEvaluations: 0,
-          totalStudentsEvaluated: answerSheets.length || assessments.length || 0,
+          totalStudentsEvaluated: getGenuineUniqueStudentCount(answerSheets) || assessments.length || 0,
           previousClassGaps: [],
           currentClassGaps: [],
           undeterminedGaps: [],
@@ -751,8 +801,14 @@ export async function getClassGapOverview(req, res, next) {
       gapResult.hasEvaluatedData = true;
     }
 
-    // Ensure total cohort reflects true unique students or assessment count
-    const cohortSize = Math.max(answerSheets.length, assessments.length, gapResult.totalStudentsEvaluated || 1, 1);
+    // Ensure total cohort reflects true unique students assessed, or assessment count if higher (e.g. historical multi-assessment class cohorts)
+    const uniqueStudentCount = getGenuineUniqueStudentCount(answerSheets);
+    const cohortSize = Math.max(
+      uniqueStudentCount,
+      gapResult.totalStudentsEvaluated || 1,
+      assessments.length,
+      1
+    );
     gapResult.totalStudentsEvaluated = cohortSize;
 
     const adjustCohort = (item) => {
