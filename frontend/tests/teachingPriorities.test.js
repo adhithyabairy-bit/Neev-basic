@@ -281,4 +281,30 @@ describe('Phase 2 & 9: Frontend Teaching Priorities Tests', () => {
     // Reason/label reflects 10 out of 28 students affected
     assert.ok(priorities[0].reason.includes('10 out of 28 students affected'));
   });
+
+  it('generates diagnostic teaching priorities for Social Studies and English classes with recorded assessments', () => {
+    // Class 6 - Social Studies with 4 recorded assessments
+    const clsSocial = { _id: 'class-6-sst', name: 'Class 6 - Social Studies', grade: 'Class 6', subject: 'Social Studies' };
+    const assessmentsSocial = [
+      { _id: 'sst-1', classId: 'class-6-sst', title: 'Early Civilizations & Cities' },
+      { _id: 'sst-2', classId: 'class-6-sst', title: 'Globe and Maps' },
+      { _id: 'sst-3', classId: 'class-6-sst', title: 'Panchayati Raj & Local Government' },
+      { _id: 'sst-4', classId: 'class-6-sst', title: 'Mid Term Assessment' },
+    ];
+
+    const prioritiesSocial = getTeachingPrioritiesForClass(clsSocial, assessmentsSocial, {});
+    assert.ok(prioritiesSocial.length > 0, 'Must generate diagnostic priorities for Social Studies');
+    assert.ok(prioritiesSocial.some((p) => p.pdfFileName && p.pdfFileName.includes('Social Studies')), 'Must anchor to NCERT Social Studies chapter PDF');
+
+    // Class 7 - English with 2 recorded assessments
+    const clsEnglish = { _id: 'class-7-eng', name: 'Class 7 - English', grade: 'Class 7', subject: 'English Language' };
+    const assessmentsEnglish = [
+      { _id: 'eng-1', classId: 'class-7-eng', title: 'Reading Comprehension & Prose' },
+      { _id: 'eng-2', classId: 'class-7-eng', title: 'Active and Passive Voice' },
+    ];
+
+    const prioritiesEnglish = getTeachingPrioritiesForClass(clsEnglish, assessmentsEnglish, {});
+    assert.ok(prioritiesEnglish.length > 0, 'Must generate diagnostic priorities for English');
+    assert.ok(prioritiesEnglish.some((p) => p.pdfFileName && p.pdfFileName.includes('English')), 'Must anchor to NCERT English chapter PDF');
+  });
 });

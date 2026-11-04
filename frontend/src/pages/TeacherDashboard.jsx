@@ -809,18 +809,6 @@ export default function TeacherDashboard({
                         </div>
                       </div>
 
-                      {/* Identified / Flagged Gaps */}
-                      <div className="class-card-gaps" style={{ fontSize: '11px', color: 'var(--secondary-text)' }}>
-                        <span style={{ fontWeight: 'var(--font-weight-bold)', color: 'var(--main-text)' }}>
-                          Identified Gap:
-                        </span>{' '}
-                        <span>
-                          {cls.topGaps && cls.topGaps.length > 0
-                            ? cls.topGaps.join(', ')
-                            : (getTeachingPrioritiesForClass(cls, realAssessments, gapOverviews)[0]?.topicName || 'None diagnosed yet')}
-                        </span>
-                      </div>
-
                       {/* Direct Retest Action: Clickable directly from dashboard */}
                       <div className="class-card-retest-action" style={{ paddingTop: 'var(--space-2)', borderTop: '1px solid var(--divider-color)', marginTop: '4px' }}>
                         <button

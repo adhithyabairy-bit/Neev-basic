@@ -409,6 +409,53 @@ describe('Prerequisite-First Dynamic Teaching Prioritization Tests', () => {
   });
 
   // -------------------------------------------------------------------------
+  // Test Scenario 11:
+  // Social Studies & English Multi-Subject Curriculum Grounding
+  // -------------------------------------------------------------------------
+  it('correctly classifies Social Studies and English curriculum gaps into verified NCERT chapters', () => {
+    const student1 = { _id: new mongoose.Types.ObjectId(), studentName: 'Rohan' };
+    const student2 = { _id: new mongoose.Types.ObjectId(), studentName: 'Priya' };
+
+    // Social Studies: Class 8 student struggling with 1857 rebellion
+    const evalsSocial = [
+      {
+        answerSheetId: student1._id,
+        affectedLessonName: 'Revolt of 1857',
+        prompt: 'Explain the military and political causes of the Revolt of 1857 and the Doctrine of Lapse.',
+        studentAnswer: 'British took over kingdoms using doctrine of lapse.',
+        maxMarks: 5,
+        suggestedMarks: 2,
+        observedErrors: 'Incomplete explanation of 1857 mutiny causes',
+        misconceptionHypothesis: 'Colonial policies triggering rebellion of 1857',
+      },
+    ];
+
+    const resultSocial = aggregateClassTeachingPriorities(evalsSocial, [student1], 8, 'Social Studies');
+    assert.equal(resultSocial.currentClassGaps.length, 1);
+    assert.equal(resultSocial.currentClassGaps[0].conceptKey, 'social_colonialism_1857');
+    assert.equal(resultSocial.currentClassGaps[0].pdfFileName, 'Class 8 Social Studies Chapter 5.pdf');
+
+    // English Language: Class 8 student struggling with passive voice transformation
+    const evalsEnglish = [
+      {
+        answerSheetId: student2._id,
+        affectedLessonName: 'Active and Passive Voice',
+        prompt: 'Change the sentence to passive voice: The teacher explained the lesson.',
+        studentAnswer: 'The lesson explained by teacher.',
+        maxMarks: 5,
+        suggestedMarks: 1,
+        observedErrors: 'Omitted auxiliary was/were in passive voice',
+        misconceptionHypothesis: 'Active and passive voice transformation and agent transposition',
+      },
+    ];
+
+    const resultEnglish = aggregateClassTeachingPriorities(evalsEnglish, [student2], 8, 'English Language');
+    assert.equal(resultEnglish.currentClassGaps.length, 1);
+    assert.equal(resultEnglish.currentClassGaps[0].conceptKey, 'english_voice_transformations');
+    assert.equal(resultEnglish.currentClassGaps[0].pdfFileName, 'Class 8 English Chapter 4.pdf');
+  });
+
+  // -------------------------------------------------------------------------
   // Grade String Parsing Tests
   // -------------------------------------------------------------------------
   it('accurately parses grade integers from various grade string notations', () => {
