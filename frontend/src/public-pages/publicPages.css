@@ -230,6 +230,13 @@
   margin: 36px 0;
 }
 
+.pub-curriculum-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  margin: 36px 0;
+}
+
 .pub-card {
   background-color: var(--pub-white);
   border: 1px solid var(--pub-border);
@@ -496,7 +503,7 @@
   .pub-container {
     padding: 24px 16px 60px;
   }
-  .pub-grid-2, .pub-grid-3 {
+  .pub-grid-2, .pub-grid-3, .pub-curriculum-grid {
     grid-template-columns: 1fr;
     gap: 16px;
   }

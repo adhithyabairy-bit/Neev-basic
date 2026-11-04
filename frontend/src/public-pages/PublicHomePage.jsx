@@ -338,7 +338,7 @@ export default function PublicHomePage({ onNavigate, onLaunchApp, activeSection 
             </p>
           </div>
 
-          <div className="pub-grid-3">
+          <div className="pub-curriculum-grid">
             <div className="pub-card" style={{ borderTop: '4px solid var(--pub-orange)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
                 <div className="pub-card-icon" style={{ marginBottom: 0 }}>M</div>
@@ -347,9 +347,6 @@ export default function PublicHomePage({ onNavigate, onLaunchApp, activeSection 
               <p className="pub-card-text">
                 Covers Rational Numbers, Linear Equations, Algebraic Identities, Mensuration, Coordinate Geometry, Triangles &amp; Quadrilaterals, Trigonometry, and Statistics.
               </p>
-              <div style={{ marginTop: '12px', fontSize: '12.5px', color: 'var(--pub-orange)', fontWeight: '700' }}>
-                Key Prerequisite Links: Class 7 Transposition &rarr; Class 8 Linear Equations &rarr; Class 10 Polynomials.
-              </div>
             </div>
 
             <div className="pub-card" style={{ borderTop: '4px solid #1D4ED8' }}>
@@ -360,9 +357,6 @@ export default function PublicHomePage({ onNavigate, onLaunchApp, activeSection 
               <p className="pub-card-text">
                 Covers Chemical Reactions &amp; Equations, Acids &amp; Bases, Cell Structure &amp; Cell Division, Motion, Force &amp; Laws of Motion, Light Reflection &amp; Electricity.
               </p>
-              <div style={{ marginTop: '12px', fontSize: '12.5px', color: '#1D4ED8', fontWeight: '700' }}>
-                Key Prerequisite Links: Class 7 Heat &rarr; Class 8 Motion &rarr; Class 9 Work &amp; Energy.
-              </div>
             </div>
 
             <div className="pub-card" style={{ borderTop: '4px solid #1E8E5A' }}>
@@ -373,9 +367,16 @@ export default function PublicHomePage({ onNavigate, onLaunchApp, activeSection 
               <p className="pub-card-text">
                 Covers The Indian Constitution &amp; Democratic Institutions, Secularism &amp; Fundamental Rights, Natural Resources &amp; Conservation, and Sectors of the Indian Economy.
               </p>
-              <div style={{ marginTop: '12px', fontSize: '12.5px', color: '#1E8E5A', fontWeight: '700' }}>
-                Key Prerequisite Links: Class 7 Equality &rarr; Class 8 Constitution &rarr; Class 10 Democratic Politics.
+            </div>
+
+            <div className="pub-card" style={{ borderTop: '4px solid #7C3AED' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                <div className="pub-card-icon" style={{ marginBottom: 0, backgroundColor: 'rgba(124, 58, 237, 0.1)', color: '#7C3AED' }}>E</div>
+                <h3 className="pub-card-title" style={{ marginBottom: 0 }}>English (Grades 6 - 10)</h3>
               </div>
+              <p className="pub-card-text">
+                Covers reading comprehension, grammar, vocabulary, prose, poetry, writing skills, and literary understanding.
+              </p>
             </div>
           </div>
         </section>

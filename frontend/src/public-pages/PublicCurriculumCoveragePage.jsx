@@ -32,61 +32,49 @@ export default function PublicCurriculumCoveragePage({ onNavigate, onLaunchApp, 
           </p>
         </div>
 
-        <div className="pub-grid-2">
+        <div className="pub-curriculum-grid">
           {/* Subject 1: Mathematics */}
-          <div className="pub-card">
+          <div className="pub-card" style={{ borderTop: '4px solid var(--pub-orange)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
               <div className="pub-card-icon" style={{ marginBottom: 0 }}>M</div>
               <h3 className="pub-card-title" style={{ marginBottom: 0 }}>Mathematics (Grades 6 - 10)</h3>
             </div>
             <p className="pub-card-text">
-              Covers Linear Equations in One &amp; Two Variables, Arithmetic Precedence &amp; Integers, Exponents &amp; Powers, Algebraic Expressions &amp; Identities, Factorisation, Mensuration, Geometry, and Commercial Mathematics.
+              Covers Rational Numbers, Linear Equations, Algebraic Identities, Mensuration, Coordinate Geometry, Triangles &amp; Quadrilaterals, Trigonometry, and Statistics.
             </p>
-            <div style={{ marginTop: '12px', fontSize: '12.5px', color: 'var(--pub-orange)', fontWeight: '700' }}>
-              Key Prerequisite Links: Class 7 Simple Equations &rarr; Class 8 Linear Equations &rarr; Class 10 Quadratic Equations.
-            </div>
           </div>
 
           {/* Subject 2: Science */}
-          <div className="pub-card">
+          <div className="pub-card" style={{ borderTop: '4px solid #1D4ED8' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-              <div className="pub-card-icon" style={{ marginBottom: 0 }}>S</div>
-              <h3 className="pub-card-title" style={{ marginBottom: 0 }}>Science / Physics / Biology (Grades 6 - 10)</h3>
+              <div className="pub-card-icon" style={{ marginBottom: 0, backgroundColor: 'rgba(29, 78, 216, 0.1)', color: '#1D4ED8' }}>S</div>
+              <h3 className="pub-card-title" style={{ marginBottom: 0 }}>Science / Physics &amp; Chemistry</h3>
             </div>
             <p className="pub-card-text">
-              Covers Cell Structure &amp; Functions, Osmosis &amp; Diffusion Transport, Prokaryotic vs Eukaryotic Cells, Scientific Models &amp; Inquiry, Force &amp; Pressure, Motion &amp; Laws, Electric Currents &amp; Chemical Effects.
+              Covers Chemical Reactions &amp; Equations, Acids &amp; Bases, Cell Structure &amp; Cell Division, Motion, Force &amp; Laws of Motion, Light Reflection &amp; Electricity.
             </p>
-            <div style={{ marginTop: '12px', fontSize: '12.5px', color: 'var(--pub-orange)', fontWeight: '700' }}>
-              Key Prerequisite Links: Class 7 Living Processes &rarr; Class 8 Cell Organization &rarr; Class 9 Fundamental Unit of Life.
-            </div>
           </div>
 
-          {/* Subject 3: English Language */}
-          <div className="pub-card">
+          {/* Subject 3: Social Studies */}
+          <div className="pub-card" style={{ borderTop: '4px solid #1E8E5A' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-              <div className="pub-card-icon" style={{ marginBottom: 0 }}>E</div>
-              <h3 className="pub-card-title" style={{ marginBottom: 0 }}>English Language &amp; Grammar (Grades 6 - 10)</h3>
+              <div className="pub-card-icon" style={{ marginBottom: 0, backgroundColor: 'rgba(30, 142, 90, 0.1)', color: '#1E8E5A' }}>SS</div>
+              <h3 className="pub-card-title" style={{ marginBottom: 0 }}>Social Studies &amp; Civics</h3>
             </div>
             <p className="pub-card-text">
-              Covers Reading Comprehension &amp; Textual Inferences, Active &amp; Passive Voice transformations, Verb Tenses &amp; Aspects, Subject-Verb Concord, Subordinate Clauses, and Literary Devices.
+              Covers The Indian Constitution &amp; Democratic Institutions, Secularism &amp; Fundamental Rights, Natural Resources &amp; Conservation, and Sectors of the Indian Economy.
             </p>
-            <div style={{ marginTop: '12px', fontSize: '12.5px', color: 'var(--pub-orange)', fontWeight: '700' }}>
-              Key Prerequisite Links: Class 7 Simple Tenses &rarr; Class 8 Concord &rarr; Class 10 Board Analytical Writing.
-            </div>
           </div>
 
-          {/* Subject 4: Social Studies */}
-          <div className="pub-card">
+          {/* Subject 4: English */}
+          <div className="pub-card" style={{ borderTop: '4px solid #7C3AED' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-              <div className="pub-card-icon" style={{ marginBottom: 0 }}>SS</div>
-              <h3 className="pub-card-title" style={{ marginBottom: 0 }}>Social Studies &amp; History / Civics (Grades 6 - 10)</h3>
+              <div className="pub-card-icon" style={{ marginBottom: 0, backgroundColor: 'rgba(124, 58, 237, 0.1)', color: '#7C3AED' }}>E</div>
+              <h3 className="pub-card-title" style={{ marginBottom: 0 }}>English (Grades 6 - 10)</h3>
             </div>
             <p className="pub-card-text">
-              Covers The Indian Constitution &amp; Democratic Institutions, Secularism &amp; Fundamental Rights, Natural Resources &amp; Conservation, Historical Inquiry &amp; Colonialism, and Sectors of the Indian Economy.
+              Covers reading comprehension, grammar, vocabulary, prose, poetry, writing skills, and literary understanding.
             </p>
-            <div style={{ marginTop: '12px', fontSize: '12.5px', color: 'var(--pub-orange)', fontWeight: '700' }}>
-              Key Prerequisite Links: Class 7 Equality &rarr; Class 8 Constitution &rarr; Class 10 Democratic Politics.
-            </div>
           </div>
         </div>
       </div>
