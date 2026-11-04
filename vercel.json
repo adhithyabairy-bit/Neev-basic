@@ -23,9 +23,46 @@
       }
     },
     {
-      "source": "/(.*)",
+      "source": "/assets/(.*)",
       "destination": {
         "service": "frontend"
+      }
+    },
+    {
+      "source": "/curriculum/(.*)",
+      "destination": {
+        "service": "frontend"
+      }
+    },
+    {
+      "source": "/favicon.svg",
+      "destination": {
+        "service": "frontend"
+      }
+    },
+    {
+      "source": "/robots.txt",
+      "destination": {
+        "service": "frontend"
+      }
+    },
+    {
+      "source": "/sitemap.xml",
+      "destination": {
+        "service": "frontend"
+      }
+    },
+    {
+      "source": "/llms.txt",
+      "destination": {
+        "service": "frontend"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "frontend",
+        "path": "/index.html"
       }
     }
   ]
