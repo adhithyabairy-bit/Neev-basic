@@ -39,3 +39,4 @@ fs.writeFileSync(path.join(distDir, '200.html'), htmlContent, 'utf-8');
 fs.writeFileSync(path.join(distDir, '404.html'), htmlContent, 'utf-8');
 
 console.log(`[SPA Generator] Successfully generated pre-rendered entry points for ${routes.length} SPA routes.`);
+
