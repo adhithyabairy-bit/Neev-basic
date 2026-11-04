@@ -38,6 +38,7 @@ export default function TeacherDashboard({
   const [isLoadingBackend, setIsLoadingBackend] = useState(!isDemoMode);
   const [backendError, setBackendError] = useState(null);
   const [gapOverviews, setGapOverviews] = useState({});
+  const [isLoadingPriorities, setIsLoadingPriorities] = useState(false);
 
   // Filter controls
   const [gradeFilter, setGradeFilter] = useState('all');
@@ -118,14 +119,23 @@ export default function TeacherDashboard({
         fetchAssessments(),
       ]);
 
-      setRealClasses(classesData || []);
-      setRealAssessments(assessmentsData || []);
+      const loadedClasses = classesData || [];
+      const loadedAssessments = assessmentsData || [];
 
-      if (classesData && classesData.length > 0) {
+      setRealClasses(loadedClasses);
+      setRealAssessments(loadedAssessments);
+
+      // Determine the active class ID
+      let activeClassId = null;
+      if (loadedClasses.length > 0) {
         setSelectedClassId((prev) => {
-          const exists = classesData.some((c) => c._id === prev);
-          return exists ? prev : classesData[0]._id;
+          const exists = loadedClasses.some((c) => c._id === prev);
+          activeClassId = exists ? prev : loadedClasses[0]._id;
+          return activeClassId;
         });
+        if (!activeClassId) {
+          activeClassId = loadedClasses[0]._id;
+        }
       } else {
         setSelectedClassId(null);
       }
@@ -133,47 +143,36 @@ export default function TeacherDashboard({
       // Unblock UI immediately so classes and counters display instantly without spinner delay
       setIsLoadingBackend(false);
 
-      // Fetch class-level aggregated gap overviews (1 request per class instead of 50 individual requests)
-      const overviewMap = {};
-      if (classesData && classesData.length > 0) {
-        await Promise.all(
-          classesData.map(async (cls) => {
-            const cId = cls._id || cls.id;
-            if (cId) {
-              try {
-                const ov = await fetchClassGapOverview(cId);
-                if (ov && (ov.hasEvaluatedData || ov.allPriorities?.length > 0)) {
-                  overviewMap[String(cId)] = ov;
-                }
-              } catch (err) {
-                console.warn(`[Dashboard] Failed to fetch gap overview for class ${cId}:`, err);
-              }
+      // High-Priority: Fetch active class overview FIRST and IMMEDIATELY update state!
+      if (activeClassId) {
+        setIsLoadingPriorities(true);
+        fetchClassGapOverview(activeClassId)
+          .then((activeOv) => {
+            if (activeOv && (activeOv.hasEvaluatedData || activeOv.allPriorities?.length > 0)) {
+              setGapOverviews((prev) => ({ ...prev, [String(activeClassId)]: activeOv }));
             }
           })
-        );
+          .catch((err) => console.warn('[Dashboard] Active class overview error:', err))
+          .finally(() => setIsLoadingPriorities(false));
       }
 
-      // Also fetch individual assessment gap overviews for recent assessments
-      if (assessmentsData && assessmentsData.length > 0) {
-        const recentAssessments = assessmentsData.slice(0, 20);
-        await Promise.all(
-          recentAssessments.map(async (a) => {
-            const aId = a._id || a.id;
-            if (aId) {
-              try {
-                const overview = await fetchAssessmentGapOverview(aId);
-                if (overview && (overview.hasEvaluatedData || overview.allPriorities?.length > 0 || overview.topicSummaries?.length > 0)) {
-                  overviewMap[String(aId)] = overview;
-                }
-              } catch (err) {
-                // silent
+      // Background: Prefetch remaining classes without blocking the active view
+      const otherClasses = loadedClasses.filter((c) => (c._id || c.id) !== activeClassId);
+      if (otherClasses.length > 0) {
+        otherClasses.forEach(async (cls) => {
+          const cId = cls._id || cls.id;
+          if (cId) {
+            try {
+              const ov = await fetchClassGapOverview(cId);
+              if (ov && (ov.hasEvaluatedData || ov.allPriorities?.length > 0)) {
+                setGapOverviews((prev) => ({ ...prev, [String(cId)]: ov }));
               }
+            } catch {
+              // silent background prefetch
             }
-          })
-        );
+          }
+        });
       }
-
-      setGapOverviews(overviewMap);
     } catch (err) {
       console.error('[Dashboard Data Load Error]:', err);
       setBackendError(err.message || 'Failed to load teacher records from backend.');
@@ -185,6 +184,40 @@ export default function TeacherDashboard({
   useEffect(() => {
     loadLiveDashboardData();
   }, [loadLiveDashboardData, currentUser]);
+
+  // Dynamic on-demand fetch when teacher switches to another class
+  useEffect(() => {
+    if (!selectedClassId || isDemoMode) return;
+    const key = String(selectedClassId);
+    if (!gapOverviews[key]) {
+      setIsLoadingPriorities(true);
+      fetchClassGapOverview(selectedClassId)
+        .then((ov) => {
+          if (ov && (ov.hasEvaluatedData || ov.allPriorities?.length > 0)) {
+            setGapOverviews((prev) => ({ ...prev, [key]: ov }));
+          }
+        })
+        .catch((err) => console.warn('[Dashboard] Class switch overview error:', err))
+        .finally(() => setIsLoadingPriorities(false));
+    }
+  }, [selectedClassId, isDemoMode, gapOverviews]);
+
+  // Dynamic on-demand fetch when teacher selects a specific assessment in the scope dropdown
+  useEffect(() => {
+    if (!selectedPriorityAssessmentId || selectedPriorityAssessmentId === 'all' || isDemoMode) return;
+    const key = String(selectedPriorityAssessmentId);
+    if (!gapOverviews[key]) {
+      setIsLoadingPriorities(true);
+      fetchAssessmentGapOverview(selectedPriorityAssessmentId)
+        .then((ov) => {
+          if (ov && (ov.hasEvaluatedData || ov.allPriorities?.length > 0)) {
+            setGapOverviews((prev) => ({ ...prev, [key]: ov }));
+          }
+        })
+        .catch((err) => console.warn('[Dashboard] Assessment scope overview error:', err))
+        .finally(() => setIsLoadingPriorities(false));
+    }
+  }, [selectedPriorityAssessmentId, isDemoMode, gapOverviews]);
 
   // Handle creating a new real class in MongoDB
   const handleCreateClass = async (e) => {
@@ -881,7 +914,12 @@ export default function TeacherDashboard({
                 )}
               </div>
 
-              {currentClassPriorities.length === 0 ? (
+              {isLoadingPriorities && currentClassPriorities.length === 0 ? (
+                <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--secondary-text)', fontSize: '13px', background: 'var(--surface-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+                  <div className="spinner" style={{ margin: '0 auto 10px', width: '22px', height: '22px' }} />
+                  <span>Loading diagnostic teaching priorities for {selectedClass?.name || 'class'}...</span>
+                </div>
+              ) : currentClassPriorities.length === 0 ? (
                 <EmptyState
                   icon={<IconTarget size={30} color="var(--secondary-text)" />}
                   title={selectedClass ? `No learning gap diagnostics for ${selectedClass.name} yet` : 'No class selected'}
