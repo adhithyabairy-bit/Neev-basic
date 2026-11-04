@@ -10,7 +10,7 @@
 
 **Neev** (*Foundation*) is an enterprise-grade, teacher-first diagnostic learning platform that bridges physical student assessments with official NCERT curricula (Grades 6–10 across **Mathematics**, **Science**, **Social Studies**, and **English Language**).
 
-Neev ingests handwritten or digital student answer sheets, question papers, and marking schemes; automatically segments questions and extracts responses; provides interactive dual-pane correction; runs curriculum-grounded AI evaluation with misconception diagnosis; traces prerequisite foundational gaps back to previous classes; organizes class teaching priorities into a strict 3-tier sequence; maps forward impacts on Class 9 and Class 10 Board exam topics; generates personalized remediation study roadmaps; creates gap-targeted 2-mark diagnostic retests; and exports 5 margin-wrapped, genuine PDF 1.4 documents.
+Neev ingests handwritten or digital student answer sheets, question papers, and marking schemes; automatically segments questions and extracts responses; provides interactive dual-pane correction; runs curriculum-grounded AI evaluation with misconception diagnosis; traces prerequisite foundational gaps back to previous classes; organizes class teaching priorities into a strict 3-tier sequence; isolates classrooms by section; maps forward impacts on Class 9 and Class 10 Board exam topics; generates personalized remediation study roadmaps; creates gap-targeted 2-mark diagnostic retests; and exports 5 margin-wrapped, genuine PDF 1.4 documents.
 
 ---
 
@@ -19,6 +19,7 @@ Neev ingests handwritten or digital student answer sheets, question papers, and 
 - **Production URL**: [https://neev-basic-seven.vercel.app](https://neev-basic-seven.vercel.app)
 - **Teacher Workspace**: Secure authentication gateway supporting email/password login and persistent teacher sessions (`/app`).
 - **Public Portal**: Responsive marketing and curriculum exploration portal with smooth anchor scrolling and mobile drawer navigation.
+- **Academic Support**: Direct contact via [adhithyabairy@gmail.com](mailto:adhithyabairy@gmail.com).
 
 ---
 
@@ -37,13 +38,15 @@ Neev guides teachers through an intuitive, streamlined 9-step assessment pipelin
 ```
 
 1. **Class & Syllabus Configuration (`ClassSyllabus.jsx`)**:
-   - Select Class (Class 6 through Class 10), Section (A–D), and Subject (Mathematics, Science, Social Studies, English).
-   - Ingest official NCERT textbook chapters or upload syllabus documents.
+   - Select Class (Class 6 through Class 10), Section (Section A, B, C, D), and Subject (Mathematics, Science / Physics, Social Studies, English Language).
+   - Ingest official NCERT textbook chapters or upload custom syllabus documents.
    - Maps targeted syllabus chapters, core concepts, and exam metadata.
+   - Dynamically resolves or auto-creates matching classroom sections in the teacher's account.
 
 2. **Upload Answer Sheets & Reference Material (`UploadAnswerSheets.jsx`)**:
    - Multi-document upload: **Question Paper**, **Student Answer Sheet**, and **Marking Scheme / Teacher Rubric**.
    - Supports multi-page PDFs, JPEGs, and PNGs with real-time file validation, magic-byte checks, and interactive thumbnail previews.
+   - Preserves section synchronization between setup and upload steps.
 
 3. **Automated Scanner & Segmentation (`ExtractPreview.jsx`)**:
    - Automated text extraction using high-speed Groq AI vision and OCR segmentation.
@@ -77,7 +80,17 @@ Neev guides teachers through an intuitive, streamlined 9-step assessment pipelin
 
 ---
 
-### 2. Prerequisite-First Teaching Priorities Engine
+### 2. Classroom Section Isolation & Management
+
+Neev ensures strict cohort isolation across classrooms and grade sections:
+
+- **Independent Class Cards**: Different sections of the same grade (e.g. *Class 9 Section A* vs *Class 9 Section D*) are treated as completely distinct entities on the Teacher Dashboard with individual assessment metrics and retest trackers.
+- **Strict Tuple Resolution**: Class auto-creation and assessment linking bind strictly to `(grade, section, subject)`. Section D assessments are never conflated or lumped with Section A.
+- **Section-Filtered Dashboard Views**: Teachers can filter classes by Grade, Section, or Subject with one-click cohort switching.
+
+---
+
+### 3. Prerequisite-First Teaching Priorities Engine
 
 Neev features a dedicated diagnostic prioritization engine (`backend/src/services/curriculum/prerequisiteEngine.js` and `frontend/src/utils/teachingPriorities.js`) that automatically groups classroom learning gaps into an actionable pedagogical order:
 
@@ -90,23 +103,24 @@ Neev features a dedicated diagnostic prioritization engine (`backend/src/service
    - Mistakes requiring further targeted diagnostic probing before assigning a root cause.
 
 #### Key Priorities Features:
-- **Real Student Count Metric**: Displays strictly as **`X out of Y Students Affected`** (e.g. *10 out of 28 Students Affected*) without confusing percentages or mastery labels.
-- **Accurate Cohort Scaling**: Dynamically aggregates unique student identifiers (`studentName`, `answerSheetId`, `assessmentId`) across the entire classroom cohort.
-- **High-Contrast Metric Bars**: Clear visual progress indicators highlighting affected ratios.
-- **Sub-200ms Parallel Loading**: Classroom gap overviews load concurrently without UI spinners or blocking dashboard interactions.
+- **Accurate Global Student Cohort Sizing**: Intelligently identifies genuine student answer sheets and filters out question papers, teacher rubrics, and marking schemes. Multiple uploaded files for the same student are deduplicated to their true student identity.
+- **Real Student Count Metric**: Displays strictly as **`X out of Y Students Affected`** (e.g. *1 out of 1 Student Affected* for single assessments, or *10 out of 28 Students Affected* for class-wide cohorts) with a unified high-contrast progress bar.
+- **Multi-Subject Diagnostic Coverage**: Provides full diagnostic prioritization and NCERT chapter anchoring across **Mathematics**, **Science**, **Social Studies**, and **English Language**.
+- **Sub-200ms Parallel Loading**: Classroom gap overviews load concurrently without UI blocking or spinner delays.
 
 ---
 
-### 3. Public Marketing Portal & Responsive Mobile Navigation
+### 4. Public Marketing Portal & Responsive Mobile Navigation
 
 - **Single-Page Smooth Navigation**: Fast in-page smooth-scroll anchoring across all core public sections: *Home*, *Features*, *How It Works*, *Curriculum*, *FAQ*, *About Us*, and *Contact*.
+- **Balanced 4-Subject Curriculum Grid**: Features clean subject overview cards for Mathematics, Science, Social Studies, and English Language.
 - **Mobile Hamburger Drawer**: Responsive 3-line navigation drawer for mobile screens with backdrop touch-dismiss.
 - **Enforced Authentication Gating**: Unauthenticated attempts to access `/app` strictly redirect to `/login`.
 - **Static Public Header**: Clean, non-distracting header with persistent *Login* and *Create Account* actions.
 
 ---
 
-### 4. Multi-Subject Curriculum Coverage (Class 6 – 10)
+### 5. Multi-Subject Curriculum Coverage (Class 6 – 10)
 
 Neev includes pre-ingested NCERT knowledge bases, semantic vector chunks, and diagnostic problem banks across core academic disciplines:
 
@@ -119,7 +133,7 @@ Neev includes pre-ingested NCERT knowledge bases, semantic vector chunks, and di
 
 ---
 
-### 5. Client-Side Genuine PDF 1.4 Binary Generator
+### 6. Client-Side Genuine PDF 1.4 Binary Generator
 
 Unlike libraries that bundle heavy headless browsers or produce garbled text, Neev incorporates a custom, zero-dependency client-side PDF 1.4 binary engine (`frontend/src/utils/pdfGenerator.js`):
 
@@ -129,12 +143,12 @@ Unlike libraries that bundle heavy headless browsers or produce garbled text, Ne
   3. `[student]_syllabus_continuity.pdf`: Syllabus Continuity & Delayed Chapters Report mapping past and future grade dependencies.
   4. `[student]_questions.pdf`: Diagnostic Practice Questions Paper (Student Version) with clear workspace lines and no solutions.
   5. `teacher_marking_key.pdf`: Teacher Answer Key & Marking Guide (Confidential) with step-by-step solutions, mark breakdowns, and misconception alerts.
-- **Strict ASCII Sanitization**: Converts Unicode mathematical symbols, minus signs, arrows, superscripts ($x^2$, $5^m$), and currency into standard Type 1 Helvetica characters, preventing mojibake.
-- **Defensive Line Wrapping**: Enforces safe character limits (&le; 64 characters per line) and computes printable bounds dynamically from text coordinates ($x \le 540\text{ pt}$ on A4), eliminating horizontal right-edge text clipping across all PDF viewers.
+- **Strict ASCII Sanitization**: Converts Unicode mathematical symbols, minus signs, arrows, superscripts ($x^2$, $5^m$), and currency into standard Type 1 Helvetica characters, preventing mojibake and font spacing issues.
+- **Defensive Line Wrapping & Border Bounds**: Enforces safe character limits (&le; 64 characters per line) and computes printable bounds dynamically ($x \le 540\text{ pt}$ on A4), eliminating horizontal right-edge text clipping and box border overflow.
 
 ---
 
-### 6. Resilient Single-Page Application (SPA) Routing & Vercel Deployment
+### 7. Resilient Single-Page Application (SPA) Routing & Vercel Deployment
 
 - **Universal Pre-Rendered Fallbacks (`generate-spa-fallbacks.js`)**: Generates compiled production entry points (`dist/app/index.html`, `dist/login/index.html`, `dist/register/index.html`, `dist/200.html`, `dist/404.html`) matching hashed production script tags at build time.
 - **Zero White Screens on Refresh**: Full client-side route persistence ensuring reloads on `/app`, `/login`, or `/curriculum-coverage` return HTTP 200 and boot instantly.
@@ -163,7 +177,7 @@ Neev/
 │   │   │   ├── PublicFooter.jsx         # Footer with quick links
 │   │   │   └── ContactSection.jsx       # Contact form and support information
 │   │   ├── sections/                    # 9-Step Teacher Assessment Workflow
-│   │   │   ├── ClassSyllabus.jsx        # Step 1: Class details & syllabus mapping
+│   │   │   ├── ClassSyllabus.jsx        # Step 1: Class details, section selection & syllabus mapping
 │   │   │   ├── UploadAnswerSheets.jsx   # Step 2: Answer sheets & reference papers upload
 │   │   │   ├── ExtractPreview.jsx       # Step 3: OCR text extraction & segmentation
 │   │   │   ├── TeacherCorrection.jsx    # Step 4: Teacher verification & correction
@@ -173,16 +187,17 @@ Neev/
 │   │   │   ├── LearningRoadmap.jsx      # Step 8: Adaptive remediation milestones
 │   │   │   ├── GapBasedTest.jsx         # Step 9: Diagnostic retest generation
 │   │   │   └── ExportFollowUp.jsx       # Export: Multi-PDF document download center
-│   │   ├── services/                    # apiClient, authService, syllabusService, assessmentService
+│   │   ├── services/                    # apiClient, authService, syllabusService, assessmentService, classService
 │   │   ├── data/                        # initialData.js, dashboardDemoData.js
 │   │   └── utils/                       # pdfGenerator.js, teachingPriorities.js, gapSynthesizer.js
+│   ├── tests/                           # Frontend unit and integration tests (30 tests)
 │   ├── package.json
 │   └── vite.config.js
 │
 ├── backend/                             # Express.js REST API & Ingestion Worker
 │   ├── src/
 │   │   ├── controllers/                 # evaluation, syllabus, answerSheet, assessment, class, auth
-│   │   ├── models/                      # Evaluation, Assessment, AnswerSheet, Class, Teacher, etc.
+│   │   ├── models/                      # Evaluation, Assessment, AnswerSheet, Class, Teacher
 │   │   ├── routes/                      # Protected REST API routes (/api/evaluations, /api/classes, etc.)
 │   │   ├── services/
 │   │   │   ├── curriculum/              # prerequisiteEngine.js (multi-tier gap prioritization)
@@ -282,7 +297,7 @@ node --test backend/tests/prerequisitePrioritization.test.js
 
 ## 🔒 Security & Data Integrity
 
-- **Strict Tenant Data Isolation**: Assessments, student sheets, and curriculum chunks are partitioned by `teacherId`. Cross-teacher data access is rejected with HTTP 404 / 403.
+- **Strict Tenant Data Isolation**: Assessments, student sheets, classroom sections, and curriculum chunks are partitioned by `teacherId`. Cross-teacher data access is rejected with HTTP 404 / 403.
 - **Fail-Closed Storage**: In production (`NODE_ENV=production`), the backend strictly disallows local filesystem storage fallback and requires verified S3/Firebase credentials.
 - **Origin & CORS Whitelisting**: `backend/src/app.js` enforces strict origin matching; unauthorized origins are rejected with `CORS_ORIGIN_DENIED`.
 - **Zero Secrets in Client**: All LLM and Cloud Storage API keys remain strictly in backend serverless functions and worker environments.
@@ -290,5 +305,7 @@ node --test backend/tests/prerequisitePrioritization.test.js
 
 ---
 
-## 📄 License
-ISC License — Neev Platform.
+## 📄 License & Contact
+
+- **License**: ISC License — Neev Platform.
+- **Maintainer**: Adhithya Bairy ([adhithyabairy@gmail.com](mailto:adhithyabairy@gmail.com)).
