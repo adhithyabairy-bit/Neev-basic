@@ -80,6 +80,38 @@ describe('Phase 6 & 9: Frontend PDF Generation Tests', () => {
     assert.ok(text.includes('%%EOF'));
     assert.ok(text.includes('Aarav Sharma'));
     assert.ok(text.includes('Page 1 of'));
+    assert.strictEqual(text.includes('/F3'), false, 'Should not use F3 or Type0 composite fonts');
+    assert.strictEqual(text.includes('<FEFF'), false, 'Should not use UTF-16BE hex strings with wide spacing');
+  });
+
+  it('correctly formats text containing non-breaking hyphens and unicode quotes without wide letter spacing or margin overflow', async () => {
+    // Exact text from user diagnostic report containing \u2011 (non-breaking hyphen) and \uFEFF
+    const sampleTextWithHyphen = '\uFEFFThe student may be conflating the energy\u2011producing function of mitochondria with the nucleus and may mistakenly associate the Golgi with food synthesis/storage rather than protein/lipid modification and transport [Class 8 Prerequisite]';
+    const blob = generateGapReportPdfBlob({
+      studentName: 'Adhi',
+      examName: 'mid',
+      className: 'Class 9',
+      subject: 'Science',
+      gapsData: [
+        {
+          questionNumber: 'Q3',
+          topicName: sampleTextWithHyphen,
+          grade: 'Class 8 Prerequisite',
+          severity: 'High',
+          evidence: 'In Q2, Spelling/grammar errors; vague wording; does not explicitly mention re\u2011evaluating the hypothesis',
+          misconception: 'The student may be conflating the energy\u2011producing function of mitochondria',
+        },
+      ],
+    });
+
+    assert.ok(blob);
+    const text = await blob.text();
+    // Verify pure ASCII literal rendering without wide spacing artifacts
+    assert.strictEqual(text.includes('/DW 1000'), false);
+    assert.strictEqual(text.includes('/F3'), false);
+    assert.strictEqual(text.includes('<FEFF'), false);
+    assert.ok(text.includes('energy-producing'));
+    assert.ok(text.includes('re-evaluating'));
   });
 
   it('generates genuine PDF 1.4 blob for Learning Roadmap (Report 2)', async () => {

@@ -28,41 +28,43 @@ export function hasUnicodeChars(str) {
 }
 
 /**
- * Calculates visual text length considering Indic combining vowel signs/matras.
+ * Calculates visual text length for character-based layout.
  */
 export function getVisualLength(str) {
   if (!str) return 0;
-  if (typeof Intl !== 'undefined' && Intl.Segmenter) {
-    try {
-      const segmenter = new Intl.Segmenter('und', { granularity: 'grapheme' });
-      let count = 0;
-      for (const _ of segmenter.segment(str)) count++;
-      return count;
-    } catch {
-      // Fallback below
-    }
-  }
-  return str.replace(/[\u093E-\u094D\u0C3E-\u0C4D]/g, '').length;
+  return sanitizeForPdf(str).length;
 }
 
 /**
- * Sanitizes input text, preserving Indian scripts (Telugu & Hindi) intact,
- * preserving English and numbers, and formatting mathematical symbols cleanly.
+ * Sanitizes input text into standard typography, replacing unicode quotes,
+ * non-breaking spaces/hyphens, and mathematical symbols with clean printable equivalents.
  */
 export function sanitizeForPdf(str) {
   if (str === null || str === undefined) return '';
   let text = String(str);
 
+  // Strip byte order marks and zero-width spaces
+  text = text
+    .replace(/\uFEFF/g, '')
+    .replace(/[\u200B-\u200D]/g, '')
+    .replace(/\u00A0/g, ' ');
+
+  // Hyphens, dashes, and minus signs to standard ASCII hyphen
+  text = text.replace(/[\u2010\u2011\u2012\u2013\u2014\u2015\u2212]/g, '-');
+
+  // Single and double quotation marks to standard ASCII quotes
+  text = text
+    .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
+    .replace(/\u2026/g, '...');
+
+  // Bullets and list markers to ASCII hyphen
+  text = text.replace(/[\u2022\u25CF\u25CB\u25AA]/g, '-');
+
   // Mathematical operators & clean typographical replacements:
   text = text
-    .replace(/\u2212/g, '-')
-    .replace(/\u2013/g, '-')
-    .replace(/\u2014/g, ' - ')
-    .replace(/\u2018|\u2019/g, "'")
-    .replace(/\u201C|\u201D/g, '"')
     .replace(/\u00F7/g, ' / ')
     .replace(/\u00D7/g, ' * ')
-    .replace(/\u2022/g, '-')
     .replace(/\u20B9/g, 'Rs. ')
     .replace(/\u2260/g, '!=')
     .replace(/\u2264/g, '<=')
@@ -94,35 +96,31 @@ export function sanitizeForPdf(str) {
     .replace(/\u2084/g, '_4')
     .replace(/\u2080/g, '_0');
 
-  // Strip non-printable ASCII control codes while preserving Unicode Telugu (\u0C00-\u0C7F),
-  // Devanagari (\u0900-\u097F), and standard printable text
+  // Strip non-printable ASCII control codes
   return text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
 }
 
 /**
- * Encodes text for PDF text literal syntax:
- * - Uses (ascii_string) for pure ASCII content.
- * - Uses <FEFF...> hexadecimal string literal with UTF-16BE encoding for genuine Unicode Indic text.
+ * Encodes text for standard PDF Type 1 Helvetica text literal syntax:
+ * Ensures all characters are clean ASCII literals, escaping parenthesis and backslashes.
  */
 export function encodePdfString(str) {
   if (!str) return '()';
   const sanitized = sanitizeForPdf(str);
-  if (!hasUnicodeChars(sanitized)) {
-    const escaped = sanitized
-      .replace(/\\/g, '\\\\')
-      .replace(/\(/g, '\\(')
-      .replace(/\)/g, '\\)')
-      .replace(/[\r\n]+/g, ' ');
-    return `(${escaped})`;
-  }
-
-  // UTF-16BE Hexadecimal string literal for genuine Unicode script support
-  let hex = 'FEFF';
+  let asciiText = '';
   for (let i = 0; i < sanitized.length; i++) {
     const code = sanitized.charCodeAt(i);
-    hex += code.toString(16).padStart(4, '0').toUpperCase();
+    if (code >= 32 && code <= 126) {
+      asciiText += sanitized[i];
+    } else if (code === 10 || code === 13 || code === 9) {
+      asciiText += ' ';
+    }
   }
-  return `<${hex}>`;
+  const escaped = asciiText
+    .replace(/\\/g, '\\\\')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)');
+  return `(${escaped})`;
 }
 
 /**
@@ -133,7 +131,7 @@ function escapePdfText(str) {
 }
 
 /**
- * Wraps text defensively within margins respecting visual length of Indic graphemes.
+ * Wraps text defensively within margins respecting character limits.
  */
 export function wrapText(text, maxChars = 64) {
   if (!text) return [];
@@ -149,8 +147,7 @@ export function wrapText(text, maxChars = 64) {
     let currentLine = '';
 
     words.forEach((word) => {
-      const wordLen = getVisualLength(word);
-      if (wordLen > maxChars) {
+      if (word.length > maxChars) {
         if (currentLine) {
           lines.push(currentLine);
           currentLine = '';
@@ -162,7 +159,7 @@ export function wrapText(text, maxChars = 64) {
       }
 
       const candidate = currentLine ? `${currentLine} ${word}` : word;
-      if (getVisualLength(candidate) <= maxChars) {
+      if (candidate.length <= maxChars) {
         currentLine = candidate;
       } else {
         if (currentLine) lines.push(currentLine);
@@ -180,7 +177,7 @@ export function wrapText(text, maxChars = 64) {
 
 /**
  * Builds a multi-page PDF binary Blob from structured pages containing text and vector graphics.
- * Embeds Type0 Unicode composite fonts with ToUnicode mapping to support Telugu, Devanagari, and English.
+ * Uses standard Helvetica and Helvetica-Bold Type 1 fonts with clean, authentic kerning and metrics.
  */
 function buildMultiPagePdfBlob(pages) {
   if (!pages || pages.length === 0) {
@@ -190,27 +187,21 @@ function buildMultiPagePdfBlob(pages) {
   const numPages = pages.length;
   const kids = [];
   for (let i = 0; i < numPages; i++) {
-    const pageObjNum = 9 + 2 * i;
+    const pageObjNum = 5 + 2 * i;
     kids.push(`${pageObjNum} 0 R`);
   }
-
-  const toUnicodeCMap = `/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n/CMapName /Custom-ToUnicode def\n/CMapType 2 def\n1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n1 beginbfrange\n<0000> <FFFF> <0000>\nendbfrange\nendcmap\nCMapName currentdict /CMap defineresource pop\nend\nend\n`;
 
   const obj1 = '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n';
   const obj2 = `2 0 obj\n<< /Type /Pages /Kids [${kids.join(' ')}] /Count ${numPages} >>\nendobj\n`;
   const obj3 = '3 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\nendobj\n';
   const obj4 = '4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>\nendobj\n';
-  const obj5 = '5 0 obj\n<< /Type /Font /Subtype /Type0 /BaseFont /NirmalaUI /Encoding /Identity-H /DescendantFonts [6 0 R] /ToUnicode 7 0 R >>\nendobj\n';
-  const obj6 = '6 0 obj\n<< /Type /Font /Subtype /CIDFontType2 /BaseFont /NirmalaUI /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor 8 0 R /DW 1000 >>\nendobj\n';
-  const obj7 = `7 0 obj\n<< /Length ${toUnicodeCMap.length} >>\nstream\n${toUnicodeCMap}endstream\nendobj\n`;
-  const obj8 = '8 0 obj\n<< /Type /FontDescriptor /FontName /NirmalaUI /Flags 4 /FontBBox [-500 -300 1200 1000] /ItalicAngle 0 /Ascent 850 /Descent -250 /CapHeight 700 /StemV 80 >>\nendobj\n';
 
   const pageObjects = [];
   const contentObjects = [];
 
   for (let i = 0; i < numPages; i++) {
-    const pageObjNum = 9 + 2 * i;
-    const streamObjNum = 10 + 2 * i;
+    const pageObjNum = 5 + 2 * i;
+    const streamObjNum = 6 + 2 * i;
     const pageData = pages[i] || { items: [], graphics: [] };
     const items = pageData.items || [];
     const graphics = pageData.graphics || [];
@@ -233,11 +224,10 @@ function buildMultiPagePdfBlob(pages) {
       }
     });
 
-    // 2. Draw text with Unicode support
+    // 2. Draw text with standard Helvetica
     streamContent += 'BT\n';
     items.forEach((item) => {
-      const isUnicode = hasUnicodeChars(item.text);
-      const font = isUnicode ? 'F3' : (item.font || 'F1');
+      const font = item.font === 'F2' ? 'F2' : 'F1';
       const size = item.size || 10;
       const encodedText = encodePdfString(item.text);
       streamContent += `/${font} ${size} Tf\n`;
@@ -247,7 +237,7 @@ function buildMultiPagePdfBlob(pages) {
     streamContent += 'ET\n';
 
     const streamLength = streamContent.length;
-    const pageObj = `${pageObjNum} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents ${streamObjNum} 0 R >>\nendobj\n`;
+    const pageObj = `${pageObjNum} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${streamObjNum} 0 R >>\nendobj\n`;
     const streamObj = `${streamObjNum} 0 obj\n<< /Length ${streamLength} >>\nstream\n${streamContent}endstream\nendobj\n`;
 
     pageObjects.push(pageObj);
@@ -255,7 +245,7 @@ function buildMultiPagePdfBlob(pages) {
   }
 
   const header = '%PDF-1.4\n';
-  const objects = [obj1, obj2, obj3, obj4, obj5, obj6, obj7, obj8];
+  const objects = [obj1, obj2, obj3, obj4];
   for (let i = 0; i < numPages; i++) {
     objects.push(pageObjects[i]);
     objects.push(contentObjects[i]);
@@ -325,7 +315,7 @@ class DocumentLayout {
       lineWidth: 0.5,
     });
 
-    const shortHeader = sanitizeForPdf(this.headerTitle).slice(0, 42);
+    const shortHeader = sanitizeForPdf(this.headerTitle).slice(0, 50);
     this.currentItems.push({
       text: shortHeader,
       x: 52,
@@ -348,7 +338,7 @@ class DocumentLayout {
 
   addText(text, x, size = 10, font = 'F1', lineSpacing = 14) {
     const sanitized = sanitizeForPdf(text);
-    const charWidth = font === 'F2' ? size * 0.68 : size * 0.58;
+    const charWidth = font === 'F2' ? size * 0.62 : size * 0.52;
     const maxChars = Math.max(20, Math.floor((540 - x) / charWidth));
 
     if (sanitized.length > maxChars) {
@@ -362,7 +352,7 @@ class DocumentLayout {
   }
 
   addWrappedText(text, x, maxChars = 64, size = 9, font = 'F1', lineSpacing = 12) {
-    const charWidth = font === 'F2' ? size * 0.68 : size * 0.58;
+    const charWidth = font === 'F2' ? size * 0.62 : size * 0.52;
     const safeMaxChars = Math.min(maxChars, Math.max(20, Math.floor((540 - x) / charWidth)));
     const lines = wrapText(text, safeMaxChars);
     lines.forEach((line) => {
@@ -443,8 +433,11 @@ class DocumentLayout {
       let cellX = startX + 4;
       row.forEach((cell, cIdx) => {
         const w = colWidths[cIdx] || 80;
-        const maxChars = Math.floor(w / 5.2);
-        const cellText = sanitizeForPdf(cell).slice(0, maxChars);
+        const maxChars = Math.max(5, Math.floor((w - 8) / 5.2));
+        const cellRaw = sanitizeForPdf(cell);
+        const cellText = cellRaw.length > maxChars
+          ? cellRaw.slice(0, maxChars - 3).trim() + '...'
+          : cellRaw;
         this.currentItems.push({
           text: cellText,
           x: cellX,
